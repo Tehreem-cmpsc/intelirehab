@@ -1,0 +1,297 @@
+import React, { useState } from "react";
+import { Plus, Search, Loader2, ChevronDown, TrendingUp, Minus, ShieldCheck } from "lucide-react";
+import SectionHeading from "../components/SectionHeading";
+import StatusPill from "../components/StatusPill";
+import RadialProgress from "../components/RadialProgress";
+import AddPhysiotherapistModal from "../components/AddPhysiotherapistModal";
+import usePhysiotherapists from "../../../domain/admin/usePhysiotherapists";
+import usePatients from "../../../domain/admin/usePatients";
+
+const STATUS_TONE = { Active: "success", Pending: "muted", Rejected: "alert" };
+
+export default function PhysiotherapistsPanel({ clinic }) {
+  const { list, loading, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist } =
+    usePhysiotherapists(clinic?.id);
+  const { list: patients } = usePatients();
+  const [query, setQuery] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [justAdded, setJustAdded] = useState(null);
+  const [expanded, setExpanded] = useState(null); // physio id
+  const [removingId, setRemovingId] = useState(null);
+  const [approvingId, setApprovingId] = useState(null);
+  const [statusMessage, setStatusMessage] = useState("");
+
+  const filtered = list.filter((p) =>
+    (p.name + p.specialization).toLowerCase().includes(query.toLowerCase())
+  );
+
+  const handleAdd = async (form) => {
+    const created = await addPhysiotherapist(form);
+    setShowAdd(false);
+    setJustAdded(created.id);
+    setStatusMessage(
+      created.inviteEmailSent
+        ? `${created.name} has been added. They'll get an email to set their password, then need your approval before they can log in.`
+        : `${created.name} has been added, but the password-set email failed to send — check your Supabase email settings, then use "Forgot password" to resend it.`
+    );
+    setTimeout(() => setJustAdded(null), 2500);
+    setTimeout(() => setStatusMessage(""), 4200);
+  };
+
+  const handleRemove = async (id) => {
+    if (!window.confirm("Remove this physiotherapist from the clinic roster?")) return;
+    setRemovingId(id);
+    try {
+      await removePhysiotherapist(id);
+      if (expanded === id) setExpanded(null);
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const handleApprove = async (pt) => {
+    setApprovingId(pt.id);
+    try {
+      await approvePhysiotherapist(pt.id);
+      setStatusMessage(`${pt.name} has been approved and can now log in.`);
+      setTimeout(() => setStatusMessage(""), 3600);
+    } catch (err) {
+      window.alert(err.message || "Unable to approve physiotherapist.");
+    } finally {
+      setApprovingId(null);
+    }
+  };
+
+  const toggleExpand = (id) => setExpanded(expanded === id ? null : id);
+
+  const getPatientsFor = (physioName) =>
+    patients.filter((p) => p.physio === physioName);
+
+  return (
+    <div>
+      <SectionHeading
+        eyebrow="ROSTER"
+        title="Physiotherapists"
+        action={
+          <button
+            onClick={() => setShowAdd(true)}
+            className="cp-btn-primary cp-focus rounded-lg px-4 py-2.5 text-[13.5px] flex items-center gap-1.5 cursor-pointer"
+          >
+            <Plus size={15} /> Add physiotherapist
+          </button>
+        }
+      />
+
+      <div className="relative mb-5 max-w-xs">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name or specialization"
+          className="cp-input cp-focus w-full rounded-lg pl-9 pr-3 py-2.5 text-[13.5px]"
+        />
+      </div>
+      {statusMessage && (
+        <div className="mb-4 rounded-2xl border border-[var(--success)] bg-[var(--success-tint)] px-4 py-3 text-[13px] text-[var(--success)]">
+          {statusMessage}
+        </div>
+      )}
+
+      <div className="cp-card rounded-2xl overflow-hidden text-[var(--ink)]">
+        {loading ? (
+          <div className="px-5 py-8 text-center text-[var(--muted)]">
+            <Loader2 size={16} className="animate-spin inline mr-2" /> Loading roster…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[var(--muted)]">
+            No physiotherapists match "{query}".
+          </div>
+        ) : (
+          <div>
+            {/* Table Header */}
+            <div
+              className="grid text-[12px] font-semibold tracking-wide text-[var(--muted)] border-b px-5 py-3"
+              style={{ borderColor: "var(--border)", gridTemplateColumns: "1fr 1fr 1fr 80px 100px 44px" }}
+            >
+              <span>Name</span>
+              <span>Specialization</span>
+              <span>License</span>
+              <span>Patients</span>
+              <span>Status</span>
+              <span />
+            </div>
+
+            {filtered.map((pt) => {
+              const isExpanded = expanded === pt.id;
+              const ptPatients = getPatientsFor(pt.name);
+
+              return (
+                <div key={pt.id} className="border-b last:border-0" style={{ borderColor: "var(--border)" }}>
+                  {/* Physio Row */}
+                  <div
+                    className="grid items-center px-5 py-3.5 cursor-pointer transition-colors"
+                    style={{
+                      gridTemplateColumns: "1fr 1fr 1fr 80px 100px 44px",
+                      background: justAdded === pt.id
+                        ? "var(--success-tint)"
+                        : isExpanded
+                        ? "var(--primary-tint)"
+                        : undefined,
+                    }}
+                    onClick={() => toggleExpand(pt.id)}
+                  >
+                    <span className="font-semibold text-[13.5px] text-[var(--ink)] flex items-center gap-2">
+                      {/* Avatar initials */}
+                      <span
+                        className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
+                        style={{ background: "var(--primary)" }}
+                      >
+                        {pt.name.split(" ").slice(1).map((n) => n[0]).join("").slice(0, 2)}
+                      </span>
+                      {pt.name}
+                    </span>
+                    <span className="text-[var(--muted)] text-[13px]">{pt.specialization}</span>
+                    <span className="cp-mono text-[12px] text-[var(--muted)]">{pt.license}</span>
+                    <span className="text-[var(--ink)] text-[13.5px]">
+                      {ptPatients.length} <span className="text-[var(--muted)] text-[12px]">active</span>
+                    </span>
+                    <span>
+                      <StatusPill tone={STATUS_TONE[pt.status] || "muted"}>{pt.status}</StatusPill>
+                    </span>
+                    <span className="flex justify-end">
+                      <ChevronDown
+                        size={16}
+                        className="text-[var(--muted)] transition-transform duration-250"
+                        style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                      />
+                    </span>
+                  </div>
+
+                  {/* Inline Patient Drawer */}
+                  <div
+                    style={{
+                      maxHeight: isExpanded ? "600px" : "0",
+                      overflow: "hidden",
+                      transition: "max-height 0.35s cubic-bezier(.4,0,.2,1)",
+                    }}
+                  >
+                    <div
+                      className="px-5 pb-4 pt-2"
+                      style={{ background: "var(--bg)", borderTop: `1px solid var(--border)` }}
+                    >
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 py-3">
+                        {[
+                          { label: "CNIC", value: pt.cnic },
+                          { label: "Qualification", value: pt.qualification },
+                          { label: "Experience", value: pt.yearsExperience != null ? `${pt.yearsExperience} yrs` : null },
+                          { label: "Joined", value: pt.joiningDate },
+                        ].map((f) => (
+                          <div key={f.label}>
+                            <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--muted)]">
+                              {f.label}
+                            </div>
+                            <div className="text-[13px] text-[var(--ink)] mt-0.5 cp-mono">{f.value || "—"}</div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {ptPatients.length === 0 ? (
+                        <p className="text-[13px] text-[var(--muted)] py-4 text-center italic">
+                          No patients currently assigned to {pt.name.split(" ")[1]}.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="text-[11px] font-bold tracking-widest text-[var(--primary)] cp-mono uppercase mb-3 mt-1">
+                            Assigned Patients — {ptPatients.length}
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {ptPatients.map((patient) => (
+                              <div
+                                key={patient.id}
+                                className="rounded-xl flex items-center gap-4 p-4"
+                                style={{
+                                  background: "var(--surface)",
+                                  border: "1px solid var(--border)",
+                                }}
+                              >
+                                {/* ROM Progress Ring */}
+                                <RadialProgress
+                                  value={patient.recovery}
+                                  size={54}
+                                  stroke={6}
+                                  color={patient.trend === "Improving" ? "var(--success)" : "var(--accent)"}
+                                  label={`${patient.recovery}%`}
+                                  labelColor="var(--ink)"
+                                />
+
+                                {/* Patient Info */}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-semibold text-[13.5px] text-[var(--ink)] truncate">
+                                    {patient.name}
+                                  </div>
+                                  <div className="text-[12px] text-[var(--muted)] mt-0.5 truncate">
+                                    {patient.joint}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    {patient.trend === "Improving" ? (
+                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--success)]">
+                                        <TrendingUp size={11} /> Improving
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">
+                                        <Minus size={11} /> Plateaued
+                                      </span>
+                                    )}
+                                    <span className="text-[var(--border)]">·</span>
+                                    <span className="text-[11px] text-[var(--muted)]">
+                                      Last session: {patient.lastSession}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      <div className="flex justify-end gap-2 pt-4">
+                        {pt.status === "Pending" && (
+                          <button
+                            type="button"
+                            onClick={() => handleApprove(pt)}
+                            disabled={approvingId === pt.id}
+                            className="cp-btn-primary cp-focus rounded-lg px-3 py-2 text-[13px] font-semibold flex items-center gap-1.5"
+                          >
+                            <ShieldCheck size={14} />
+                            {approvingId === pt.id ? "Approving..." : "Approve physiotherapist"}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(pt.id)}
+                          disabled={removingId === pt.id}
+                          className="cp-btn-secondary cp-focus rounded-lg px-3 py-2 text-[13px] font-semibold"
+                          style={{
+                            background: "rgba(217,98,72,0.08)",
+                            color: "var(--alert)",
+                            border: "1px solid rgba(217,98,72,0.18)",
+                          }}
+                        >
+                          {removingId === pt.id ? "Removing..." : "Remove physiotherapist"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {showAdd && (
+        <AddPhysiotherapistModal onClose={() => setShowAdd(false)} onSubmit={handleAdd} />
+      )}
+    </div>
+  );
+}

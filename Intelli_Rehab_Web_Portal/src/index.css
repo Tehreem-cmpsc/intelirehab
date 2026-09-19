@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap');
+
+@import "tailwindcss";
+
+.cp-root {
+  --ink: #12242B;
+  --primary: #0D6E76;
+  --primary-deep: #073C41;
+  --primary-tint: #E4F1F0;
+  --accent: #E7A24C;
+  --success: #4C9F70;
+  --success-tint: #E9F5EC;
+  --alert: #D96248;
+  --alert-tint: #FBEAE5;
+  --bg: #F5F8F7;
+  --surface: #FFFFFF;
+  --border: #DEE7E5;
+  --muted: #4C6360;
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+.cp-root * { box-sizing: border-box; }
+.cp-display { font-family: 'Space Grotesk', sans-serif; }
+.cp-mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.01em; }
+
+.cp-btn-primary {
+  background: var(--primary); color: white; font-weight: 600;
+  transition: background .15s ease, transform .15s ease;
+}
+.cp-btn-primary:hover { background: var(--primary-deep); transform: translateY(-1px); }
+.cp-btn-primary:active { transform: translateY(0); }
+.cp-btn-primary:disabled { opacity: .6; transform: none; cursor: not-allowed; }
+
+.cp-focus:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.cp-input {
+  border: 1px solid var(--border); background: var(--surface); color: var(--ink);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.cp-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); outline: none; }
+
+.cp-card {
+  background: var(--surface); border: 1px solid var(--border);
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.cp-card-hover:hover { box-shadow: 0 8px 24px -8px rgba(13,110,118,0.18); transform: translateY(-2px); }
+
+/* .cp-tab styles removed — sidebar nav replaces horizontal tab bar */
+
+.cp-fade-in { animation: cpFadeIn .35s ease both; }
+@keyframes cpFadeIn { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: translateY(0);} }
+
+.cp-rise { animation: cpRise .6s cubic-bezier(.16,1,.3,1) both; }
+@keyframes cpRise { from { opacity: 0; transform: translateY(16px);} to { opacity: 1; transform: translateY(0);} }
+
+.cp-arc-spin { animation: cpArcSpin 40s linear infinite; transform-origin: center; }
+@keyframes cpArcSpin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cp-fade-in, .cp-rise, .cp-arc-spin { animation: none !important; }
+}
+
+.cp-status-dot { width: 7px; height: 7px; border-radius: 999px; display: inline-block; }
+
+/* Custom premium slider styles for joint simulator */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #31E8C6;
+  border-radius: 9999px;
+  height: 18px;
+  width: 18px;
+  margin-top: -6px;
+  box-shadow: 0 0 10px rgba(49, 232, 198, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.1s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  background: #ffffff;
+}
+input[type="range"]::-moz-range-track {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  height: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+input[type="range"]::-moz-range-thumb {
+  background: #31E8C6;
+  border: none;
+  border-radius: 9999px;
+  height: 18px;
+  width: 18px;
+  box-shadow: 0 0 10px rgba(49, 232, 198, 0.5);
+  cursor: pointer;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
