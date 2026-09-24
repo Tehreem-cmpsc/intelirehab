@@ -29,13 +29,43 @@ export default function App() {
   const [physioPage, setPhysioPage] = useState("dashboard");
   const [patients, setPatients] = useState([]);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
-  const [darkMode, setDarkMode] = useState(false);
+
+  // One shared theme toggle for the whole app — admin and physio shells
+  // used to keep separate dark-mode state that reset on every login/route
+  // change. Persisted so it's the same on the next visit too.
+  const [darkMode, setDarkMode] = useState(() => {
+    try {
+      return localStorage.getItem("theme") === "dark";
+    } catch {
+      return false;
+    }
+  });
 
   const auth = useAuth();
 
-  // Fix: side effect in useEffect
+  // Deliberately NOT in a useEffect: an effect runs after React commits
+  // the render, so the very render that's reacting to a new darkMode value
+  // would still read THEME's old colors / the old data-theme attribute —
+  // the toggle would visually do nothing until some later, unrelated
+  // re-render happened to run after the effect. Doing it synchronously
+  // here, before returning JSX, means every child in this same render
+  // pass (ExercisesPage, Card, etc. — anything reading THEME.* or
+  // document.documentElement's data-theme) sees the new theme immediately.
+  // Both calls are cheap and idempotent, safe to run on every render.
+  setPhysioThemeMode(darkMode);
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
+  }
+
+  // Persisting to localStorage is a genuine side effect (and doesn't
+  // affect what gets rendered), so that part stays in an effect.
   useEffect(() => {
-    setPhysioThemeMode(darkMode);
+    try {
+      localStorage.setItem("theme", darkMode ? "dark" : "light");
+    } catch {
+      // localStorage can throw in private-browsing/blocked-storage contexts —
+      // theme just won't persist across reloads, not worth surfacing to the user.
+    }
   }, [darkMode]);
 
   // Fix: load patients properly on mount
@@ -57,13 +87,10 @@ export default function App() {
   }, [auth.loading, auth.isAuthenticated, route]);
 
   const handleLogin = async (emailOrId, password, role) => {
-    try {
-      await auth.login(emailOrId, password, role);
-      setRoute("app"); // only runs on success
-    } catch (err) {
-      // re-throw so LoginPage can show the error
-      throw err;
-    }
+    // Errors propagate to LoginPage's own try/catch, which shows them —
+    // nothing extra needed here.
+    await auth.login(emailOrId, password, role);
+    setRoute("app"); // only runs on success
   };
 
   const handleLogout = () => {
@@ -78,7 +105,7 @@ export default function App() {
   // "set your password" email link must land here regardless of the
   // current route (landing/login/app), including on a fresh browser tab.
   if (auth.recoveryMode) {
-    return <SetPasswordPage onSetPassword={auth.setNewPassword} />;
+    return <SetPasswordPage onSetPassword={auth.setNewPassword} dark={darkMode} setDark={setDarkMode} />;
   }
 
   // Show nothing while auth initializes (prevents flash of wrong shell)
@@ -91,7 +118,7 @@ export default function App() {
   }
 
   if (route === "landing") {
-    return <LandingPage onGoLogin={() => setRoute("login")} />;
+    return <LandingPage onGoLogin={() => setRoute("login")} dark={darkMode} setDark={setDarkMode} />;
   }
 
   if (route === "login") {
@@ -101,12 +128,28 @@ export default function App() {
         onLogin={handleLogin}
         onForgotPassword={auth.requestPasswordReset}
         loading={auth.loading}
+        dark={darkMode}
+        setDark={setDarkMode}
       />
     );
   }
 
   // Role-based shells
   if (auth.user?.authRole === "physio") {
+    // Admin-set passwords are visible to the admin who created them (see
+    // usePhysiotherapists.js) — force a self-chosen replacement before
+    // this physio can reach anything else.
+    if (auth.user.must_reset_password) {
+      return (
+        <SetPasswordPage
+          onSetPassword={auth.completeFirstLoginReset}
+          mode="firstLogin"
+          dark={darkMode}
+          setDark={setDarkMode}
+        />
+      );
+    }
+
     const PHYSIO_TITLES = {
       dashboard: "Dashboard",
       patients: "Patients",
@@ -114,27 +157,6 @@ export default function App() {
       atrisk: "At Risk",
       exercises: "Exercise database",
     };
-    const cssVars = {
-      "--ink": darkMode ? "#F7FCFB" : "#12242B",
-      "--primary": darkMode ? "#31E8C6" : "#0D6E76",
-      "--primary-deep": darkMode ? "#1aada0" : "#073C41",
-      "--primary-tint": darkMode ? "rgba(49,232,198,0.12)" : "#E4F1F0",
-      "--accent": darkMode ? "#F0B86E" : "#E7A24C",
-      "--success": darkMode ? "#6CE09F" : "#4C9F70",
-      "--success-tint": darkMode ? "rgba(76,159,112,0.15)" : "#E9F5EC",
-      "--alert": darkMode ? "#F08070" : "#D96248",
-      "--alert-tint": darkMode ? "rgba(217,98,72,0.15)" : "#FBEAE5",
-      "--bg": darkMode ? "#0f1f22" : "#F5F8F7",
-      "--surface": darkMode ? "#122b30" : "#FFFFFF",
-      "--border": darkMode ? "rgba(255,255,255,0.1)" : "#DEE7E5",
-      "--muted": darkMode ? "rgba(255,255,255,0.78)" : "#4C6360",
-    };
-
-    if (typeof document !== "undefined") {
-      document.documentElement.setAttribute("data-theme", darkMode ? "dark" : "light");
-      Object.entries(cssVars).forEach(([k, v]) => document.documentElement.style.setProperty(k, v));
-    }
-
     return (
       <div
         className="cp-root"
@@ -154,6 +176,7 @@ export default function App() {
           onLogout={handleLogout}
           user={auth.user}
           clinic={auth.clinic}
+          patients={patients}
         />
         <div
           style={{
@@ -203,9 +226,13 @@ export default function App() {
               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
             </button>
           </header>
-          <main style={{ flex: 1, overflowY: "auto", background: darkMode ? "#0f1f22" : THEME.slate50, ...cssVars }}>
+          <main style={{ flex: 1, overflowY: "auto", background: darkMode ? "#0f1f22" : THEME.slate50 }}>
             {physioPage === "dashboard" && (
-              <DashboardPage setPage={setPhysioPage} setSelectedPatientId={setSelectedPatientId} />
+              <DashboardPage
+                patients={patients}
+                setPage={setPhysioPage}
+                setSelectedPatientId={setSelectedPatientId}
+              />
             )}
             {physioPage === "patients" && (
               <PatientsPage
@@ -234,6 +261,8 @@ export default function App() {
       activeTab={activeTab}
       setActiveTab={setActiveTab}
       onLogout={handleLogout}
+      dark={darkMode}
+      setDark={setDarkMode}
     >
       {activeTab === "overview" && <OverviewPanel user={auth.user} clinic={auth.clinic} />}
       {activeTab === "physios" && <PhysiotherapistsPanel clinic={auth.clinic} />}

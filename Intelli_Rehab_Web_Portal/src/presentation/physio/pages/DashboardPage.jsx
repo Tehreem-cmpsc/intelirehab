@@ -1,4 +1,4 @@
-import { THEME, EXERCISES } from "../../../infrastructure/physio/constants";
+import { THEME } from "../../../infrastructure/physio/constants";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -16,61 +16,56 @@ import {
   RomBar,
   Badge,
 } from "../components";
-import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+import { computeWeeklyRom, computeWeekdayActivity } from "../../../domain/physio/utils/sessionAnalytics";
 
-function DashboardPage({ setPage, setSelectedPatientId }) {
-  const romData = [
-    { week: "W1", avg: 41 },
-    { week: "W2", avg: 47 },
-    { week: "W3", avg: 52 },
-    { week: "W4", avg: 58 },
-    { week: "W5", avg: 63 },
-    { week: "W6", avg: 68 },
-  ];
+function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
+  // Every patient's sessions were already fetched once in PatientUseCases —
+  // reuse that instead of a second clinic-wide query.
+  const allSessionsAsc = [...patients.flatMap((p) => p.sessions)].sort(
+    (a, b) => a.performedAt - b.performedAt
+  );
+  const romData = computeWeeklyRom(allSessionsAsc).map((w) => ({ week: w.w, avg: w.v }));
+  const actData = computeWeekdayActivity(allSessionsAsc);
+  const hasSessionData = allSessionsAsc.length > 0;
 
-  const actData = [
-    { day: "Mon", s: 5 },
-    { day: "Tue", s: 7 },
-    { day: "Wed", s: 6 },
-    { day: "Thu", s: 8 },
-    { day: "Fri", s: 4 },
-    { day: "Sat", s: 2 },
-    { day: "Sun", s: 1 },
-  ];
+  const todayKey = new Date().toDateString();
+  const sessionsToday = allSessionsAsc.filter((s) => s.performedAt.toDateString() === todayKey).length;
+
+  const approvedPatients = patients.filter((p) => p.approved);
+  const pendingCount = patients.filter((p) => p.isPendingApproval()).length;
+  const atRiskCount = patients.filter((p) => p.isAtRisk()).length;
 
   const stats = [
     {
       label: "Total Patients",
-      value: PatientUseCases.getTotalApprovedCount(),
-      sub: "2 added this month",
+      value: approvedPatients.length,
+      sub: "Approved patients",
       color: THEME.teal,
       bg: THEME.tealLight,
     },
     {
       label: "Sessions Today",
-      value: 7,
-      sub: "↑ 2 from yesterday",
+      value: sessionsToday,
+      sub: hasSessionData ? "Logged today" : "No sessions logged yet",
       color: THEME.green,
       bg: THEME.greenLight,
     },
     {
       label: "Pending Approvals",
-      value: PatientUseCases.getPendingApprovalsCount(),
+      value: pendingCount,
       sub: "Awaiting review",
       color: THEME.amber,
       bg: THEME.amberLight,
     },
     {
       label: "At Risk",
-      value: PatientUseCases.getAtRiskCount(),
+      value: atRiskCount,
       sub: "Needs attention",
       color: THEME.red,
       bg: THEME.redLight,
     },
   ];
-
-  const approvedPatients = PatientUseCases.getApprovedPatients();
 
   return (
     <div style={{ padding: "28px 32px" }}>
@@ -132,47 +127,62 @@ function DashboardPage({ setPage, setSelectedPatientId }) {
             Average ROM trend
           </div>
           <div style={{ fontSize: 12, color: THEME.slate400, marginBottom: 18 }}>
-            All active patients · last 6 weeks
+            All active patients · last {romData.length || 6} weeks with sessions
           </div>
-          <ResponsiveContainer width="100%" height={170}>
-            <AreaChart data={romData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor={THEME.teal} stopOpacity={0.2} />
-                  <stop offset="95%" stopColor={THEME.teal} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-              <XAxis
-                dataKey="week"
-                tick={{ fontSize: 11, fill: THEME.slate400 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: THEME.slate400 }}
-                axisLine={false}
-                tickLine={false}
-                domain={[30, 80]}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 9,
-                  border: `1px solid ${THEME.slate200}`,
-                  fontSize: 12,
-                }}
-                formatter={(v) => [`${v}%`, "Avg ROM"]}
-              />
-              <Area
-                type="monotone"
-                dataKey="avg"
-                stroke={THEME.teal}
-                strokeWidth={2.5}
-                fill="url(#rg)"
-                dot={{ fill: THEME.teal, r: 3 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          {romData.length === 0 ? (
+            <div
+              style={{
+                height: 170,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 13,
+                color: THEME.slate400,
+              }}
+            >
+              No session data yet.
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={170}>
+              <AreaChart data={romData} margin={{ top: 5, right: 5, bottom: 0, left: -20 }}>
+                <defs>
+                  <linearGradient id="rg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={THEME.teal} stopOpacity={0.2} />
+                    <stop offset="95%" stopColor={THEME.teal} stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
+                <XAxis
+                  dataKey="week"
+                  tick={{ fontSize: 11, fill: THEME.slate400 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: THEME.slate400 }}
+                  axisLine={false}
+                  tickLine={false}
+                  domain={[0, 100]}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 9,
+                    border: `1px solid ${THEME.slate200}`,
+                    fontSize: 12,
+                  }}
+                  formatter={(v) => [`${v}%`, "Avg ROM"]}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="avg"
+                  stroke={THEME.teal}
+                  strokeWidth={2.5}
+                  fill="url(#rg)"
+                  dot={{ fill: THEME.teal, r: 3 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </Card>
 
         <Card style={{ padding: "22px 24px" }}>

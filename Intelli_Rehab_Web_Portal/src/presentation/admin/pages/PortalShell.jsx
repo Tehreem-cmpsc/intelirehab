@@ -8,9 +8,8 @@ const NAV_ITEMS = [
   { id: "profile",   label: "Clinic Profile",     icon: Building2 },
 ];
 
-export default function PortalShell({ user, clinic, activeTab, setActiveTab, onLogout, children }) {
+export default function PortalShell({ user, clinic, activeTab, setActiveTab, onLogout, dark, setDark, children }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [dark, setDark] = useState(false);
 
   const initials = user?.name?.split(" ").map((p) => p[0]).join("") ?? "A";
 
@@ -211,23 +210,7 @@ export default function PortalShell({ user, clinic, activeTab, setActiveTab, onL
 
         {/* Panel Content */}
         <main className="cp-fade-in" key={activeTab}
-          style={{
-            flex: 1, padding: "28px 32px", overflowY: "auto",
-            // Dark mode overrides passed as CSS variables to children
-            "--ink":          dark ? "rgba(255,255,255,0.88)" : "#12242B",
-            "--primary":      dark ? "#31E8C6" : "#0D6E76",
-            "--primary-deep": dark ? "#1aada0" : "#073C41",
-            "--primary-tint": dark ? "rgba(49,232,198,0.12)" : "#E4F1F0",
-            "--accent":       dark ? "#F0B86E" : "#E7A24C",
-            "--success":      dark ? "#6CE09F" : "#4C9F70",
-            "--success-tint": dark ? "rgba(76,159,112,0.15)" : "#E9F5EC",
-            "--alert":        dark ? "#F08070" : "#D96248",
-            "--alert-tint":   dark ? "rgba(217,98,72,0.15)" : "#FBEAE5",
-            "--bg":           dark ? "#0f1f22" : "#F5F8F7",
-            "--surface":      dark ? "#122b30" : "#FFFFFF",
-            "--border":       dark ? "rgba(255,255,255,0.1)" : "#DEE7E5",
-            "--muted":        dark ? "rgba(255,255,255,0.78)" : "#4C6360",
-          }}
+          style={{ flex: 1, padding: "28px 32px", overflowY: "auto" }}
         >
           {children}
         </main>

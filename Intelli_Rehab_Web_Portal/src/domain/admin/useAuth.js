@@ -37,6 +37,7 @@ export default function useAuth() {
           specialization: physio.specialization,
           license_number: physio.license_number,
           status: physio.status,
+          must_reset_password: physio.must_reset_password,
         },
         clinic: physio.clinics,
       };
@@ -223,6 +224,26 @@ export default function useAuth() {
     setRecoveryMode(false);
   }, []);
 
+  // Called from the first-login "set your password" gate (App.jsx checks
+  // user.must_reset_password) — the physio is already in a normal signed-in
+  // session at this point, not a recovery flow, so unlike setNewPassword
+  // above this does NOT sign them out; they should land straight in the
+  // portal once it resolves.
+  const completeFirstLoginReset = useCallback(async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) throw new Error(error.message || "Unable to set password.");
+
+    if (user?.physio_id) {
+      const { error: updateErr } = await supabase
+        .from("physiotherapists")
+        .update({ must_reset_password: false })
+        .eq("id", user.physio_id);
+      if (updateErr) throw new Error(updateErr.message || "Unable to update your account.");
+    }
+
+    setUser((prev) => (prev ? { ...prev, must_reset_password: false } : prev));
+  }, [user]);
+
   return {
     user,
     clinic,
@@ -232,6 +253,7 @@ export default function useAuth() {
     isAuthenticated: !!user,
     recoveryMode,
     setNewPassword,
+    completeFirstLoginReset,
     requestPasswordReset,
   };
 }

@@ -1,2 +1,2 @@
-export { EXERCISES, PATIENTS } from "./mockData";
-export { THEME, STATUS_META, DEMO_CREDENTIALS, setPhysioThemeMode } from "./theme";
+export { EXERCISES } from "./mockData";
+export { THEME, STATUS_META, setPhysioThemeMode } from "./theme";

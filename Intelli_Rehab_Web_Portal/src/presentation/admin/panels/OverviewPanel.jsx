@@ -3,9 +3,21 @@ import { Loader2, Clock } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import RadialProgress from "../components/RadialProgress";
 import useDashboardStats from "../../../domain/admin/useDashboardStats";
+import useActivityLog from "../../../domain/admin/useActivityLog";
+
+function relativeTime(isoString) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const days = Math.floor(diffMs / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  return weeks === 1 ? "1 week ago" : `${weeks} weeks ago`;
+}
 
 export default function OverviewPanel({ user, clinic }) {
   const stats = useDashboardStats(clinic?.id);
+  const { list: activity, loading: activityLoading } = useActivityLog(clinic?.id);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
@@ -45,9 +57,26 @@ export default function OverviewPanel({ user, clinic }) {
           <Clock size={15} className="text-[var(--primary)]" />
           <span className="font-semibold text-[14px] text-[var(--ink)]">Recent activity</span>
         </div>
-        <div className="px-5 py-8 text-center text-[13.5px] text-[var(--muted)]">
-          Activity tracking isn't set up yet — nothing to show here.
-        </div>
+        {activityLoading ? (
+          <div className="px-5 py-8 text-center text-[13.5px] text-[var(--muted)]">
+            <Loader2 size={15} className="animate-spin inline mr-2" /> Loading activity…
+          </div>
+        ) : activity.length === 0 ? (
+          <div className="px-5 py-8 text-center text-[13.5px] text-[var(--muted)]">
+            No activity yet.
+          </div>
+        ) : (
+          activity.map((a, i) => (
+            <div
+              key={a.id}
+              className="px-5 py-3.5 flex items-center justify-between gap-4"
+              style={{ borderBottom: i < activity.length - 1 ? "1px solid var(--border)" : "none" }}
+            >
+              <span className="text-[13.5px] text-[var(--ink)]">{a.message}</span>
+              <span className="text-[12px] text-[var(--muted)] whitespace-nowrap">{relativeTime(a.created_at)}</span>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

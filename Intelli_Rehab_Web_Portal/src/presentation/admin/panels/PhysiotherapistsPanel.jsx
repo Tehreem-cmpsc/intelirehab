@@ -1,18 +1,18 @@
 import React, { useState } from "react";
-import { Plus, Search, Loader2, ChevronDown, TrendingUp, Minus, ShieldCheck } from "lucide-react";
+import { Plus, Search, Loader2, ChevronDown, AlertTriangle, ShieldCheck } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import StatusPill from "../components/StatusPill";
-import RadialProgress from "../components/RadialProgress";
 import AddPhysiotherapistModal from "../components/AddPhysiotherapistModal";
 import usePhysiotherapists from "../../../domain/admin/usePhysiotherapists";
 import usePatients from "../../../domain/admin/usePatients";
 
 const STATUS_TONE = { Active: "success", Pending: "muted", Rejected: "alert" };
+const PATIENT_STATUS_TONE = { active: "success", recovered: "muted", "at-risk": "alert" };
 
 export default function PhysiotherapistsPanel({ clinic }) {
   const { list, loading, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist } =
     usePhysiotherapists(clinic?.id);
-  const { list: patients } = usePatients();
+  const { list: patients } = usePatients(clinic?.id);
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   const [justAdded, setJustAdded] = useState(null);
@@ -30,9 +30,7 @@ export default function PhysiotherapistsPanel({ clinic }) {
     setShowAdd(false);
     setJustAdded(created.id);
     setStatusMessage(
-      created.inviteEmailSent
-        ? `${created.name} has been added. They'll get an email to set their password, then need your approval before they can log in.`
-        : `${created.name} has been added, but the password-set email failed to send — check your Supabase email settings, then use "Forgot password" to resend it.`
+      `${created.name} has been added. Share their password with them directly — they'll still need your approval before they can log in.`
     );
     setTimeout(() => setJustAdded(null), 2500);
     setTimeout(() => setStatusMessage(""), 4200);
@@ -64,8 +62,8 @@ export default function PhysiotherapistsPanel({ clinic }) {
 
   const toggleExpand = (id) => setExpanded(expanded === id ? null : id);
 
-  const getPatientsFor = (physioName) =>
-    patients.filter((p) => p.physio === physioName);
+  const getPatientsFor = (physioId) =>
+    patients.filter((p) => p.physio_id === physioId);
 
   return (
     <div>
@@ -123,7 +121,7 @@ export default function PhysiotherapistsPanel({ clinic }) {
 
             {filtered.map((pt) => {
               const isExpanded = expanded === pt.id;
-              const ptPatients = getPatientsFor(pt.name);
+              const ptPatients = getPatientsFor(pt.id);
 
               return (
                 <div key={pt.id} className="border-b last:border-0" style={{ borderColor: "var(--border)" }}>
@@ -214,15 +212,12 @@ export default function PhysiotherapistsPanel({ clinic }) {
                                   border: "1px solid var(--border)",
                                 }}
                               >
-                                {/* ROM Progress Ring */}
-                                <RadialProgress
-                                  value={patient.recovery}
-                                  size={54}
-                                  stroke={6}
-                                  color={patient.trend === "Improving" ? "var(--success)" : "var(--accent)"}
-                                  label={`${patient.recovery}%`}
-                                  labelColor="var(--ink)"
-                                />
+                                <span
+                                  className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold text-white flex-shrink-0"
+                                  style={{ background: "var(--primary)" }}
+                                >
+                                  {(patient.name || "?").split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                                </span>
 
                                 {/* Patient Info */}
                                 <div className="min-w-0 flex-1">
@@ -230,22 +225,17 @@ export default function PhysiotherapistsPanel({ clinic }) {
                                     {patient.name}
                                   </div>
                                   <div className="text-[12px] text-[var(--muted)] mt-0.5 truncate">
-                                    {patient.joint}
+                                    {[patient.injury, patient.injury_side].filter(Boolean).join(" · ") || "No injury on file"}
                                   </div>
                                   <div className="flex items-center gap-1.5 mt-2">
-                                    {patient.trend === "Improving" ? (
-                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--success)]">
-                                        <TrendingUp size={11} /> Improving
-                                      </span>
-                                    ) : (
-                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--accent)]">
-                                        <Minus size={11} /> Plateaued
+                                    <StatusPill tone={PATIENT_STATUS_TONE[patient.status] || "muted"}>
+                                      {patient.status || "unknown"}
+                                    </StatusPill>
+                                    {patient.warning && (
+                                      <span className="flex items-center gap-1 text-[11px] font-semibold text-[var(--alert)]">
+                                        <AlertTriangle size={11} /> {patient.warning}
                                       </span>
                                     )}
-                                    <span className="text-[var(--border)]">·</span>
-                                    <span className="text-[11px] text-[var(--muted)]">
-                                      Last session: {patient.lastSession}
-                                    </span>
                                   </div>
                                 </div>
                               </div>

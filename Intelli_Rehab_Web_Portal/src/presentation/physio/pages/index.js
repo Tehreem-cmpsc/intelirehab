@@ -1,5 +1,3 @@
-export { default as PhysiotherapistLandingPage } from "./PhysiotherapistLandingPage";
-export { default as LoginPage } from "./LoginPage";
 export { default as DashboardPage } from "./DashboardPage";
 export { default as PatientsPage } from "./PatientsPage";
 export { default as ApprovalsPage } from "./ApprovalsPage";

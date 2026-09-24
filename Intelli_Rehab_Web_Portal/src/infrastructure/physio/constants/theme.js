@@ -63,8 +63,3 @@ export const STATUS_META = {
   recovered: { bg: THEME.greenLight, c: THEME.green, label: "Recovered" },
   "at-risk": { bg: THEME.redLight, c: THEME.red, label: "At Risk" },
 };
-
-export const DEMO_CREDENTIALS = {
-  id: "DR-AHMED-001",
-  password: "rehab123",
-};

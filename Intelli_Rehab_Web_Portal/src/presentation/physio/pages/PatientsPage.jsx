@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import { THEME, EXERCISES } from "../../../infrastructure/physio/constants";
 import { Card, SectionHead, RomBar, Badge } from "../components";
-import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
+import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 
 function AssignExerciseModal({ patient, onClose, onAssign }) {
@@ -18,6 +18,11 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
   const [sets, setSets] = useState(patient.currentExercise?.sets || 3);
   const [reps, setReps] = useState(patient.currentExercise?.reps || 10);
   const [romTarget, setRomTarget] = useState(patient.currentExercise?.romTarget || 70);
+  // Text in this modal already tracks the theme (slate600/slate500/slate800
+  // all differ per palette) — THEME.white as the card background didn't,
+  // so dark mode meant near-white text on a white card.
+  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
+  const surface = isDark ? THEME.slate100 : THEME.white;
   const [freq, setFreq] = useState(patient.currentExercise?.freq || "Daily");
 
   const ex = EXERCISES.find((e) => e.id === exId);
@@ -46,7 +51,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
     >
       <div
         style={{
-          background: THEME.white,
+          background: surface,
           borderRadius: 18,
           padding: 32,
           width: 520,
@@ -78,7 +83,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
               height: 32,
               borderRadius: 8,
               border: `1px solid ${THEME.slate200}`,
-              background: THEME.white,
+              background: surface,
               cursor: "pointer",
               fontSize: 18,
               color: THEME.slate500,
@@ -188,7 +193,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
               padding: "12px",
               border: `1px solid ${THEME.slate200}`,
               borderRadius: 10,
-              background: THEME.white,
+              background: surface,
               color: THEME.slate600,
               fontWeight: 600,
               cursor: "pointer",
@@ -220,7 +225,34 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
 function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
   const [showAssign, setShowAssign] = useState(false);
   const [toast, setToast] = useState(null);
+  const [emg, setEmg] = useState([]);
+  const [emgLoading, setEmgLoading] = useState(false);
   const selected = patients.find((p) => p.id === selectedId);
+
+  // EMG is per-muscle readings from the patient's most recent session —
+  // only needed for whichever one patient is currently open, so it's
+  // fetched on demand instead of bulk-loaded with the patient list.
+  useEffect(() => {
+    if (!selectedId) {
+      setEmg([]);
+      return;
+    }
+    let cancelled = false;
+    setEmgLoading(true);
+    SessionUseCases.getLatestEmgForPatient(selectedId)
+      .then((data) => {
+        if (!cancelled) setEmg(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEmg([]);
+      })
+      .finally(() => {
+        if (!cancelled) setEmgLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId]);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -274,7 +306,12 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
       <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, alignItems: "start" }}>
         {/* Patient list */}
         <Card style={{ overflow: "hidden" }}>
-          {approvedPatients.map((p, i) => (
+          {approvedPatients.length === 0 ? (
+            <div style={{ padding: "48px 20px", textAlign: "center", color: THEME.slate400, fontSize: 13 }}>
+              No approved patients yet.
+            </div>
+          ) : (
+            approvedPatients.map((p, i) => (
             <div
               key={p.id}
               onClick={() => setSelectedId(p.id)}
@@ -359,7 +396,8 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                 <RomBar value={p.rom} height={4} />
               </div>
             </div>
-          ))}
+            ))
+          )}
         </Card>
 
         {/* Patient detail - using the remaining space */}
@@ -456,79 +494,104 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                 <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 14 }}>
                   ROM progress
                 </div>
-                <ResponsiveContainer width="100%" height={150}>
-                  <AreaChart data={selected.romWeekly} margin={{ top: 5, right: 5, bottom: 0, left: -28 }}>
-                    <defs>
-                      <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="5%"
-                          stopColor={VisualizationService.getRomColor(selected.rom)}
-                          stopOpacity={0.2}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={VisualizationService.getRomColor(selected.rom)}
-                          stopOpacity={0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-                    <XAxis
-                      dataKey="w"
-                      tick={{ fontSize: 11, fill: THEME.slate400 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: THEME.slate400 }}
-                      axisLine={false}
-                      tickLine={false}
-                      domain={[0, 100]}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 9,
-                        border: `1px solid ${THEME.slate200}`,
-                        fontSize: 12,
-                      }}
-                      formatter={(v) => [`${v}%`, "ROM"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="v"
-                      stroke={VisualizationService.getRomColor(selected.rom)}
-                      strokeWidth={2.5}
-                      fill="url(#rg2)"
-                      dot={{ fill: VisualizationService.getRomColor(selected.rom), r: 3 }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                {selected.romWeekly.length === 0 ? (
+                  <div
+                    style={{
+                      height: 150,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 13,
+                      color: THEME.slate400,
+                    }}
+                  >
+                    No session data yet.
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={150}>
+                    <AreaChart data={selected.romWeekly} margin={{ top: 5, right: 5, bottom: 0, left: -28 }}>
+                      <defs>
+                        <linearGradient id="rg2" x1="0" y1="0" x2="0" y2="1">
+                          <stop
+                            offset="5%"
+                            stopColor={VisualizationService.getRomColor(selected.rom)}
+                            stopOpacity={0.2}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor={VisualizationService.getRomColor(selected.rom)}
+                            stopOpacity={0}
+                          />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
+                      <XAxis
+                        dataKey="w"
+                        tick={{ fontSize: 11, fill: THEME.slate400 }}
+                        axisLine={false}
+                        tickLine={false}
+                      />
+                      <YAxis
+                        tick={{ fontSize: 11, fill: THEME.slate400 }}
+                        axisLine={false}
+                        tickLine={false}
+                        domain={[0, 100]}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          borderRadius: 9,
+                          border: `1px solid ${THEME.slate200}`,
+                          fontSize: 12,
+                        }}
+                        formatter={(v) => [`${v}%`, "ROM"]}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="v"
+                        stroke={VisualizationService.getRomColor(selected.rom)}
+                        strokeWidth={2.5}
+                        fill="url(#rg2)"
+                        dot={{ fill: VisualizationService.getRomColor(selected.rom), r: 3 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </Card>
 
               <Card style={{ padding: "20px 22px" }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 14 }}>
                   Muscle activation (EMG)
                 </div>
-                {selected.emg.map((m) => (
-                  <div key={m.muscle} style={{ marginBottom: 12 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, color: THEME.slate600 }}>{m.muscle}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600 }}>
-                        {m.val}%
-                      </span>
-                    </div>
-                    <div style={{ height: 6, background: THEME.slate100, borderRadius: 99, overflow: "hidden" }}>
-                      <div
-                        style={{
-                          width: `${m.val}%`,
-                          height: "100%",
-                          background: m.val > 70 ? THEME.red : m.val > 50 ? THEME.amber : THEME.teal,
-                          borderRadius: 99,
-                        }}
-                      />
-                    </div>
+                {emgLoading ? (
+                  <div style={{ fontSize: 13, color: THEME.slate400, textAlign: "center", padding: "24px 0" }}>
+                    Loading…
                   </div>
-                ))}
+                ) : emg.length === 0 ? (
+                  <div style={{ fontSize: 13, color: THEME.slate400, textAlign: "center", padding: "24px 0" }}>
+                    No session data yet.
+                  </div>
+                ) : (
+                  emg.map((m) => (
+                    <div key={m.muscle} style={{ marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 12, color: THEME.slate600 }}>{m.muscle}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600 }}>
+                          {m.val}%
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: THEME.slate100, borderRadius: 99, overflow: "hidden" }}>
+                        <div
+                          style={{
+                            width: `${m.val}%`,
+                            height: "100%",
+                            background: m.val > 70 ? THEME.red : m.val > 50 ? THEME.amber : THEME.teal,
+                            borderRadius: 99,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </Card>
             </div>
 

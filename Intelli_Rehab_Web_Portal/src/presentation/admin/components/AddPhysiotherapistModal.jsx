@@ -1,10 +1,10 @@
 import React, { useState } from "react";
-import { X, Loader2, UserPlus } from "lucide-react";
+import { X, Loader2, UserPlus, Eye, EyeOff } from "lucide-react";
+import { passwordError } from "../../../infrastructure/validation/password";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const licensePattern = /^PMC-\d{5}$/i;
 const namePattern = /^[A-Za-z.\s-]{3,}$/;
-const specializationPattern = /^[A-Za-z0-9\s\-_,.]{3,}$/;
 const physioIdPattern = /^(?=.{6,}$)(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d_-]+$/;
 const cnicPattern = /^\d{5}-\d{7}-\d{1}$/;
 
@@ -15,6 +15,7 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
     specialization: "",
     license: "",
     email: "",
+    password: "",
     cnic: "",
     qualification: "",
     yearsExperience: "",
@@ -23,6 +24,7 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [hidePassword, setHidePassword] = useState(false);
 
   const validate = () => {
     const next = {};
@@ -40,6 +42,9 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
 
     if (!email) next.email = "Email is required.";
     else if (!emailPattern.test(email)) next.email = "Enter a valid email address.";
+
+    const pwError = passwordError(form.password);
+    if (pwError) next.password = pwError === "Password is required." ? "Set an initial password for them." : pwError;
 
     if (!specialization) next.specialization = "Specialization is required.";
     else if (specialization.length < 3) next.specialization = "Specialization must be at least 3 characters.";
@@ -154,6 +159,31 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
           </div>
 
           <div>
+            <label className="block text-[13px] font-semibold mb-1.5">Initial password</label>
+            <div className="relative">
+              <input
+                value={form.password}
+                onChange={(e) => {
+                  setForm({ ...form, password: e.target.value });
+                  if (errors.password) setErrors({ ...errors, password: undefined });
+                }}
+                className="cp-input cp-focus w-full rounded-2xl px-4 pr-10 py-3 text-[14px] cp-mono"
+                placeholder="At least 8 characters"
+                type={hidePassword ? "password" : "text"}
+              />
+              <button
+                type="button"
+                onClick={() => setHidePassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] bg-transparent border-none cursor-pointer p-0 flex"
+                aria-label={hidePassword ? "Show password" : "Hide password"}
+              >
+                {hidePassword ? <Eye size={16} /> : <EyeOff size={16} />}
+              </button>
+            </div>
+            {errors.password && <div className="text-[13px] text-[var(--alert)] mt-2">{errors.password}</div>}
+          </div>
+
+          <div>
             <label className="block text-[13px] font-semibold mb-1.5">Specialization</label>
             <input
               value={form.specialization}
@@ -242,9 +272,9 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
 
           <div className="sm:col-span-2">
             <div className="rounded-2xl bg-[var(--primary-tint)] border border-[var(--border)] px-4 py-3 text-[13px] text-[var(--ink)] mb-2">
-              They'll receive an email at this address to set their own password. They're added with{" "}
-              <strong>Pending</strong> status and still can't log in until you verify their credentials and
-              approve them from the roster.
+              Share this password with them directly — they can change it after logging in. They're added
+              with <strong>Pending</strong> status and still can't log in until you verify their credentials
+              and approve them from the roster.
             </div>
           </div>
 

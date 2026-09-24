@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -10,7 +10,64 @@ import {
 } from "recharts";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
+import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+
+// Each at-risk card fetches its own patient's EMG independently — there's
+// no bulk "EMG for every at-risk patient" query, and most clinics won't
+// have many at-risk patients open on screen at once.
+function EmgIndicators({ patientId }) {
+  const [emg, setEmg] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    SessionUseCases.getLatestEmgForPatient(patientId)
+      .then((data) => {
+        if (!cancelled) setEmg(data);
+      })
+      .catch(() => {
+        if (!cancelled) setEmg([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
+
+  if (loading) {
+    return <div style={{ fontSize: 12, color: THEME.slate400 }}>Loading…</div>;
+  }
+  if (emg.length === 0) {
+    return <div style={{ fontSize: 12, color: THEME.slate400 }}>No session data yet.</div>;
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      {emg.map((m) => (
+        <div key={m.muscle} style={{ background: THEME.slate50, padding: "10px 12px", borderRadius: 9 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 12, color: THEME.slate600 }}>{m.muscle}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600 }}>{m.val}%</span>
+          </div>
+          <div style={{ height: 5, background: THEME.slate200, borderRadius: 99 }}>
+            <div
+              style={{
+                width: `${m.val}%`,
+                height: "100%",
+                background: m.val < 30 ? THEME.red : THEME.amber,
+                borderRadius: 99,
+              }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function AtRiskPage({ patients, setPatients }) {
   const [warnInputs, setWarnInputs] = useState({});
@@ -114,73 +171,54 @@ function AtRiskPage({ patients, setPatients }) {
                   <div style={{ fontSize: 13, fontWeight: 600, color: THEME.slate600, marginBottom: 10 }}>
                     ROM trend (last 6 weeks)
                   </div>
-                  <ResponsiveContainer width="100%" height={100}>
-                    <LineChart data={p.romWeekly} margin={{ top: 5, right: 10, bottom: 0, left: -28 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-                      <XAxis
-                        dataKey="w"
-                        tick={{ fontSize: 10, fill: THEME.slate400 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 10, fill: THEME.slate400 }}
-                        axisLine={false}
-                        tickLine={false}
-                        domain={[20, 60]}
-                      />
-                      <Tooltip
-                        contentStyle={{ borderRadius: 8, fontSize: 11 }}
-                        formatter={(v) => [`${v}%`, "ROM"]}
-                      />
-                      <Line
-                        type="monotone"
-                        dataKey="v"
-                        stroke={THEME.red}
-                        strokeWidth={2.5}
-                        dot={{ fill: THEME.red, r: 3 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  {p.romWeekly.length === 0 ? (
+                    <div
+                      style={{
+                        height: 100,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        color: THEME.slate400,
+                      }}
+                    >
+                      No session data yet.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={100}>
+                      <LineChart data={p.romWeekly} margin={{ top: 5, right: 10, bottom: 0, left: -28 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
+                        <XAxis
+                          dataKey="w"
+                          tick={{ fontSize: 10, fill: THEME.slate400 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          tick={{ fontSize: 10, fill: THEME.slate400 }}
+                          axisLine={false}
+                          tickLine={false}
+                          domain={[0, 100]}
+                        />
+                        <Tooltip
+                          contentStyle={{ borderRadius: 8, fontSize: 11 }}
+                          formatter={(v) => [`${v}%`, "ROM"]}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="v"
+                          stroke={THEME.red}
+                          strokeWidth={2.5}
+                          dot={{ fill: THEME.red, r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
 
                 {/* EMG indicators */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 18 }}>
-                  {p.emg.map((m) => (
-                    <div
-                      key={m.muscle}
-                      style={{
-                        background: THEME.slate50,
-                        padding: "10px 12px",
-                        borderRadius: 9,
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: 4,
-                        }}
-                      >
-                        <span style={{ fontSize: 12, color: THEME.slate600 }}>
-                          {m.muscle}
-                        </span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600 }}>
-                          {m.val}%
-                        </span>
-                      </div>
-                      <div style={{ height: 5, background: THEME.slate200, borderRadius: 99 }}>
-                        <div
-                          style={{
-                            width: `${m.val}%`,
-                            height: "100%",
-                            background: m.val < 30 ? THEME.red : THEME.amber,
-                            borderRadius: 99,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                <div style={{ marginBottom: 18 }}>
+                  <EmgIndicators patientId={p.id} />
                 </div>
 
                 {/* Active warning display */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { THEME, EXERCISES } from "../../../infrastructure/physio/constants";
+import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
@@ -9,6 +9,10 @@ function ExercisesPage() {
   const [filter, setFilter] = useState("All");
   const levels = ExerciseUseCases.getDifficultyLevels();
   const filtered = ExerciseUseCases.filterExercises(filter, search);
+  // THEME.white is intentionally the same literal #FFFFFF in both palettes
+  // (e.g. white text on a colored badge) — it's the wrong choice for a
+  // surface/background color, which needs to actually change in dark mode.
+  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
 
   return (
     <div style={{ padding: "28px 32px" }}>
@@ -27,6 +31,7 @@ function ExercisesPage() {
                 borderRadius: 9,
                 fontSize: 13,
                 color: THEME.slate800,
+                background: isDark ? THEME.slate100 : THEME.white,
                 outline: "none",
                 width: 200,
               }}
@@ -40,7 +45,7 @@ function ExercisesPage() {
                     padding: "8px 14px",
                     borderRadius: 9,
                     border: `1px solid ${filter === l ? THEME.teal : THEME.slate200}`,
-                    background: filter === l ? THEME.tealLight : THEME.white,
+                    background: filter === l ? THEME.tealLight : (isDark ? THEME.slate100 : THEME.white),
                     color: filter === l ? THEME.tealDim : THEME.slate600,
                     fontSize: 12,
                     fontWeight: filter === l ? 700 : 400,

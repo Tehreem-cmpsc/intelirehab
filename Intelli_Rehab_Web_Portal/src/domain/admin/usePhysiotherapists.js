@@ -56,16 +56,13 @@ export default function usePhysiotherapists(clinicId) {
     // the admin's session first and restore it once the account exists.
     const { data: { session: adminSession } } = await supabase.auth.getSession();
 
-    // The admin never chooses or sees the physio's password — that would mean
-    // the admin (and anyone reading logs/network traffic) knows their login
-    // credentials. Instead we create the account with a random, throwaway
-    // password that's discarded immediately, then email the physio a link to
-    // set their own password (see resetPasswordForEmail below).
-    const throwawayPassword = crypto.randomUUID();
-
+    // The admin sets the physio's initial password directly and hands it to
+    // them outside the app — Supabase's default email sender is rate-limited
+    // and unreliable for real delivery, and no custom SMTP is configured yet.
+    // The physio can change it after logging in for the first time.
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
-      password: throwawayPassword,
+      password: form.password,
       options: { data: { full_name: name } },
     });
 
@@ -119,25 +116,20 @@ export default function usePhysiotherapists(clinicId) {
       );
     }
 
-    // Send the physio a real "set your password" email — this is the only
-    // way they ever learn a working password for their own account.
-    let inviteEmailSent = true;
+    // Best-effort — the physio account is already created either way, so a
+    // failed log entry shouldn't surface as an error to the admin.
     try {
-      const { error: resetErr } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin,
+      await supabase.from("activity_log").insert({
+        clinic_id: clinicId,
+        message: `${name} was added to the roster and is awaiting approval.`,
       });
-      if (resetErr) {
-        inviteEmailSent = false;
-        console.error("Failed to send password-set email:", resetErr);
-      }
     } catch (err) {
-      inviteEmailSent = false;
-      console.error("Failed to send password-set email:", err);
+      console.error("Failed to record activity log entry:", err);
     }
 
     const record = toUiShape(inserted);
     setList((cur) => [record, ...cur]);
-    return { ...record, inviteEmailSent };
+    return record;
   }, [clinicId]);
 
   const removePhysiotherapist = useCallback(async (id) => {
@@ -156,8 +148,18 @@ export default function usePhysiotherapists(clinicId) {
     if (error) throw new Error(error.message || "Unable to approve physiotherapist.");
     const record = toUiShape(data);
     setList((cur) => cur.map((item) => (item.id === id ? record : item)));
+
+    try {
+      await supabase.from("activity_log").insert({
+        clinic_id: clinicId,
+        message: `${record.name} was approved and can now log in.`,
+      });
+    } catch (err) {
+      console.error("Failed to record activity log entry:", err);
+    }
+
     return record;
-  }, []);
+  }, [clinicId]);
 
   return { list, loading, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist, refresh };
 }

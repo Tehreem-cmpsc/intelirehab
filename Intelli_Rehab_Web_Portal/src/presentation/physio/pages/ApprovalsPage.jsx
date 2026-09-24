@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
-import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 
 function ApprovalsPage({ patients, setPatients }) {
   const [toast, setToast] = useState(null);
   const pending = patients.filter((p) => !p.approved);
+  // THEME.white is intentionally the same literal #FFFFFF in both palettes
+  // (e.g. white text on a colored badge) — wrong for a button background,
+  // which needs to actually change in dark mode.
+  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
 
   const showToast = (msg) => {
     setToast(msg);
@@ -121,7 +124,7 @@ function ApprovalsPage({ patients, setPatients }) {
                       padding: "10px 20px",
                       border: `1px solid ${THEME.slate200}`,
                       borderRadius: 10,
-                      background: THEME.white,
+                      background: isDark ? THEME.slate100 : THEME.white,
                       color: THEME.slate600,
                       fontWeight: 600,
                       cursor: "pointer",

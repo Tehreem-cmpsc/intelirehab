@@ -22,6 +22,28 @@
   -webkit-font-smoothing: antialiased;
 }
 .cp-root * { box-sizing: border-box; }
+
+/* Dark theme — applied wherever `data-theme="dark"` is set (App.jsx sets it
+   on <html> from one shared, localStorage-persisted state), so any page
+   using .cp-root picks up dark mode automatically without needing its own
+   toggle logic. Values match what PortalShell.jsx / App.jsx's physio shell
+   already computed inline before this existed — kept identical so nothing
+   visually shifts, just centralized. */
+[data-theme="dark"] .cp-root {
+  --ink: rgba(255, 255, 255, 0.88);
+  --primary: #31E8C6;
+  --primary-deep: #1aada0;
+  --primary-tint: rgba(49, 232, 198, 0.12);
+  --accent: #F0B86E;
+  --success: #6CE09F;
+  --success-tint: rgba(76, 159, 112, 0.15);
+  --alert: #F08070;
+  --alert-tint: rgba(217, 98, 72, 0.15);
+  --bg: #0f1f22;
+  --surface: #122b30;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(255, 255, 255, 0.78);
+}
 .cp-display { font-family: 'Space Grotesk', sans-serif; }
 .cp-mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.01em; }
 
@@ -39,6 +61,7 @@
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .cp-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-tint); outline: none; }
+.cp-input::placeholder { color: var(--muted); opacity: 1; }
 
 .cp-card {
   background: var(--surface); border: 1px solid var(--border);

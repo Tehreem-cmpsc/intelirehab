@@ -5,8 +5,9 @@ import {
   Clock, Award, Users, ChevronRight, Zap
 } from "lucide-react";
 import Logo, { LogoIcon } from "../components/Logo";
+import ThemeToggle from "../components/ThemeToggle";
 
-export default function LandingPage({ onGoLogin }) {
+export default function LandingPage({ onGoLogin, dark, setDark }) {
   // Simulator State
   const [angle, setAngle] = useState(65);
   const targetMin = 85;
@@ -57,9 +58,10 @@ export default function LandingPage({ onGoLogin }) {
       {/* Premium Navbar */}
       <nav className="max-w-6xl w-full mx-auto flex items-center justify-between px-6 py-5 bg-transparent">
         <Logo size={36} light={true} showText={true} />
-        <div className="flex items-center gap-6">
-          <button 
-            onClick={onGoLogin} 
+        <div className="flex items-center gap-4">
+          {setDark && <ThemeToggle dark={dark} setDark={setDark} />}
+          <button
+            onClick={onGoLogin}
             className="cp-btn-primary cp-focus rounded-xl px-6 py-2.5 text-[14px] flex items-center gap-2 cursor-pointer shadow-sm hover:shadow"
           >
             Sign In <ArrowRight size={15} />
@@ -248,7 +250,7 @@ export default function LandingPage({ onGoLogin }) {
       <section id="demo" className="max-w-6xl w-full mx-auto px-6 py-28 text-left">
         <div className="max-w-xl mb-16">
           <div className="cp-mono text-[12px] font-bold tracking-widest text-[#0D6E76] uppercase mb-3">Core Technology</div>
-          <h2 className="cp-display font-bold text-[32px] text-[#12242B] leading-tight">
+          <h2 className="cp-display font-bold text-[32px] text-[var(--ink)] leading-tight">
             Sensors replace speculation.
           </h2>
           <p className="text-[15px] text-[var(--muted)] mt-4 leading-relaxed">

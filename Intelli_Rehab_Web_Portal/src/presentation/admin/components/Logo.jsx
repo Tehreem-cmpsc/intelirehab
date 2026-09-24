@@ -1,12 +1,19 @@
 import React from "react";
 
+// textPrimary/textSecondary track the page's own theme-aware colors
+// (every usage site is inside a .cp-root wrapper) rather than a fixed hex —
+// this variant is for placement on the app's normal, theme-reactive
+// background, so it needs to stay legible whether that's currently light
+// or dark. DARK_COLORS below is for a permanently-dark container (a
+// sidebar, a hero banner) that doesn't change with the app theme, so it
+// keeps fixed white values.
 const LIGHT_COLORS = {
   background: "#E4FAF6",
   ring: "#00B9A0",
   accent: "#1CBDAF",
   stroke: "#0F5D63",
-  textPrimary: "#0E323D",
-  textSecondary: "#4A6B78",
+  textPrimary: "var(--ink)",
+  textSecondary: "var(--muted)",
 };
 
 const DARK_COLORS = {
