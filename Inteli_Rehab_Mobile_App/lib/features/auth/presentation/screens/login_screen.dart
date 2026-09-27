@@ -28,6 +28,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submit() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _submitting = true;
@@ -35,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await _authService.signIn(
-        email: _emailController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
         password: _passwordController.text,
       );
       // Navigation is automatically handled in main.dart via AuthGate stream
@@ -44,6 +45,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _errorMessage = 'Invalid email or password. Please verify your credentials or contact your clinic.';
       });
     } finally {
+      _passwordController.clear();
       if (mounted) setState(() => _submitting = false);
     }
   }
@@ -245,12 +247,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Email Field
                           TextFormField(
                             controller: _emailController,
+                            enabled: !_submitting,
                             keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autofillHints: const [AutofillHints.email],
                             style: const TextStyle(fontSize: 15),
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               labelText: 'Email Address',
                               hintText: 'patient@clinic.com',
-                              prefixIcon: const Icon(Icons.email_outlined),
+                              prefixIcon: Icon(Icons.email_outlined),
                             ),
                             validator: (v) {
                               if (v == null || v.trim().isEmpty) return 'Please enter your email';
@@ -263,19 +268,25 @@ class _LoginScreenState extends State<LoginScreen> {
                           // Password Field
                           TextFormField(
                             controller: _passwordController,
+                            enabled: !_submitting,
                             obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.password],
+                            onFieldSubmitted: (_) => _submit(),
                             style: const TextStyle(fontSize: 15),
                             decoration: InputDecoration(
                               labelText: 'Password',
                               hintText: '••••••••',
                               prefixIcon: const Icon(Icons.lock_outline_rounded),
                               suffixIcon: IconButton(
+                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
                                 icon: Icon(
                                   _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                                   color: AppTheme.sensorGrey,
                                   size: 20,
                                 ),
-                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                                onPressed: _submitting ? null : () => setState(() => _obscurePassword = !_obscurePassword),
                               ),
                             ),
                             validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password' : null,
