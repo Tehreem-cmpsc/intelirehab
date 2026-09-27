@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../shared/entities/patient_entity.dart';
 import '../../../auth/data/datasources/auth_remote_data_source.dart';
+import '../../../patient_feedback/presentation/screens/patient_feedback_screen.dart';
 import '../../../sensor_calibration/presentation/screens/sensor_calibration_screen.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
@@ -84,6 +85,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
             // ── Clinical App Preferences ───────────────────────────────────────
             _buildPreferencesCard(),
+            const SizedBox(height: 20),
+
+            // ── Patient Community Feedback ─────────────────────────────────────
+            _buildFeedbackNavigationCard(),
             const SizedBox(height: 20),
 
             // ── Sign Out Button ────────────────────────────────────────────────
@@ -313,6 +318,41 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
             onChanged: (v) => setState(() => _wifiOnlySync = v),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFeedbackNavigationCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.slate200),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: const BoxDecoration(
+            color: AppTheme.tealSoftBackground,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.reviews_outlined, color: AppTheme.primaryTeal, size: 22),
+        ),
+        title: const Text(
+          'Patient Community Feedback',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppTheme.slate800),
+        ),
+        subtitle: const Text(
+          'Read verified recovery experiences and progress',
+          style: TextStyle(fontSize: 12, color: AppTheme.slate500),
+        ),
+        trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.slate400),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const PatientFeedbackScreen()),
+          );
+        },
       ),
     );
   }

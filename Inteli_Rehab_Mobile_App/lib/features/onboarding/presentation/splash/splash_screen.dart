@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../feedback/feedback_screen.dart';
+import '../../../../main.dart' show AuthGate;
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -226,7 +226,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 650),
-        pageBuilder: (context, animation, secondaryAnimation) => const FeedbackScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           final fade = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
           return FadeTransition(

@@ -8,6 +8,9 @@ import '../../features/physiotherapist_selection/data/repositories/physiotherapi
 import '../../features/physiotherapist_selection/domain/repositories/physiotherapist_repository.dart';
 import '../../features/physiotherapist_selection/domain/usecases/get_physiotherapists_usecase.dart';
 
+import '../../features/patient_feedback/data/repositories/patient_feedback_repository_fake.dart';
+import '../../features/patient_feedback/domain/repositories/patient_feedback_repository.dart';
+
 final GetIt sl = GetIt.instance;
 
 /// THE SWITCH — Change *RepositoryFake → *RepositoryImpl once Tehreem integrates real backend.
@@ -22,4 +25,8 @@ void setupInjection() {
   sl.registerLazySingleton<PhysiotherapistRepository>(() => PhysiotherapistRepositoryFake());
   //   ↑ Swap to: PhysiotherapistRepositoryImpl(sl()) once Tehreem is done
   sl.registerFactory(() => GetPhysiotherapistsUsecase(sl()));
+
+  // ─── Patient Feedback ────────────────────────────────────────────────────────
+  sl.registerLazySingleton<PatientFeedbackRepository>(() => PatientFeedbackRepositoryFake());
+  //   ↑ Swap to: PatientFeedbackRepositoryImpl(sl()) once Tehreem connects feedback table
 }
