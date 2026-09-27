@@ -27,7 +27,7 @@ class AppSnackbar {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 14.5,
                 ),
               ),
             ),

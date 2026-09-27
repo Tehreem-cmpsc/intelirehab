@@ -126,11 +126,11 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
             ),
             child: Center(
               child: isDone
-                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                  ? const Icon(Icons.check, size: 18, color: Colors.white)
                   : Text(
                       '${step + 1}',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: isCurrent ? Colors.white : AppTheme.slate500,
                       ),
@@ -143,7 +143,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 14,
               fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
               color: isCurrent ? AppTheme.primaryTealDark : AppTheme.slate500,
             ),
@@ -234,13 +234,13 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
                 const SizedBox(height: 14),
                 const Text(
                   'Holding zero baseline… keep arm relaxed.',
-                  style: TextStyle(fontSize: 12, color: AppTheme.slate500),
+                  style: TextStyle(fontSize: 14, color: AppTheme.slate500),
                 ),
               ] else ...[
                 ElevatedButton.icon(
                   onPressed: _startCalibrationCountdown,
                   icon: const Icon(Icons.timer_outlined),
-                  label: const Text('Start 5s Baseline Capture'),
+                  label: const Text('Start 5s Baseline Capture', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                 ),
               ],
@@ -265,13 +265,13 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Sampling EMG resting noise: $_emgNoise µV (Optimal)',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.green),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.green),
                 ),
               ] else ...[
                 ElevatedButton.icon(
                   onPressed: _startCalibrationCountdown,
                   icon: const Icon(Icons.flash_on_rounded),
-                  label: const Text('Verify Muscle Sensor'),
+                  label: const Text('Verify Muscle Sensor', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
                 ),
               ],
@@ -313,7 +313,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
               const Text(
                 'IMU zero-baseline locked and EMG surface conductance is within clinical tolerance.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: AppTheme.slate500, height: 1.4),
+                style: TextStyle(fontSize: 14, color: AppTheme.slate500, height: 1.4),
               ),
               const SizedBox(height: 22),
               ElevatedButton.icon(
@@ -381,7 +381,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
                     const SizedBox(height: 2),
                     Text(
                       'Guided Calibration Protocol',
-                      style: TextStyle(fontSize: 11, color: AppTheme.slate500),
+                      style: TextStyle(fontSize: 14, color: AppTheme.slate500),
                     ),
                   ],
                 ),
@@ -391,7 +391,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
           const SizedBox(height: 14),
           Text(
             subtitle,
-            style: const TextStyle(fontSize: 13, color: AppTheme.slate600, height: 1.45),
+            style: const TextStyle(fontSize: 15, color: AppTheme.slate600, height: 1.45),
           ),
           const SizedBox(height: 20),
           child,
@@ -416,23 +416,23 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.sensors_rounded, color: AppTheme.primaryTeal, size: 16),
+                  Icon(Icons.sensors_rounded, color: AppTheme.primaryTeal, size: 18),
                   SizedBox(width: 6),
                   Text(
                     'Live Sensor Telemetry Stream',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slate800),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.slate800),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppTheme.greenLight,
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   '50 Hz Active',
-                  style: TextStyle(fontSize: 10, color: AppTheme.green, fontWeight: FontWeight.bold),
+                  style: TextStyle(fontSize: 14, color: AppTheme.green, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -455,11 +455,11 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 10.5, color: AppTheme.slate500)),
+          Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.slate500)),
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppTheme.navy),
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppTheme.navy),
           ),
         ],
       ),

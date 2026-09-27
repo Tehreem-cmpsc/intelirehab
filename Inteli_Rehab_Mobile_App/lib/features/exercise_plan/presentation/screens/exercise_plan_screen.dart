@@ -207,7 +207,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                   ),
                   child: Text(
                     ex['difficulty'],
-                    style: const TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 Container(
@@ -218,7 +218,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                   ),
                   child: Text(
                     'Target: ${ex['romTarget']}° ROM',
-                    style: const TextStyle(color: AppTheme.green, fontWeight: FontWeight.bold, fontSize: 11),
+                    style: const TextStyle(color: AppTheme.green, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
               ],
@@ -231,12 +231,12 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
             const SizedBox(height: 4),
             Text(
               'Target Muscle: ${ex['target']}',
-              style: const TextStyle(fontSize: 13, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 15, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 14),
             Text(
               ex['desc'],
-              style: const TextStyle(fontSize: 13.5, color: AppTheme.slate600, height: 1.4),
+              style: const TextStyle(fontSize: 15, color: AppTheme.slate600, height: 1.4),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -263,7 +263,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                           child: Center(
                             child: Text(
                               '${idx + 1}',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryTealDark),
                             ),
                           ),
                         ),
@@ -271,7 +271,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                         Expanded(
                           child: Text(
                             ex['instructions'][idx],
-                            style: const TextStyle(fontSize: 13, color: AppTheme.slate800, height: 1.4),
+                            style: const TextStyle(fontSize: 15, color: AppTheme.slate800, height: 1.4),
                           ),
                         ),
                       ],
@@ -353,7 +353,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                       labelStyle: TextStyle(
                         color: isSelected ? AppTheme.primaryTealDark : AppTheme.slate600,
                         fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                        fontSize: 12,
+                        fontSize: 14,
                       ),
                       side: BorderSide(color: isSelected ? AppTheme.primaryTeal : AppTheme.slate200),
                     ),
@@ -431,7 +431,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
                     ),
                     child: const Text(
                       'Today\'s Plan',
-                      style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 10.5),
+                      style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                   ),
               ],
@@ -439,12 +439,12 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
             const SizedBox(height: 4),
             Text(
               'Target: ${ex['target']}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 14.5, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: 8),
             Text(
               ex['desc'] as String,
-              style: const TextStyle(fontSize: 12.5, color: AppTheme.slate500, height: 1.35),
+              style: const TextStyle(fontSize: 14.5, color: AppTheme.slate500, height: 1.35),
             ),
             const SizedBox(height: 12),
             Row(
@@ -471,7 +471,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
       ),
       child: Text(
         label,
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.slate600),
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.slate600),
       ),
     );
   }

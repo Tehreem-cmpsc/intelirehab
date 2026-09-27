@@ -75,7 +75,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           TextButton(
             onPressed: _markAllAsRead,
-            child: const Text('Mark all read', style: TextStyle(color: AppTheme.primaryTeal, fontSize: 13)),
+            child: const Text('Mark all read', style: TextStyle(color: AppTheme.primaryTeal, fontSize: 14.5, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -153,7 +153,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Text(
                           n['body'] as String,
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 14,
                             color: unread ? AppTheme.slate600 : AppTheme.slate500,
                             height: 1.35,
                           ),
@@ -161,7 +161,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         const SizedBox(height: 8),
                         Text(
                           n['time'] as String,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.slate400),
+                          style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                         ),
                       ],
                     ),

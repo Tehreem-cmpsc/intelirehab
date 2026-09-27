@@ -83,7 +83,7 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
         title: Column(
           children: [
             Text(widget.sessionTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-            Text(widget.date, style: const TextStyle(fontSize: 11, color: AppTheme.slate500)),
+            Text(widget.date, style: const TextStyle(fontSize: 14, color: AppTheme.slate500)),
           ],
         ),
         leading: IconButton(
@@ -152,7 +152,7 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
                               ),
                               child: Text(
                                 '${_currentAngle.toInt()}° ROM Recorded',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                               ),
                             ),
                           ),
@@ -163,7 +163,7 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
                     Text(
                       'Repetition $_currentRepNumber of 4 • Timestamp: ${_formatTime(_currentSeconds)}',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 15,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.slate800,
                       ),
@@ -202,11 +202,11 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
                           children: [
                             const Text(
                               'Recorded Muscle EMG Activation',
-                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slate800),
+                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.slate800),
                             ),
                             Text(
                               '$_currentEmg% MVC',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppTheme.primaryTeal),
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppTheme.primaryTeal),
                             ),
                           ],
                         ),
@@ -244,11 +244,11 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
                     children: [
                       Text(
                         _formatTime(_currentSeconds),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryTeal),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryTeal),
                       ),
                       Text(
                         _formatTime(_totalSeconds),
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slate500),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.slate500),
                       ),
                     ],
                   ),

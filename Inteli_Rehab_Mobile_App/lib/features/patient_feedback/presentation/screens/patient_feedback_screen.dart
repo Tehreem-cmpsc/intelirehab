@@ -96,7 +96,7 @@ class _PatientFeedbackScreenState extends State<PatientFeedbackScreen> {
                       Expanded(
                         child: Text(
                           'Feedback shown here is reviewed by clinical therapists before it is featured.',
-                          style: TextStyle(fontSize: 12.5, color: AppTheme.primaryTealDark, height: 1.3),
+                          style: TextStyle(fontSize: 14, color: AppTheme.primaryTealDark, height: 1.35),
                         ),
                       ),
                     ],
@@ -162,7 +162,7 @@ class _FeedbackCard extends StatelessWidget {
                     ),
                     Text(
                       item.exerciseName,
-                      style: const TextStyle(fontSize: 13, color: AppTheme.slate500, fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontSize: 14.5, color: AppTheme.slate500, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -192,7 +192,7 @@ class _FeedbackCard extends StatelessWidget {
               const Spacer(),
               Text(
                 '${item.submittedAt.day}/${item.submittedAt.month}/${item.submittedAt.year}',
-                style: const TextStyle(fontSize: 12, color: AppTheme.slate400, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 14, color: AppTheme.slate500, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -216,12 +216,12 @@ class _FeedbackCard extends StatelessWidget {
                       children: [
                         const Text(
                           'Therapist Response',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryTealDark),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryTealDark),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           item.therapistResponse!,
-                          style: const TextStyle(fontSize: 13, height: 1.35, color: AppTheme.slate800),
+                          style: const TextStyle(fontSize: 15, height: 1.35, color: AppTheme.slate800),
                         ),
                       ],
                     ),

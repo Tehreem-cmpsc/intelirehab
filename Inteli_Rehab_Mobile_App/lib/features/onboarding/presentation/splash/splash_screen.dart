@@ -550,7 +550,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Text(
               'SMART WEARABLE REHABILITATION SYSTEM',
               style: GoogleFonts.manrope(
-                fontSize: 9.5,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 color: _primaryTealDark,
                 letterSpacing: 1.6,
@@ -571,7 +571,7 @@ class _SplashScreenState extends State<SplashScreen>
         child: Text(
           'Recover smarter · Move better',
           style: GoogleFonts.manrope(
-            fontSize: 13,
+            fontSize: 14.5,
             fontWeight: FontWeight.w500,
             fontStyle: FontStyle.italic,
             color: _sensorGrey.withValues(alpha: 0.65),
@@ -590,7 +590,7 @@ class _SplashScreenState extends State<SplashScreen>
         Text(
           'Preparing your recovery space',
           style: GoogleFonts.manrope(
-            fontSize: 11,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: _sensorGrey.withValues(alpha: 0.55),
             letterSpacing: 0.3,

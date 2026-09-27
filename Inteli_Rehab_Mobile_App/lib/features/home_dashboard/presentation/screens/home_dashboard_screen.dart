@@ -90,8 +90,8 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           backgroundColor: Colors.white,
           selectedItemColor: AppTheme.primaryTeal,
           unselectedItemColor: AppTheme.slate500,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
           elevation: 0,
           items: const [
             BottomNavigationBarItem(
@@ -223,7 +223,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     const SizedBox(width: 5),
                     const Text(
                       'Rehab Program Day 24',
-                      style: TextStyle(fontSize: 12, color: AppTheme.slate500, fontWeight: FontWeight.w600),
+                      style: TextStyle(fontSize: 14, color: AppTheme.slate500, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -305,7 +305,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   Text(
                     _isSensorConnected ? 'Wearable Sensor Connected' : 'Sensor Disconnected',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: _isSensorConnected ? AppTheme.navy : AppTheme.amberDim,
                     ),
@@ -315,7 +315,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                         ? 'Inteli-Arm-V2 • $_sensorBattery% Battery • 8ms latency'
                         : 'Tap to pair wearable sensor before session',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 14,
                       color: _isSensorConnected ? AppTheme.slate600 : AppTheme.slate500,
                     ),
                   ),
@@ -360,7 +360,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   children: [
                     const Text(
                       'Ayub Medical Complex',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                     ),
                     const SizedBox(width: 6),
                     Container(
@@ -371,7 +371,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       ),
                       child: const Text(
                         'Verified Clinic',
-                        style: TextStyle(fontSize: 9.5, color: AppTheme.green, fontWeight: FontWeight.w700),
+                        style: TextStyle(fontSize: 14, color: AppTheme.green, fontWeight: FontWeight.w700),
                       ),
                     ),
                   ],
@@ -379,12 +379,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 const SizedBox(height: 3),
                 const Text(
                   'Physiotherapist: Dr. Tehreem (DRID001)',
-                  style: TextStyle(fontSize: 12, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 14, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Diagnosis: ${_currentPatient.injury ?? "Shoulder & Elbow Rehab"}',
-                  style: const TextStyle(fontSize: 11.5, color: AppTheme.slate500),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                 ),
               ],
             ),
@@ -432,9 +432,9 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                       "TODAY'S PRESCRIPTION",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 10,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        letterSpacing: 1.0,
+                        letterSpacing: 0.8,
                       ),
                     ),
                   ],
@@ -448,7 +448,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 ),
                 child: const Text(
                   'Target: 90° ROM',
-                  style: TextStyle(color: AppTheme.tealBright, fontSize: 11, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: AppTheme.tealBright, fontSize: 14, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -468,7 +468,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
             'Controlled full-arc joint bend to strengthen bicep/tricep and prevent elbow adhesion.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.85),
-              fontSize: 13,
+              fontSize: 15,
               height: 1.4,
             ),
           ),
@@ -536,7 +536,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
           ),
         ],
       ),
@@ -597,7 +597,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                               ),
                               Text(
                                 '/${_targetRom.toInt()}°',
-                                style: const TextStyle(fontSize: 10, color: AppTheme.slate500),
+                                style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                               ),
                             ],
                           ),
@@ -607,11 +607,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                     const SizedBox(height: 10),
                     const Text(
                       'Max ROM Reached',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slate800),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.slate800),
                     ),
                     Text(
                       '${(romPercentage * 100).toInt()}% of Target',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                      style: const TextStyle(fontSize: 14, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -651,7 +651,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             ),
                             const Text(
                               'Active Streak 🔥',
-                              style: TextStyle(fontSize: 11, color: AppTheme.slate500),
+                              style: TextStyle(fontSize: 14, color: AppTheme.slate500),
                             ),
                           ],
                         ),
@@ -688,7 +688,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                             ),
                             Text(
                               'Muscle Fatigue Safe',
-                              style: TextStyle(fontSize: 11, color: AppTheme.slate500),
+                              style: TextStyle(fontSize: 14, color: AppTheme.slate500),
                             ),
                           ],
                         ),
@@ -782,11 +782,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               const SizedBox(height: 10),
               Text(
                 title,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.slate800),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.slate800),
               ),
               Text(
                 subtitle,
-                style: const TextStyle(fontSize: 10.5, color: AppTheme.slate500),
+                style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
               ),
             ],
           ),
@@ -810,7 +810,7 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
               onPressed: () => _onTabTapped(3), // Progress tab
               child: const Text(
                 'View All →',
-                style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 13),
+                style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 15),
               ),
             ),
           ],
@@ -879,12 +879,12 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                 children: [
                   Text(
                     exercise,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$date • $reps',
-                    style: const TextStyle(fontSize: 11.5, color: AppTheme.slate500),
+                    style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                   ),
                 ],
               ),
@@ -900,13 +900,13 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
                   ),
                   child: Text(
                     accuracy,
-                    style: const TextStyle(fontSize: 10.5, color: AppTheme.green, fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontSize: 14, color: AppTheme.green, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 3),
                 Text(
                   maxRom,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.slate600, fontWeight: FontWeight.w600),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.slate600, fontWeight: FontWeight.w600),
                 ),
               ],
             ),

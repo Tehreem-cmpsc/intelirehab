@@ -129,7 +129,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                   child: const Text(
                     'CLINICAL TRAJECTORY',
-                    style: TextStyle(color: AppTheme.tealBright, fontWeight: FontWeight.bold, fontSize: 10),
+                    style: TextStyle(color: AppTheme.tealBright, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -140,7 +140,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 const SizedBox(height: 4),
                 const Text(
                   'Current status: On Track (+12% above projected recovery speed).',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -184,7 +184,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 ),
                 child: const Text(
                   'Goal: 90°',
-                  style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 11),
+                  style: TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ),
             ],
@@ -205,7 +205,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   if (isDone)
                     Text(
                       '${rom.toInt()}°',
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.primaryTeal),
                     ),
                   const SizedBox(height: 4),
                   Container(
@@ -220,7 +220,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   Text(
                     d['day'] as String,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 14,
                       fontWeight: isDone ? FontWeight.bold : FontWeight.normal,
                       color: isDone ? AppTheme.slate800 : AppTheme.slate500,
                     ),
@@ -258,7 +258,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   SizedBox(width: 4),
                   Text(
                     '5 Day Streak',
-                    style: TextStyle(color: AppTheme.amber, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: TextStyle(color: AppTheme.amber, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ],
               ),
@@ -290,14 +290,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           ? const Icon(Icons.check_rounded, color: AppTheme.green, size: 18)
                           : Text(
                               letter,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.slate500),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.slate500),
                             ),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Day ${idx + 1}',
-                    style: const TextStyle(fontSize: 9.5, color: AppTheme.slate500),
+                    style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                   ),
                 ],
               );
@@ -356,13 +356,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           m['title'] as String,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 13,
+                            fontSize: 15,
                             color: isDone ? AppTheme.slate800 : AppTheme.slate600,
                           ),
                         ),
                         Text(
                           m['date'] as String,
-                          style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
+                          style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                         ),
                       ],
                     ),
@@ -376,7 +376,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     child: Text(
                       m['status'] as String,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: isDone ? AppTheme.green : AppTheme.primaryTeal,
                       ),
@@ -464,12 +464,12 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 children: [
                   Text(
                     exercise,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '$date • $reps',
-                    style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
+                    style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                   ),
                 ],
               ),
@@ -479,11 +479,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
               children: [
                 Text(
                   peakRom,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.primaryTeal),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryTeal),
                 ),
                 Text(
                   score,
-                  style: const TextStyle(fontSize: 10.5, color: AppTheme.green, fontWeight: FontWeight.bold),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.green, fontWeight: FontWeight.bold),
                 ),
               ],
             ),

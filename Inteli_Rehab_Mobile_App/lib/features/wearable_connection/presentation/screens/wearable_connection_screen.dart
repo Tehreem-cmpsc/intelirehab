@@ -223,19 +223,22 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
             const SizedBox(height: 14),
             const Text(
               'No Wearable Connected',
-              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.slate800),
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppTheme.slate800),
             ),
             const SizedBox(height: 6),
             const Text(
               'Turn on your Inteli-Rehab sensor arm band and tap Scan to pair with your mobile device.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12.5, color: AppTheme.slate500, height: 1.4),
+              style: TextStyle(fontSize: 14, color: AppTheme.slate500, height: 1.4),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
               onPressed: _toggleScan,
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 48),
+              ),
               icon: Icon(_isScanning ? Icons.stop : Icons.search_rounded),
-              label: Text(_isScanning ? 'Scanning...' : 'Scan for Sensor'),
+              label: Text(_isScanning ? 'Scanning...' : 'Scan for Sensor', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -266,29 +269,29 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppTheme.tealBright.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Row(
                   children: [
-                    Icon(Icons.check_circle_rounded, color: AppTheme.tealBright, size: 13),
+                    Icon(Icons.check_circle_rounded, color: AppTheme.tealBright, size: 16),
                     SizedBox(width: 5),
                     Text(
                       'ACTIVE & STREAMING',
-                      style: TextStyle(color: AppTheme.tealBright, fontSize: 10.5, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: AppTheme.tealBright, fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               ),
               Row(
                 children: [
-                  const Icon(Icons.battery_5_bar_rounded, color: Colors.white, size: 18),
+                  const Icon(Icons.battery_5_bar_rounded, color: Colors.white, size: 20),
                   const SizedBox(width: 4),
                   Text(
                     '$_batteryLevel%',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                 ],
               ),
@@ -302,7 +305,7 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
           const SizedBox(height: 4),
           const Text(
             'MAC: EC:62:60:9B:41:A2 • Firmware v1.4.2',
-            style: TextStyle(color: Colors.white70, fontSize: 11.5),
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 16),
           Row(
@@ -323,9 +326,10 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white38),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Disconnect', style: TextStyle(fontSize: 13)),
+                  child: const Text('Disconnect', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -339,9 +343,10 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.tealBright,
                     foregroundColor: AppTheme.navy,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Calibrate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  child: const Text('Calibrate', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 ),
               ),
             ],
@@ -364,13 +369,13 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
           children: [
             Row(
               children: [
-                Icon(icon, color: AppTheme.tealBright, size: 12),
+                Icon(icon, color: AppTheme.tealBright, size: 14),
                 const SizedBox(width: 4),
-                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+                Text(title, style: const TextStyle(color: Colors.white70, fontSize: 14)),
               ],
             ),
             const SizedBox(height: 3),
-            Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text(val, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
           ],
         ),
       ),
@@ -401,12 +406,12 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
   Widget _buildStatusIcon(IconData icon, String label, bool active) {
     return Row(
       children: [
-        Icon(icon, color: active ? AppTheme.green : AppTheme.slate400, size: 18),
+        Icon(icon, color: active ? AppTheme.green : AppTheme.slate400, size: 20),
         const SizedBox(width: 6),
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: FontWeight.w600,
             color: active ? AppTheme.slate800 : AppTheme.slate500,
           ),
@@ -437,7 +442,7 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
             child: Icon(
               Icons.developer_board_rounded,
               color: isConnected ? AppTheme.primaryTeal : AppTheme.slate600,
-              size: 22,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),
@@ -447,36 +452,37 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
               children: [
                 Text(
                   dev['name'] as String,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   '${dev['type']} • RSSI: ${dev['rssi']} dBm',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                 ),
               ],
             ),
           ),
           if (isConnected)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: AppTheme.greenLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Text(
                 'Connected',
-                style: TextStyle(color: AppTheme.green, fontWeight: FontWeight.bold, fontSize: 11.5),
+                style: TextStyle(color: AppTheme.green, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             )
           else
             OutlinedButton(
               onPressed: () => _connectDevice(dev['id'] as String),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(64, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
-              child: const Text('Pair', style: TextStyle(fontSize: 12)),
+              child: const Text('Pair', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold)),
             ),
         ],
       ),

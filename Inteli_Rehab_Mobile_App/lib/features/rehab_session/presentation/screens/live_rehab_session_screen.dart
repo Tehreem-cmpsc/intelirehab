@@ -30,11 +30,30 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
   int _emgActivation = 34; // % MVC
   String _aiFeedback = 'Ready! Begin bending your elbow upward smoothly.';
   bool _isPaused = false;
+  bool _voiceGuidance = true;
   int _elapsedSeconds = 0;
   Timer? _sessionTimer;
   Timer? _repSimTimer;
 
   late AnimationController _pulseController;
+
+  Color get _emgColor {
+    if (_emgActivation > 75) return AppTheme.red;
+    if (_emgActivation > 50) return AppTheme.amber;
+    return AppTheme.green;
+  }
+
+  IconData get _emgIcon {
+    if (_emgActivation > 75) return Icons.warning_amber_rounded;
+    if (_emgActivation > 50) return Icons.info_outline_rounded;
+    return Icons.check_circle_outline_rounded;
+  }
+
+  String get _emgStatusLabel {
+    if (_emgActivation > 75) return 'High Strain (Rest Recommended)';
+    if (_emgActivation > 50) return 'Moderate Strain';
+    return 'Optimal Effort';
+  }
 
   @override
   void initState() {
@@ -148,17 +167,37 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
       appBar: AppBar(
         title: Column(
           children: [
-            Text(widget.exerciseName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(widget.exerciseName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             Text(
-              'Set $_currentSet of ${widget.targetSets} • $_formattedTime',
-              style: const TextStyle(fontSize: 12, color: AppTheme.slate500, fontWeight: FontWeight.normal),
+              'Elbow Joint • Set $_currentSet of ${widget.targetSets} • $_formattedTime',
+              style: const TextStyle(fontSize: 14, color: AppTheme.slate500, fontWeight: FontWeight.normal),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: _voiceGuidance ? 'Voice guidance on' : 'Voice guidance muted',
+            icon: Icon(
+              _voiceGuidance ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: _voiceGuidance ? AppTheme.primaryTeal : AppTheme.slate400,
+              size: 24,
+            ),
+            onPressed: () {
+              setState(() => _voiceGuidance = !_voiceGuidance);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_voiceGuidance ? 'Voice guidance enabled' : 'Voice guidance muted'),
+                  duration: const Duration(milliseconds: 1000),
+                ),
+              );
+            },
+          ),
           TextButton(
             onPressed: _finishSession,
-            child: const Text('Finish', style: TextStyle(color: AppTheme.red, fontWeight: FontWeight.bold)),
+            style: TextButton.styleFrom(
+              minimumSize: const Size(48, 48),
+            ),
+            child: const Text('Finish', style: TextStyle(color: AppTheme.red, fontWeight: FontWeight.bold, fontSize: 15)),
           ),
         ],
       ),
@@ -197,7 +236,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                                 '$_completedReps / ${widget.targetReps}',
                                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: AppTheme.slate800),
                               ),
-                              const Text('Reps Completed', style: TextStyle(fontSize: 10.5, color: AppTheme.slate500)),
+                              const Text('Reps Completed', style: TextStyle(fontSize: 14, color: AppTheme.slate600, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ],
@@ -206,7 +245,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                   ),
                   const SizedBox(width: 12),
 
-                  // EMG Activation Bar Card
+                  // EMG Activation Bar Card (Multimodal with color + icon + label)
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -221,16 +260,30 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('EMG Activation', style: TextStyle(fontSize: 10.5, color: AppTheme.slate500)),
-                              Text(
-                                '$_emgActivation%',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: _emgActivation > 75 ? AppTheme.red : AppTheme.green,
-                                ),
+                              const Text('EMG Activation', style: TextStyle(fontSize: 14, color: AppTheme.slate600, fontWeight: FontWeight.w600)),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(_emgIcon, size: 16, color: _emgColor),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    '$_emgActivation%',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: _emgColor,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _emgStatusLabel,
+                            style: TextStyle(fontSize: 14, color: _emgColor, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 6),
                           ClipRRect(
@@ -239,11 +292,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                               value: _emgActivation / 100.0,
                               minHeight: 8,
                               backgroundColor: AppTheme.slate100,
-                              color: _emgActivation > 75
-                                  ? AppTheme.red
-                                  : _emgActivation > 50
-                                      ? AppTheme.amber
-                                      : AppTheme.green,
+                              color: _emgColor,
                             ),
                           ),
                         ],
@@ -322,7 +371,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 13,
+                                  fontSize: 15,
                                 ),
                               ),
                             ),
@@ -334,9 +383,9 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                     Text(
                       romProgress >= 0.95 ? 'TARGET REACHED! 🎯' : 'KEEP LIFTING SMOOTHLY',
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
+                        letterSpacing: 1.0,
                         color: romProgress >= 0.95 ? AppTheme.green : AppTheme.slate600,
                       ),
                     ),
@@ -369,17 +418,17 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                       color: AppTheme.tealLight,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.smart_toy_rounded, color: AppTheme.primaryTeal, size: 20),
+                    child: const Icon(Icons.smart_toy_rounded, color: AppTheme.primaryTeal, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       _aiFeedback,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: AppTheme.slate800,
-                        height: 1.3,
+                        height: 1.35,
                       ),
                     ),
                   ),
@@ -399,6 +448,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                     style: IconButton.styleFrom(
                       backgroundColor: AppTheme.slate200,
                       foregroundColor: AppTheme.slate800,
+                      minimumSize: const Size(52, 52),
                       padding: const EdgeInsets.all(14),
                     ),
                   ),
@@ -425,11 +475,12 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                         icon: const Icon(Icons.arrow_upward_rounded, color: Colors.white),
                         label: const Text(
                           'Perform / Simulate Rep',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.transparent,
                           shadowColor: Colors.transparent,
+                          minimumSize: const Size(double.infinity, 52),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),

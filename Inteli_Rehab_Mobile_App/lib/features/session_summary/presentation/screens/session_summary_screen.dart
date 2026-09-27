@@ -133,14 +133,14 @@ class SessionSummaryScreen extends StatelessWidget {
                         SizedBox(width: 8),
                         Text(
                           'EMG Muscle Fatigue Assessment',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                         ),
                       ],
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Surface EMG detected mild muscle fiber engagement with no abnormal tremor or strain exhaustion. Your bicep/tricep responded safely within clinical guidelines.',
-                      style: TextStyle(fontSize: 12.5, color: AppTheme.slate500, height: 1.4),
+                      style: TextStyle(fontSize: 14, color: AppTheme.slate500, height: 1.4),
                     ),
                     const SizedBox(height: 10),
                     Container(
@@ -156,7 +156,7 @@ class SessionSummaryScreen extends StatelessWidget {
                           SizedBox(width: 6),
                           Text(
                             'Recommended rest: 4–6 hours before next session',
-                            style: TextStyle(fontSize: 11, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
+                            style: TextStyle(fontSize: 14, color: AppTheme.primaryTeal, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -181,7 +181,7 @@ class SessionSummaryScreen extends StatelessWidget {
                     Expanded(
                       child: Text(
                         'Session telemetry packet synced with Dr. Tehreem\'s web portal.',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.green),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.green),
                       ),
                     ),
                   ],
@@ -265,7 +265,7 @@ class SessionSummaryScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.slate500, fontWeight: FontWeight.w600)),
+                Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.slate500, fontWeight: FontWeight.w600)),
                 Icon(icon, color: color, size: 18),
               ],
             ),
@@ -275,7 +275,7 @@ class SessionSummaryScreen extends StatelessWidget {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: color),
             ),
             const SizedBox(height: 2),
-            Text(sub, style: const TextStyle(fontSize: 11, color: AppTheme.slate500)),
+            Text(sub, style: const TextStyle(fontSize: 14, color: AppTheme.slate500)),
           ],
         ),
       ),

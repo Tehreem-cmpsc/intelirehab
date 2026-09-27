@@ -72,12 +72,12 @@ class _PreSessionCheckScreenState extends State<PreSessionCheckScreen> {
                           ),
                           child: const Text(
                             'TARGET PROTOCOL',
-                            style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
                           ),
                         ),
                         Text(
                           '${widget.targetRom.toInt()}° ROM Goal',
-                          style: const TextStyle(color: AppTheme.tealBright, fontWeight: FontWeight.bold, fontSize: 12),
+                          style: const TextStyle(color: AppTheme.tealBright, fontWeight: FontWeight.bold, fontSize: 14),
                         ),
                       ],
                     ),
@@ -89,7 +89,7 @@ class _PreSessionCheckScreenState extends State<PreSessionCheckScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '${widget.targetSets} Sets × ${widget.targetReps} Reps • Clinical Adherence Tracking',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
                     ),
                   ],
                 ),
@@ -236,12 +236,12 @@ class _PreSessionCheckScreenState extends State<PreSessionCheckScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.slate800),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15.5, color: AppTheme.slate800),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: AppTheme.slate500),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                 ),
               ],
             ),
@@ -250,10 +250,11 @@ class _PreSessionCheckScreenState extends State<PreSessionCheckScreen> {
             TextButton(
               onPressed: onAction,
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                minimumSize: const Size(48, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                tapTargetSize: MaterialTapTargetSize.padded,
               ),
-              child: Text(actionLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              child: Text(actionLabel, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold)),
             )
           else
             Switch.adaptive(

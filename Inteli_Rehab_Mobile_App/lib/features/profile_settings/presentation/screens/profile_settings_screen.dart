@@ -110,7 +110,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
               child: Text(
                 'Inteli-Rehab Mobile App v1.0.0\nAyub Medical Complex Clinical Rehabilitation System',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500, height: 1.4),
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade500, height: 1.4),
               ),
             ),
             const SizedBox(height: 12),
@@ -158,7 +158,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 const SizedBox(height: 2),
                 Text(
                   p.email,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.slate500),
+                  style: const TextStyle(fontSize: 14, color: AppTheme.slate500),
                 ),
                 const SizedBox(height: 6),
                 Container(
@@ -169,7 +169,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   ),
                   child: Text(
                     'Reg ID: ${p.id} • Approved',
-                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.green),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.green),
                   ),
                 ),
               ],
@@ -244,7 +244,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                   color: AppTheme.greenLight,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Text('Paired', style: TextStyle(color: AppTheme.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: const Text('Paired', style: TextStyle(color: AppTheme.green, fontSize: 14, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -293,8 +293,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const SizedBox(height: 10),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Real-Time Voice Coaching', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-            subtitle: const Text('Voice guidance chimes at target ROM angle', style: TextStyle(fontSize: 11.5)),
+            title: const Text('Real-Time Voice Coaching', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Voice guidance chimes at target ROM angle', style: TextStyle(fontSize: 14)),
             value: _voiceFeedbackEnabled,
             activeTrackColor: AppTheme.primaryTeal,
             onChanged: (v) => setState(() => _voiceFeedbackEnabled = v),
@@ -302,8 +302,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const Divider(height: 12, color: AppTheme.slate100),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Haptic Vibration Alerts', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-            subtitle: const Text('Vibrate sensor on muscle fatigue warning', style: TextStyle(fontSize: 11.5)),
+            title: const Text('Haptic Vibration Alerts', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Vibrate sensor on muscle fatigue warning', style: TextStyle(fontSize: 14)),
             value: _hapticVibrationEnabled,
             activeTrackColor: AppTheme.primaryTeal,
             onChanged: (v) => setState(() => _hapticVibrationEnabled = v),
@@ -311,8 +311,8 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
           const Divider(height: 12, color: AppTheme.slate100),
           SwitchListTile.adaptive(
             contentPadding: EdgeInsets.zero,
-            title: const Text('Wi-Fi Only Sync', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
-            subtitle: const Text('Sync telemetry data only on Wi-Fi connection', style: TextStyle(fontSize: 11.5)),
+            title: const Text('Wi-Fi Only Sync', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w600)),
+            subtitle: const Text('Sync telemetry data only on Wi-Fi connection', style: TextStyle(fontSize: 14)),
             value: _wifiOnlySync,
             activeTrackColor: AppTheme.primaryTeal,
             onChanged: (v) => setState(() => _wifiOnlySync = v),
@@ -345,7 +345,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
         ),
         subtitle: const Text(
           'Read verified recovery experiences and progress',
-          style: TextStyle(fontSize: 12, color: AppTheme.slate500),
+          style: TextStyle(fontSize: 14, color: AppTheme.slate500),
         ),
         trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.slate400),
         onTap: () {
@@ -361,10 +361,10 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.slate500)),
+        Text(label, style: const TextStyle(fontSize: 14, color: AppTheme.slate500)),
         Text(
           value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.slate800),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.slate800),
         ),
       ],
     );

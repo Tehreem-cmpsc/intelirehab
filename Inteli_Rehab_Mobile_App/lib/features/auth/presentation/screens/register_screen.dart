@@ -104,12 +104,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               children: [
                                 const Text(
                                   'Clinic-Issued Registration ID',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryTealDark),
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryTealDark),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'Enter the unique Registration ID provided by your clinic doctor (e.g., Ayub Medical Complex). This links your account to your medical file.',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey.shade700, height: 1.35),
+                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.35),
                                 ),
                               ],
                             ),
@@ -205,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 12.5, height: 1.3),
+                                      style: TextStyle(color: Colors.red.shade700, fontSize: 14, height: 1.35),
                                     ),
                                   ),
                                 ],
@@ -233,6 +233,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
                                 foregroundColor: Colors.white,
+                                minimumSize: const Size(double.infinity, 52),
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(14),
@@ -240,8 +241,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               child: _submitting
                                   ? const SizedBox(
-                                      height: 20,
-                                      width: 20,
+                                      height: 22,
+                                      width: 22,
                                       child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
                                     )
                                   : const Text(
@@ -259,11 +260,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Center(
                       child: TextButton.icon(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
                         label: const Text('Already have an account? Sign in'),
                         style: TextButton.styleFrom(
                           foregroundColor: AppTheme.primaryTealDark,
-                          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                          minimumSize: const Size(48, 48),
+                          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
                         ),
                       ),
                     ),
