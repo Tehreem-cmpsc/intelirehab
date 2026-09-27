@@ -1,21 +1,36 @@
-name: inteli_rehab_mobile_app
+name: inteli_rehab
 description: Inteli Rehab patient app — registration, login, and rehab session tracking.
 publish_to: 'none'
-version: 0.1.0
+version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ^3.10.8
 
 dependencies:
   flutter:
     sdk: flutter
-  supabase_flutter: ^2.6.0
+
   cupertino_icons: ^1.0.8
+  flutter_tts: ^4.2.5
+  google_fonts: ^8.1.0
+  video_player: ^2.11.1
+  flutter_bloc: ^8.1.6
+  go_router: ^14.8.1
+  supabase_flutter: ^2.8.4
+  flutter_reactive_ble: ^5.3.1
+  equatable: ^2.0.7
+  get_it: ^7.7.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: ^6.0.0
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/models/right_arm.glb
+    - assets/models/Ch22_nonPBR.glb
+    - assets/images/
+    - assets/videos/

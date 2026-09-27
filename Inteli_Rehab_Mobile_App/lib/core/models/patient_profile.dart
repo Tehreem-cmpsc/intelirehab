@@ -25,4 +25,15 @@ class PatientProfile {
       warning: map['warning'] as String?,
     );
   }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'injury': injury,
+      'status': status,
+      'approved': approved,
+      'warning': warning,
+    };
+  }
 }
