@@ -1,35 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/models/patient_profile.dart';
 import '../../../../core/services/supabase_service.dart';
-import '../models/user_model.dart';
-
-abstract class AuthRemoteDataSource {
-  Future<UserModel> login(String email, String password);
-  Future<UserModel> register(String email, String password, String name);
-  Future<void> logout();
-}
+import '../../../../shared/entities/patient_entity.dart';
 
 /// Thin service handling Supabase auth & patient profile claims.
 /// Directly implements Tehreem's backend calls from Inteli_Rehab_Mobile_App.
-class AuthService implements AuthRemoteDataSource {
+class AuthService {
   Stream<AuthState> get onAuthStateChange => supabase.auth.onAuthStateChange;
 
   Session? get currentSession => supabase.auth.currentSession;
   User? get currentUser => supabase.auth.currentUser;
-
-  @override
-  Future<UserModel> login(String email, String password) async {
-    final response = await supabase.auth.signInWithPassword(
-      email: email,
-      password: password,
-    );
-    final user = response.user;
-    return UserModel(
-      id: user?.id ?? '',
-      email: user?.email ?? email,
-      name: user?.userMetadata?['name'] as String? ?? 'Patient',
-    );
-  }
 
   Future<AuthResponse> signIn({
     required String email,
@@ -41,54 +20,39 @@ class AuthService implements AuthRemoteDataSource {
     );
   }
 
-  @override
-  Future<UserModel> register(String email, String password, String name) async {
-    final response = await supabase.auth.signUp(
-      email: email,
-      password: password,
-      data: {'name': name},
-    );
-    final user = response.user;
-    return UserModel(
-      id: user?.id ?? '',
-      email: user?.email ?? email,
-      name: name,
-    );
-  }
-
-  /// Two-step registration (Tehreem's backend flow):
-  /// 1. Create Supabase Auth user
-  /// 2. Link auth user to existing clinic patient record using 'claim_patient_record' RPC
+  /// Registers user and links clinic record via claim_patient_record RPC.
   Future<void> registerWithRegId({
     required String email,
     required String password,
     required String regId,
   }) async {
-    final signUpResponse = await supabase.auth.signUp(
+    final authRes = await supabase.auth.signUp(
       email: email,
       password: password,
     );
-    if (signUpResponse.user == null) {
-      throw const AuthException('Could not create your account.');
+    final user = authRes.user;
+    if (user == null) {
+      throw Exception('Registration failed: no user returned from auth server.');
     }
 
     try {
-      await supabase.rpc('claim_patient_record', params: {'target_reg_id': regId});
-    } catch (e) {
+      await supabase.rpc('claim_patient_record', params: {
+        'target_reg_id': regId,
+      });
+    } catch (_) {
       throw Exception(
-        'Your account was created, but the registration ID "$regId" could not be '
+        'Account was created, but your registration ID could not be '
         'linked (it may be incorrect or already used). Contact your clinic — '
         'do not try registering again with this email.',
       );
     }
   }
 
-  @override
   Future<void> logout() => signOut();
 
   Future<void> signOut() => supabase.auth.signOut();
 
-  Future<PatientProfile?> fetchMyPatientProfile() async {
+  Future<PatientEntity?> fetchMyPatientProfile() async {
     final uid = supabase.auth.currentUser?.id;
     if (uid == null) return null;
 
@@ -99,6 +63,6 @@ class AuthService implements AuthRemoteDataSource {
         .maybeSingle();
 
     if (row == null) return null;
-    return PatientProfile.fromMap(row);
+    return PatientEntity.fromMap(row);
   }
 }

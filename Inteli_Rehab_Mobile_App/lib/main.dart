@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/services/supabase_service.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
-import 'core/models/patient_profile.dart';
+import 'shared/entities/patient_entity.dart';
 import 'features/auth/data/datasources/auth_remote_data_source.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
 import 'features/home_dashboard/presentation/screens/home_dashboard_screen.dart';

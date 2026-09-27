@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../../../core/models/patient_profile.dart';
+import '../../../../shared/entities/patient_entity.dart';
 import '../../../auth/data/datasources/auth_remote_data_source.dart';
 
 class PendingApprovalScreen extends StatelessWidget {
-  final PatientProfile profile;
+  final PatientEntity profile;
 
   const PendingApprovalScreen({super.key, required this.profile});
 
