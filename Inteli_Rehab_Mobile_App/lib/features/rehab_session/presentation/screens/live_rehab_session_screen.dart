@@ -296,7 +296,7 @@ class _LiveRehabSessionScreenState extends State<LiveRehabSessionScreen>
                           Transform.rotate(
                             angle: (_currentAngle * 3.14159 / 180.0) * 0.4,
                             child: Image.asset(
-                              'assets/images/human hand.png',
+                              'assets/images/human_hand.png',
                               height: 140,
                               fit: BoxFit.contain,
                             ),

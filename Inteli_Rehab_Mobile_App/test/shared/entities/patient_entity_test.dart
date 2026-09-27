@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:inteli_rehab/shared/entities/patient_entity.dart';
 import 'package:inteli_rehab/shared/enums/injury_type.dart';

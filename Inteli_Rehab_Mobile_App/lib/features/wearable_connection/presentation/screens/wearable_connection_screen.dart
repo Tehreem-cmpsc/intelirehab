@@ -15,7 +15,7 @@ class WearableConnectionScreen extends StatefulWidget {
 class _WearableConnectionScreenState extends State<WearableConnectionScreen> with SingleTickerProviderStateMixin {
   bool _isScanning = false;
   String? _connectedDeviceId = 'INTELI-ARM-01';
-  int _batteryLevel = 88;
+  final int _batteryLevel = 88;
   late AnimationController _pulseController;
 
   final List<Map<String, dynamic>> _devices = [
@@ -93,7 +93,7 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
       const SnackBar(
         content: Text('Sensor disconnected'),
         backgroundColor: AppTheme.slate600,
-        duration: const Duration(seconds: 2),
+        duration: Duration(seconds: 2),
       ),
     );
   }
@@ -150,7 +150,7 @@ class _WearableConnectionScreenState extends State<WearableConnectionScreen> wit
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _devices.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              separatorBuilder: (context, index) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final dev = _devices[index];
                 final isConnected = _connectedDeviceId == dev['id'];

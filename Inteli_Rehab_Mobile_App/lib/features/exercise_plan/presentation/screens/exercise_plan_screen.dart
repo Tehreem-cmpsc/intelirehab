@@ -375,7 +375,7 @@ class _ExercisePlanScreenState extends State<ExercisePlanScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _filteredExercises.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final ex = _filteredExercises[index];
                 return _buildExerciseCard(ex);

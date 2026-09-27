@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:inteli_rehab/features/rehab_session/data/repositories/rehab_session_repository_impl.dart';
 import 'package:inteli_rehab/features/rehab_session/domain/entities/rehab_session_entity.dart';
-import 'package:inteli_rehab/features/rehab_session/domain/usecases/save_session_usecase.dart';
 
 // TODO (Tehreem): Replace RehabSessionRepositoryImpl with a mock once real backend is done.
 // For now this tests the domain layer contract shape.

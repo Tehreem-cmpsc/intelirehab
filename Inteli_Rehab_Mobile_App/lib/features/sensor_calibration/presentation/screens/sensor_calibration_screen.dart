@@ -19,7 +19,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
   // Real-time simulated sensor metrics
   double _pitch = 0.0;
   double _roll = 0.0;
-  int _emgNoise = 14; // microvolts
+  final int _emgNoise = 14; // microvolts
 
   void _startCalibrationCountdown() {
     setState(() {
@@ -182,7 +182,7 @@ class _SensorCalibrationScreenState extends State<SensorCalibrationScreen> {
                 ),
                 child: Center(
                   child: Image.asset(
-                    'assets/images/human hand.png',
+                    'assets/images/human_hand.png',
                     fit: BoxFit.contain,
                   ),
                 ),

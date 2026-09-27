@@ -25,11 +25,11 @@ class _HomeDashboardScreenState extends State<HomeDashboardScreen> {
   late final PatientEntity _currentPatient;
 
   // Mock patient state
-  bool _isSensorConnected = true;
-  int _sensorBattery = 88;
-  int _streakDays = 5;
-  double _currentRom = 74.0;
-  double _targetRom = 90.0;
+  final bool _isSensorConnected = true;
+  final int _sensorBattery = 88;
+  final int _streakDays = 5;
+  final double _currentRom = 74.0;
+  final double _targetRom = 90.0;
 
   @override
   void initState() {

@@ -135,7 +135,7 @@ class _SessionReplayScreenState extends State<SessionReplayScreen> {
                           Transform.rotate(
                             angle: (_currentAngle * 3.14159 / 180.0) * 0.4,
                             child: Image.asset(
-                              'assets/images/human hand.png',
+                              'assets/images/human_hand.png',
                               height: 130,
                               fit: BoxFit.contain,
                             ),

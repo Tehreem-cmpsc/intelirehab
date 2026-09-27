@@ -408,7 +408,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Transform.scale(
                 scale: thinScale,
                 child: Image.asset(
-                  'assets/images/thin line.png',
+                  'assets/images/thin_line.png',
                   fit: BoxFit.contain,
                   color: _tealLight,
                   colorBlendMode: BlendMode.srcIn,
@@ -428,7 +428,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Transform.translate(
                 offset: leftSlide * scale,
                 child: Image.asset(
-                  'assets/images/left hand.png',
+                  'assets/images/left_hand.png',
                   fit: BoxFit.contain,
                   color: _primaryTealDark,
                   colorBlendMode: BlendMode.srcIn,
@@ -448,7 +448,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Transform.translate(
                 offset: rightSlide * scale,
                 child: Image.asset(
-                  'assets/images/right hand.png',
+                  'assets/images/right_hand.png',
                   fit: BoxFit.contain,
                   color: _primaryTeal,
                   colorBlendMode: BlendMode.srcIn,
@@ -468,7 +468,7 @@ class _SplashScreenState extends State<SplashScreen>
               child: Transform.scale(
                 scale: armScaleFactor,
                 child: Image.asset(
-                  'assets/images/human hand.png',
+                  'assets/images/human_hand.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -484,7 +484,7 @@ class _SplashScreenState extends State<SplashScreen>
             child: Opacity(
               opacity: headOpacityVal,
               child: Image.asset(
-                'assets/images/filled circle.png',
+                'assets/images/filled_circle.png',
                 fit: BoxFit.contain,
                 color: _primaryTealDark,
                 colorBlendMode: BlendMode.srcIn,

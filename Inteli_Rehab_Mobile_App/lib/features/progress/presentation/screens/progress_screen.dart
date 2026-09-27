@@ -328,7 +328,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _milestones.length,
-            separatorBuilder: (_, __) => const Divider(height: 18, color: AppTheme.slate100),
+            separatorBuilder: (context, index) => const Divider(height: 18, color: AppTheme.slate100),
             itemBuilder: (context, idx) {
               final m = _milestones[idx];
               final isDone = m['isDone'] as bool;
