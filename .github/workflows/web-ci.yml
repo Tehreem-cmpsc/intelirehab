@@ -1,0 +1,12 @@
+name: Web Portal CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    name: Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notice
+        run: echo "Web Portal CI placeholder. Add lint/build steps when web portal tests are ready."

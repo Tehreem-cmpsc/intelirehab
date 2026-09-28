@@ -1,0 +1,12 @@
+name: AI Pipeline CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    name: Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notice
+        run: echo "AI Pipeline CI placeholder. Add test steps when pipeline is ready."

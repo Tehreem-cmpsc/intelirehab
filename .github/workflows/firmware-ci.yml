@@ -1,0 +1,12 @@
+name: Firmware CI
+
+on:
+  workflow_dispatch:
+
+jobs:
+  placeholder:
+    name: Placeholder
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notice
+        run: echo "Firmware CI placeholder. Add build steps when firmware is ready."
