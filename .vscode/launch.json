@@ -1,0 +1,25 @@
+{
+  // Run / F5 in VS Code. The first entry is the default.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Designing screens: front-end only — sample data, no backend,
+      // design preview menus, no field checks.
+      "name": "Mobile app — Front-end (design)",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "Inteli_Rehab_Mobile_App",
+      "program": "lib/main.dart"
+    },
+    {
+      // The real Supabase project, with field checks on. Needs the
+      // supabase_patient_*.sql files run first (see the app README).
+      "name": "Mobile app — Real backend",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "Inteli_Rehab_Mobile_App",
+      "program": "lib/main.dart",
+      "args": ["--dart-define=USE_BACKEND=true", "--dart-define=FORM_CHECKS=true"]
+    }
+  ]
+}

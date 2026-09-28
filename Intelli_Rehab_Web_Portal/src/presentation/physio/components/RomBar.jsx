@@ -22,7 +22,8 @@ function RomBar({ value, height = 6 }) {
       >
         <div
           style={{
-            width: `${value}%`,
+            // ROM can exceed 100% of target; the label shows the real value.
+            width: `${Math.max(0, Math.min(100, value))}%`,
             height: "100%",
             background: color,
             borderRadius: 99,

@@ -99,15 +99,15 @@ export default function AddPhysiotherapistModal({ onClose, onSubmit }) {
       role="dialog"
       aria-modal="true"
     >
-      <div className="cp-root cp-card rounded-3xl w-full max-w-3xl p-6 sm:p-8 cp-fade-in overflow-y-auto max-h-[90vh]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
-          <div>
+      <div className="cp-root cp-card rounded-3xl w-full max-w-3xl p-6 sm:p-8 cp-fade-in overflow-y-auto max-h-[90dvh]">
+        <div className="flex items-start justify-between gap-3 mb-6">
+          <div className="min-w-0">
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-[var(--muted)] mb-1">Add physiotherapist</p>
             <h3 className="cp-display font-bold text-[20px] sm:text-[22px]">Invite a new physiotherapist to the clinic</h3>
           </div>
           <button
             onClick={onClose}
-            className="cp-focus text-[var(--muted)] hover:text-[var(--ink)] rounded-full p-2"
+            className="cp-focus text-[var(--muted)] hover:text-[var(--ink)] rounded-full p-2 -mr-2 -mt-1 flex-shrink-0"
             aria-label="Close add physiotherapist modal"
           >
             <X size={20} />

@@ -58,12 +58,12 @@ export default function LoginPage({ onBack, onLogin, onForgotPassword, loading, 
 
   return (
     <div className="cp-root min-h-screen grid grid-cols-1 md:grid-cols-2">
-      <div className="hidden md:flex flex-col justify-between p-12 relative overflow-hidden" style={{ background: `linear-gradient(160deg, var(--primary-deep), var(--primary))` }}>
+      <div className="hidden md:flex flex-col justify-between p-12 relative overflow-hidden" style={{ background: `linear-gradient(160deg, var(--hero-start), var(--hero-end))` }}>
         <svg className="cp-arc-spin absolute -left-32 -bottom-32 opacity-15" width="480" height="480" viewBox="0 0 480 480">
           <circle cx="240" cy="240" r="210" stroke="white" strokeWidth="2" fill="none" strokeDasharray="10 14" />
         </svg>
         <button onClick={onBack} className="cp-focus flex items-center w-fit cursor-pointer bg-transparent border-none">
-          <Logo size={36} light={true} showText={true} />
+          <Logo size={36} light={true} showText={true} onDark />
         </button>
         <div className="relative cp-rise">
           <RadialProgress value={70} size={110} stroke={9} color="var(--accent)" track="rgba(255,255,255,0.2)" label="70%" labelColor="#fff" />
@@ -101,7 +101,7 @@ export default function LoginPage({ onBack, onLogin, onForgotPassword, loading, 
               onClick={() => handleRoleChange("admin")}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer border-none ${
                 role === "admin"
-                  ? "bg-[var(--primary)] text-white shadow-sm"
+                  ? "bg-[var(--primary)] text-[var(--on-primary)] shadow-sm"
                   : "text-[var(--primary)] hover:bg-[var(--border)]/40"
               }`}
             >
@@ -112,7 +112,7 @@ export default function LoginPage({ onBack, onLogin, onForgotPassword, loading, 
               onClick={() => handleRoleChange("physio")}
               className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer border-none ${
                 role === "physio"
-                  ? "bg-[var(--primary)] text-white shadow-sm"
+                  ? "bg-[var(--primary)] text-[var(--on-primary)] shadow-sm"
                   : "text-[var(--primary)] hover:bg-[var(--border)]/40"
               }`}
             >

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../onboarding/register_screen.dart';
+import '../../core/widgets/app_logo.dart';
+import '../../core/widgets/theme_toggle.dart';
+import '../onboarding/onboarding_flow.dart';
 import 'auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String? initialEmail;
+
+  const LoginScreen({super.key, this.initialEmail});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -13,7 +18,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  late final _emailController = TextEditingController(text: widget.initialEmail);
   final _passwordController = TextEditingController();
 
   bool _submitting = false;
@@ -37,10 +42,18 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      // Navigation happens automatically — main.dart listens to auth
-      // state and swaps screens once signed in.
-    } catch (e) {
-      setState(() => _errorMessage = 'Incorrect email or password.');
+      // AuthGate (the root route) picks up the new session and shows the
+      // right screen — resume onboarding, waiting, or home.
+      if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
+    } on AuthException catch (e) {
+      final message = e.message.toLowerCase();
+      setState(() => _errorMessage = message.contains('not confirmed')
+          ? 'Please confirm your email first — check your inbox for the link.'
+          : message.contains('invalid')
+              ? 'Incorrect email or password.'
+              : e.message);
+    } catch (_) {
+      setState(() => _errorMessage = "Couldn't reach Inteli Rehab. Check your connection and try again.");
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
@@ -49,6 +62,9 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        actions: const [ThemeToggle(), SizedBox(width: 16)],
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -59,25 +75,32 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('Inteli Rehab', style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center),
-                  const SizedBox(height: 8),
+                  const Align(alignment: Alignment.centerLeft, child: AppLogo(size: 36)),
+                  const SizedBox(height: 28),
+                  Text('Welcome back', style: Theme.of(context).textTheme.headlineSmall),
+                  const SizedBox(height: 6),
                   Text(
-                    'Sign in to continue your rehab program',
+                    'Sign in to continue your rehab program.',
                     style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 32),
                   TextFormField(
                     controller: _emailController,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'Email'),
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      prefixIcon: Icon(Icons.mail_outline, size: 20),
+                    ),
                     validator: (v) => (v == null || !v.contains('@')) ? 'Enter a valid email' : null,
                   ),
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password'),
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      prefixIcon: Icon(Icons.lock_outline, size: 20),
+                    ),
                     validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
                   ),
                   if (_errorMessage != null) ...[
@@ -96,9 +119,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: _submitting
                         ? null
                         : () => Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                              MaterialPageRoute(builder: (_) => const OnboardingFlow()),
                             ),
-                    child: const Text("New patient? Register with your clinic ID"),
+                    child: const Text('New patient? Create an account'),
                   ),
                 ],
               ),

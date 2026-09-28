@@ -12,18 +12,17 @@ import { THEME, EXERCISES } from "../../../infrastructure/physio/constants";
 import { Card, SectionHead, RomBar, Badge } from "../components";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
+import useIsMobile from "../../useIsMobile";
 
 function AssignExerciseModal({ patient, onClose, onAssign }) {
   const [exId, setExId] = useState(patient.currentExercise?.id || 1);
   const [sets, setSets] = useState(patient.currentExercise?.sets || 3);
   const [reps, setReps] = useState(patient.currentExercise?.reps || 10);
   const [romTarget, setRomTarget] = useState(patient.currentExercise?.romTarget || 70);
-  // Text in this modal already tracks the theme (slate600/slate500/slate800
-  // all differ per palette) — THEME.white as the card background didn't,
-  // so dark mode meant near-white text on a white card.
-  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
-  const surface = isDark ? THEME.slate100 : THEME.white;
+  const surface = THEME.surface;
   const [freq, setFreq] = useState(patient.currentExercise?.freq || "Daily");
+  const isMobile = useIsMobile();
 
   const ex = EXERCISES.find((e) => e.id === exId);
   const inp = {
@@ -33,6 +32,9 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
     borderRadius: 9,
     fontSize: 14,
     color: THEME.slate800,
+    // Without an explicit background, <select>/<input> stay white in dark
+    // mode while their text turns near-white.
+    background: THEME.slate50,
     outline: "none",
     boxSizing: "border-box",
   };
@@ -47,15 +49,17 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
+        padding: 16,
       }}
     >
       <div
         style={{
           background: surface,
           borderRadius: 18,
-          padding: 32,
+          padding: isMobile ? 20 : 32,
           width: 520,
-          maxHeight: "90vh",
+          maxWidth: "100%",
+          maxHeight: "90dvh",
           overflowY: "auto",
           boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
         }}
@@ -136,7 +140,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
           </div>
         )}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
           {[
             ["SETS", sets, setSets, 1, 6],
             ["REPS", reps, setReps, 3, 20],
@@ -209,7 +213,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
               background: THEME.teal,
               border: "none",
               borderRadius: 10,
-              color: THEME.white,
+              color: THEME.onFill,
               fontWeight: 700,
               cursor: "pointer",
             }}
@@ -272,15 +276,20 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
   };
 
   const approvedPatients = patients.filter((p) => p.approved);
+  const isMobile = useIsMobile();
+  // Phones get master → detail: the list, or one patient with a back link.
+  const showList = !isMobile || !selected;
+  const showDetail = !isMobile || selected;
 
   return (
-    <div style={{ padding: "28px 32px", position: "relative" }}>
+    <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
       {toast && (
         <div
           style={{
             position: "fixed",
-            top: 24,
-            right: 32,
+            top: isMobile ? 16 : 24,
+            right: isMobile ? 16 : 32,
+            left: isMobile ? 16 : "auto",
             background: THEME.navy,
             color: THEME.white,
             borderRadius: 10,
@@ -302,9 +311,38 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
         />
       )}
 
-      <SectionHead title="Patients" sub={`${approvedPatients.length} active patients`} />
-      <div style={{ display: "grid", gridTemplateColumns: "300px 1fr", gap: 20, alignItems: "start" }}>
+      {isMobile && selected ? (
+        <button
+          onClick={() => setSelectedId(null)}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            background: "none",
+            border: "none",
+            padding: "4px 0",
+            marginBottom: 14,
+            color: THEME.teal,
+            fontWeight: 700,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          ← All patients
+        </button>
+      ) : (
+        <SectionHead title="Patients" sub={`${approvedPatients.length} active patients`} />
+      )}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "300px minmax(0, 1fr)",
+          gap: 20,
+          alignItems: "start",
+        }}
+      >
         {/* Patient list */}
+        {showList && (
         <Card style={{ overflow: "hidden" }}>
           {approvedPatients.length === 0 ? (
             <div style={{ padding: "48px 20px", textAlign: "center", color: THEME.slate400, fontSize: 13 }}>
@@ -317,7 +355,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
               onClick={() => setSelectedId(p.id)}
               style={{
                 padding: "14px 16px",
-                borderBottom: i < approvedPatients.length - 1 ? `1px solid ${THEME.slate100}` : "none",
+                borderBottom: i < approvedPatients.length - 1 ? `1px solid ${THEME.slate200}` : "none",
                 cursor: "pointer",
                 background: selectedId === p.id ? THEME.tealLight : "transparent",
                 borderLeft: selectedId === p.id ? `3px solid ${THEME.teal}` : "3px solid transparent",
@@ -331,7 +369,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                     height: 36,
                     borderRadius: "50%",
                     background: selectedId === p.id ? THEME.teal : THEME.navy,
-                    color: THEME.white,
+                    color: selectedId === p.id ? THEME.onFill : THEME.white,
                     fontSize: 13,
                     fontWeight: 700,
                     display: "flex",
@@ -351,9 +389,12 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                       display: "flex",
                       alignItems: "center",
                       gap: 6,
+                      minWidth: 0,
                     }}
                   >
-                    {p.name}
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.name}
+                    </span>
                     {p.warning && (
                       <span
                         style={{
@@ -399,19 +440,22 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
             ))
           )}
         </Card>
+        )}
 
         {/* Patient detail - using the remaining space */}
-        {selected ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <Card style={{ padding: "22px 26px" }}>
+        {!showDetail ? null : selected ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 14 : 18, minWidth: 0 }}>
+            <Card style={{ padding: isMobile ? "18px 16px" : "22px 26px" }}>
               <div
                 style={{
                   display: "flex",
+                  flexWrap: "wrap",
+                  gap: 14,
                   alignItems: "flex-start",
                   justifyContent: "space-between",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0, flex: "1 1 240px" }}>
                   <div
                     style={{
                       width: 52,
@@ -424,18 +468,19 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      flexShrink: 0,
                     }}
                   >
                     {VisualizationService.getInitials(selected.name)}
                   </div>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: THEME.slate800 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: isMobile ? 18 : 20, fontWeight: 800, color: THEME.slate800, overflowWrap: "anywhere" }}>
                       {selected.name}
                     </div>
                     <div style={{ fontSize: 13, color: THEME.slate500 }}>
-                      {selected.regId} · {selected.injury}
+                      {[selected.regId, selected.injury].filter(Boolean).join(" · ")}
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 }}>
                       <Badge status={selected.status} />
                       <span
                         style={{
@@ -458,7 +503,8 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                     background: THEME.teal,
                     border: "none",
                     borderRadius: 10,
-                    color: THEME.white,
+                    color: THEME.onFill,
+                    flex: isMobile ? "1 1 100%" : "0 0 auto",
                     fontWeight: 700,
                     fontSize: 13,
                     cursor: "pointer",
@@ -489,8 +535,14 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
             </Card>
 
             {/* ROM + EMG charts */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-              <Card style={{ padding: "20px 22px" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))",
+                gap: isMobile ? 14 : 18,
+              }}
+            >
+              <Card style={{ padding: isMobile ? "18px 16px" : "20px 22px", minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 14 }}>
                   ROM progress
                 </div>
@@ -524,27 +576,10 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                           />
                         </linearGradient>
                       </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-                      <XAxis
-                        dataKey="w"
-                        tick={{ fontSize: 11, fill: THEME.slate400 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        tick={{ fontSize: 11, fill: THEME.slate400 }}
-                        axisLine={false}
-                        tickLine={false}
-                        domain={[0, 100]}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          borderRadius: 9,
-                          border: `1px solid ${THEME.slate200}`,
-                          fontSize: 12,
-                        }}
-                        formatter={(v) => [`${v}%`, "ROM"]}
-                      />
+                      <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate200} />
+                      <XAxis dataKey="w" tick={axisTick()} axisLine={false} tickLine={false} />
+                      <YAxis tick={axisTick()} axisLine={false} tickLine={false} domain={[0, "auto"]} />
+                      <Tooltip {...tooltipProps()} formatter={(v) => [`${v}%`, "ROM"]} />
                       <Area
                         type="monotone"
                         dataKey="v"
@@ -558,7 +593,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                 )}
               </Card>
 
-              <Card style={{ padding: "20px 22px" }}>
+              <Card style={{ padding: isMobile ? "18px 16px" : "20px 22px", minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 14 }}>
                   Muscle activation (EMG)
                 </div>
@@ -579,7 +614,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                           {m.val}%
                         </span>
                       </div>
-                      <div style={{ height: 6, background: THEME.slate100, borderRadius: 99, overflow: "hidden" }}>
+                      <div style={{ height: 6, background: THEME.slate200, borderRadius: 99, overflow: "hidden" }}>
                         <div
                           style={{
                             width: `${m.val}%`,
@@ -600,10 +635,12 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
               (() => {
                 const ex = EXERCISES.find((e) => e.id === selected.currentExercise.id);
                 return (
-                  <Card style={{ padding: "20px 24px" }}>
+                  <Card style={{ padding: isMobile ? "18px 16px" : "20px 24px" }}>
                     <div
                       style={{
                         display: "flex",
+                        flexWrap: "wrap",
+                        gap: 16,
                         justifyContent: "space-between",
                         alignItems: "flex-start",
                       }}
@@ -626,7 +663,14 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                           {ex?.target} · {ex?.difficulty}
                         </div>
                       </div>
-                      <div style={{ display: "flex", gap: 16 }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, auto)",
+                          gap: isMobile ? 10 : 16,
+                          width: isMobile ? "100%" : "auto",
+                        }}
+                      >
                         {[
                           ["Sets", selected.currentExercise.sets],
                           ["Reps", selected.currentExercise.reps],
@@ -656,7 +700,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
 
             {/* Session history */}
             <Card style={{ overflow: "hidden" }}>
-              <div style={{ padding: "16px 22px", borderBottom: `1px solid ${THEME.slate100}` }}>
+              <div style={{ padding: isMobile ? "14px 16px" : "16px 22px", borderBottom: `1px solid ${THEME.slate200}` }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800 }}>
                   Session history
                 </div>
@@ -674,13 +718,14 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                 </div>
               ) : (
                 <>
+                  {!isMobile && (
                   <div
                     style={{
                       display: "grid",
                       gridTemplateColumns: "1fr 1fr 1fr 1fr 1.5fr",
                       padding: "10px 22px",
                       background: THEME.slate50,
-                      borderBottom: `1px solid ${THEME.slate100}`,
+                      borderBottom: `1px solid ${THEME.slate200}`,
                     }}
                   >
                     {["Date", "ROM", "Quality", "Fatigue", "Exercise"].map((h) => (
@@ -698,19 +743,22 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                       </div>
                     ))}
                   </div>
+                  )}
                   {selected.sessions.map((s, i) => (
                     <div
                       key={i}
                       style={{
                         display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr 1fr 1.5fr",
-                        padding: "12px 22px",
+                        // Phones: date + ROM on top, chips + exercise underneath.
+                        gridTemplateColumns: isMobile ? "auto auto auto 1fr" : "1fr 1fr 1fr 1fr 1.5fr",
+                        gap: isMobile ? "6px 10px" : 0,
+                        padding: isMobile ? "12px 16px" : "12px 22px",
                         borderBottom:
-                          i < selected.sessions.length - 1 ? `1px solid ${THEME.slate100}` : "none",
+                          i < selected.sessions.length - 1 ? `1px solid ${THEME.slate200}` : "none",
                         alignItems: "center",
                       }}
                     >
-                      <div style={{ fontSize: 13, color: THEME.slate700, fontWeight: 600 }}>
+                      <div style={{ fontSize: 13, color: THEME.slate600, fontWeight: 600 }}>
                         {s.date}
                       </div>
                       <div
@@ -735,7 +783,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                             fontWeight: 600,
                           }}
                         >
-                          {s.quality}%
+                          {isMobile && "Quality "}{s.quality}%
                         </span>
                       </div>
                       <div>
@@ -751,10 +799,16 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                             fontWeight: 600,
                           }}
                         >
-                          {s.fatigue}%
+                          {isMobile && "Fatigue "}{s.fatigue}%
                         </span>
                       </div>
-                      <div style={{ fontSize: 12, color: THEME.slate500 }}>
+                      <div
+                        style={{
+                          fontSize: 12,
+                          color: THEME.slate500,
+                          ...(isMobile && { gridColumn: "1 / -1" }),
+                        }}
+                      >
                         {s.exercise} × {s.reps}
                       </div>
                     </div>

@@ -16,12 +16,24 @@
   --surface: #FFFFFF;
   --border: #DEE7E5;
   --muted: #4C6360;
+  /* Text on a solid --primary fill (buttons, avatars, active toggles). */
+  --on-primary: #FFFFFF;
+  /* Hero panels / banners that carry white text in both themes. */
+  --hero-start: #073C41;
+  --hero-end: #0D6E76;
   font-family: 'Inter', sans-serif;
   color: var(--ink);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 .cp-root * { box-sizing: border-box; }
+
+/* Base page colours, so nothing outside a .cp-root (or before it mounts)
+   flashes white text on white in dark mode. */
+html, body { margin: 0; background: #F5F8F7; color: #12242B; }
+html[data-theme="dark"], html[data-theme="dark"] body { background: #0f1f22; color: rgba(255, 255, 255, 0.88); }
+/* Nothing should ever scroll sideways on a phone. */
+html, body, #root { max-width: 100%; overflow-x: hidden; }
 
 /* Dark theme — applied wherever `data-theme="dark"` is set (App.jsx sets it
    on <html> from one shared, localStorage-persisted state), so any page
@@ -43,12 +55,16 @@
   --surface: #122b30;
   --border: rgba(255, 255, 255, 0.1);
   --muted: rgba(255, 255, 255, 0.78);
+  /* Dark-mode --primary is bright mint; white on it is unreadable. */
+  --on-primary: #062A2E;
+  --hero-start: #0b2428;
+  --hero-end: #134D52;
 }
 .cp-display { font-family: 'Space Grotesk', sans-serif; }
 .cp-mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.01em; }
 
 .cp-btn-primary {
-  background: var(--primary); color: white; font-weight: 600;
+  background: var(--primary); color: var(--on-primary); font-weight: 600;
   transition: background .15s ease, transform .15s ease;
 }
 .cp-btn-primary:hover { background: var(--primary-deep); transform: translateY(-1px); }

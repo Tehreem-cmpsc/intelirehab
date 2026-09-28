@@ -56,13 +56,13 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
   return (
     <div className="cp-root min-h-screen flex flex-col selection:bg-[var(--primary-tint)] selection:text-[var(--primary-deep)]">
       {/* Premium Navbar */}
-      <nav className="max-w-6xl w-full mx-auto flex items-center justify-between px-6 py-5 bg-transparent">
+      <nav className="max-w-6xl w-full mx-auto flex items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-5 bg-transparent">
         <Logo size={36} light={true} showText={true} />
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
           {setDark && <ThemeToggle dark={dark} setDark={setDark} />}
           <button
             onClick={onGoLogin}
-            className="cp-btn-primary cp-focus rounded-xl px-6 py-2.5 text-[14px] flex items-center gap-2 cursor-pointer shadow-sm hover:shadow"
+            className="cp-btn-primary cp-focus rounded-xl px-4 sm:px-6 py-2.5 text-[14px] whitespace-nowrap flex items-center gap-2 cursor-pointer shadow-sm hover:shadow"
           >
             Sign In <ArrowRight size={15} />
           </button>
@@ -224,18 +224,18 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
       <section className="max-w-6xl w-full mx-auto px-6 -mt-10 relative z-20 cp-fade-in">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {[
-            { value: 92, label: "Partner Clinics", icon: Award, color: "text-[#0D6E76]" },
+            { value: 92, label: "Partner Clinics", icon: Award, color: "text-[var(--primary)]" },
             { value: 142, label: "Physiotherapists Active", icon: Users, color: "text-[#E7A24C]" },
             { value: 68, label: "Average Recovery Rate", icon: TrendingUp, color: "text-[#4C9F70]", suffix: "%" },
           ].map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="cp-card rounded-2xl p-6 flex items-center gap-5 shadow-lg bg-white border border-[#DEE7E5] text-left hover:scale-[1.01] transition-transform duration-250">
+              <div key={i} className="cp-card rounded-2xl p-6 flex items-center gap-5 shadow-lg bg-[var(--surface)] border border-[var(--border)] text-left hover:scale-[1.01] transition-transform duration-250">
                 <div className={`p-3.5 rounded-xl bg-[var(--bg)] ${s.color}`}>
                   <Icon size={24} />
                 </div>
                 <div>
-                  <div className="cp-display font-extrabold text-2xl text-[#12242B] leading-none">
+                  <div className="cp-display font-extrabold text-2xl text-[var(--ink)] leading-none">
                     {s.value}{s.suffix || ""}
                   </div>
                   <div className="text-[13px] font-semibold text-[var(--muted)] mt-1">{s.label}</div>
@@ -249,7 +249,7 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
       {/* Detailed Value Proposition Section */}
       <section id="demo" className="max-w-6xl w-full mx-auto px-6 py-28 text-left">
         <div className="max-w-xl mb-16">
-          <div className="cp-mono text-[12px] font-bold tracking-widest text-[#0D6E76] uppercase mb-3">Core Technology</div>
+          <div className="cp-mono text-[12px] font-bold tracking-widest text-[var(--primary)] uppercase mb-3">Core Technology</div>
           <h2 className="cp-display font-bold text-[32px] text-[var(--ink)] leading-tight">
             Sensors replace speculation.
           </h2>
@@ -278,11 +278,11 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
           ].map((feature, i) => {
             const Icon = feature.icon;
             return (
-              <div key={i} className="bg-white border border-[#DEE7E5] rounded-2xl p-7 shadow-sm hover:shadow-md transition-shadow">
-                <div className="w-12 h-12 rounded-xl bg-[#E4F1F0] text-[#0D6E76] flex items-center justify-center mb-6">
+              <div key={i} className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-7 shadow-sm hover:shadow-md transition-shadow">
+                <div className="w-12 h-12 rounded-xl bg-[var(--primary-tint)] text-[var(--primary)] flex items-center justify-center mb-6">
                   <Icon size={22} />
                 </div>
-                <h3 className="cp-display font-bold text-[18px] text-[#12242B] mb-3">{feature.title}</h3>
+                <h3 className="cp-display font-bold text-[18px] text-[var(--ink)] mb-3">{feature.title}</h3>
                 <p className="text-[13.5px] text-[var(--muted)] leading-relaxed">{feature.desc}</p>
               </div>
             );
@@ -291,11 +291,11 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
       </section>
 
       {/* Accordion FAQ Section */}
-      <section className="bg-white border-y border-[#DEE7E5] py-24">
+      <section className="bg-[var(--surface)] border-y border-[var(--border)] py-24">
         <div className="max-w-4xl mx-auto px-6 text-left">
           <div className="text-center max-w-lg mx-auto mb-16">
-            <div className="cp-mono text-[11px] font-bold tracking-widest text-[#0D6E76] uppercase mb-3">Information</div>
-            <h2 className="cp-display font-bold text-[30px] text-[#12242B]">Frequently Asked Questions</h2>
+            <div className="cp-mono text-[11px] font-bold tracking-widest text-[var(--primary)] uppercase mb-3">Information</div>
+            <h2 className="cp-display font-bold text-[30px] text-[var(--ink)]">Frequently Asked Questions</h2>
             <p className="text-[14px] text-[var(--muted)] mt-2">Answers to common queries regarding the Inteli-Rehab portal.</p>
           </div>
 
@@ -303,14 +303,14 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
             {faqs.map((faq, idx) => (
               <div 
                 key={idx} 
-                className="border border-[#DEE7E5] rounded-xl overflow-hidden bg-[var(--bg)]/50 transition-colors"
+                className="border border-[var(--border)] rounded-xl overflow-hidden bg-[var(--bg)]/50 transition-colors"
               >
                 <button
                   onClick={() => toggleFaq(idx)}
-                  className="w-full flex items-center justify-between p-5 text-left font-bold text-[15px] text-[#12242B] hover:bg-[#E4F1F0]/40 transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between p-5 text-left font-bold text-[15px] text-[var(--ink)] hover:bg-[#E4F1F0]/40 transition-colors cursor-pointer"
                 >
                   <span className="flex items-center gap-2.5">
-                    <HelpCircle size={16} className="text-[#0D6E76]" />
+                    <HelpCircle size={16} className="text-[var(--primary)]" />
                     {faq.q}
                   </span>
                   <ChevronDown 
@@ -323,7 +323,7 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
                     activeFaq === idx ? "max-h-[300px] border-t border-[#DEE7E5]/70" : "max-h-0"
                   }`}
                 >
-                  <p className="p-5 text-[14px] leading-relaxed text-[var(--muted)] bg-white">
+                  <p className="p-5 text-[14px] leading-relaxed text-[var(--muted)] bg-[var(--surface)]">
                     {faq.a}
                   </p>
                 </div>
@@ -363,7 +363,7 @@ export default function LandingPage({ onGoLogin, dark, setDark }) {
       </section>
 
       {/* Premium Footer */}
-      <footer className="border-t border-[#DEE7E5] bg-white mt-auto">
+      <footer className="border-t border-[var(--border)] bg-[var(--surface)] mt-auto">
         <div className="max-w-6xl w-full mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-[13px] text-[var(--muted)] font-semibold">
             <LogoIcon size={20} light={false} /> Inteli-Rehab Portal

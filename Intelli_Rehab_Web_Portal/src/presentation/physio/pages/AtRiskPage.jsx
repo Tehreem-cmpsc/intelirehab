@@ -12,6 +12,8 @@ import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
+import useIsMobile from "../../useIsMobile";
 
 // Each at-risk card fetches its own patient's EMG independently — there's
 // no bulk "EMG for every at-risk patient" query, and most clinics won't
@@ -46,7 +48,7 @@ function EmgIndicators({ patientId }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
       {emg.map((m) => (
         <div key={m.muscle} style={{ background: THEME.slate50, padding: "10px 12px", borderRadius: 9 }}>
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
@@ -73,6 +75,7 @@ function AtRiskPage({ patients, setPatients }) {
   const [warnInputs, setWarnInputs] = useState({});
   const [toast, setToast] = useState(null);
   const atRisk = patients.filter((p) => p.status === "at-risk");
+  const isMobile = useIsMobile();
 
   const showToast = (msg) => {
     setToast(msg);
@@ -93,13 +96,14 @@ function AtRiskPage({ patients, setPatients }) {
   };
 
   return (
-    <div style={{ padding: "28px 32px", position: "relative" }}>
+    <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
       {toast && (
         <div
           style={{
             position: "fixed",
-            top: 24,
-            right: 32,
+            top: isMobile ? 16 : 24,
+            right: isMobile ? 16 : 32,
+            left: isMobile ? 16 : "auto",
             background: THEME.navy,
             color: THEME.white,
             borderRadius: 10,
@@ -113,10 +117,13 @@ function AtRiskPage({ patients, setPatients }) {
         </div>
       )}
 
-      <SectionHead title="At-risk patients" sub={`${atRisk.length} patients need attention`} />
+      <SectionHead
+        title="At-risk patients"
+        sub={`${atRisk.length} ${atRisk.length === 1 ? "patient needs" : "patients need"} attention`}
+      />
 
       {atRisk.length === 0 ? (
-        <Card style={{ padding: "48px", textAlign: "center" }}>
+        <Card style={{ padding: isMobile ? "36px 20px" : "48px", textAlign: "center" }}>
           <div style={{ fontSize: 14, color: THEME.slate400 }}>
             No at-risk patients right now.
           </div>
@@ -129,10 +136,11 @@ function AtRiskPage({ patients, setPatients }) {
               <div
                 style={{
                   background: THEME.redLight,
-                  padding: "16px 24px",
+                  padding: isMobile ? "14px 16px" : "16px 24px",
                   display: "flex",
+                  flexWrap: "wrap",
                   alignItems: "center",
-                  gap: 14,
+                  gap: isMobile ? 10 : 14,
                   borderBottom: `1px solid ${THEME.slate200}`,
                 }}
               >
@@ -142,7 +150,7 @@ function AtRiskPage({ patients, setPatients }) {
                     height: 44,
                     borderRadius: "50%",
                     background: THEME.red,
-                    color: THEME.white,
+                    color: THEME.onFill,
                     fontSize: 15,
                     fontWeight: 700,
                     display: "flex",
@@ -153,19 +161,21 @@ function AtRiskPage({ patients, setPatients }) {
                 >
                   {VisualizationService.getInitials(p.name)}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: THEME.slate800 }}>
+                <div style={{ flex: "1 1 140px", minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: THEME.slate800, overflowWrap: "anywhere" }}>
                     {p.name}
                   </div>
                   <div style={{ fontSize: 13, color: THEME.slate500 }}>
-                    {p.injury} · {p.regId}
+                    {[p.injury, p.regId].filter(Boolean).join(" · ")}
                   </div>
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: THEME.red }}>{p.rom}% ROM</div>
+                <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: THEME.red, whiteSpace: "nowrap" }}>
+                  {p.rom}% ROM
+                </div>
               </div>
 
               {/* Body content */}
-              <div style={{ padding: "20px 24px" }}>
+              <div style={{ padding: isMobile ? "16px" : "20px 24px" }}>
                 {/* ROM trend chart */}
                 <div style={{ marginBottom: 18 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: THEME.slate600, marginBottom: 10 }}>
@@ -187,23 +197,15 @@ function AtRiskPage({ patients, setPatients }) {
                   ) : (
                     <ResponsiveContainer width="100%" height={100}>
                       <LineChart data={p.romWeekly} margin={{ top: 5, right: 10, bottom: 0, left: -28 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-                        <XAxis
-                          dataKey="w"
-                          tick={{ fontSize: 10, fill: THEME.slate400 }}
-                          axisLine={false}
-                          tickLine={false}
-                        />
+                        <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate200} />
+                        <XAxis dataKey="w" tick={{ ...axisTick(), fontSize: 10 }} axisLine={false} tickLine={false} />
                         <YAxis
-                          tick={{ fontSize: 10, fill: THEME.slate400 }}
+                          tick={{ ...axisTick(), fontSize: 10 }}
                           axisLine={false}
                           tickLine={false}
-                          domain={[0, 100]}
+                          domain={[0, "auto"]}
                         />
-                        <Tooltip
-                          contentStyle={{ borderRadius: 8, fontSize: 11 }}
-                          formatter={(v) => [`${v}%`, "ROM"]}
-                        />
+                        <Tooltip {...tooltipProps()} formatter={(v) => [`${v}%`, "ROM"]} />
                         <Line
                           type="monotone"
                           dataKey="v"
@@ -233,6 +235,7 @@ function AtRiskPage({ patients, setPatients }) {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
+                      gap: 10,
                     }}
                   >
                     <span style={{ fontSize: 13, color: THEME.amberDim, fontWeight: 600 }}>
@@ -255,7 +258,7 @@ function AtRiskPage({ patients, setPatients }) {
                 )}
 
                 {/* Warning input */}
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   <input
                     placeholder="Send a warning to patient (e.g. 'Please reduce intensity…')"
                     value={warnInputs[p.id] || ""}
@@ -264,12 +267,15 @@ function AtRiskPage({ patients, setPatients }) {
                     }
                     onKeyDown={(e) => e.key === "Enter" && sendWarning(p.id)}
                     style={{
-                      flex: 1,
+                      flex: "1 1 220px",
+                      minWidth: 0,
                       padding: "10px 14px",
                       border: `1.5px solid ${THEME.slate200}`,
                       borderRadius: 10,
                       fontSize: 13,
                       color: THEME.slate800,
+                      // Inputs stay white in dark mode unless told otherwise.
+                      background: THEME.slate50,
                       outline: "none",
                     }}
                   />
@@ -280,7 +286,8 @@ function AtRiskPage({ patients, setPatients }) {
                       background: THEME.amber,
                       border: "none",
                       borderRadius: 10,
-                      color: THEME.white,
+                      color: THEME.onFill,
+                      flex: isMobile ? "1 1 100%" : "0 0 auto",
                       fontWeight: 700,
                       fontSize: 13,
                       cursor: "pointer",

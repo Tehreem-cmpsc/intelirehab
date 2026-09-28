@@ -3,24 +3,23 @@ import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+import { pagePadding } from "../components/chartTheme";
+import useIsMobile from "../../useIsMobile";
 
 function ExercisesPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const levels = ExerciseUseCases.getDifficultyLevels();
   const filtered = ExerciseUseCases.filterExercises(filter, search);
-  // THEME.white is intentionally the same literal #FFFFFF in both palettes
-  // (e.g. white text on a colored badge) — it's the wrong choice for a
-  // surface/background color, which needs to actually change in dark mode.
-  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
+  const isMobile = useIsMobile();
 
   return (
-    <div style={{ padding: "28px 32px" }}>
+    <div style={{ padding: pagePadding(isMobile) }}>
       <SectionHead
         title="Exercise database"
         sub={`${ExerciseUseCases.getTotalExerciseCount()} clinic-approved exercises`}
         action={
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <input
               placeholder="Search exercises…"
               value={search}
@@ -31,12 +30,13 @@ function ExercisesPage() {
                 borderRadius: 9,
                 fontSize: 13,
                 color: THEME.slate800,
-                background: isDark ? THEME.slate100 : THEME.white,
+                background: THEME.surface,
                 outline: "none",
-                width: 200,
+                width: isMobile ? "100%" : 200,
+                boxSizing: "border-box",
               }}
             />
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {levels.map((l) => (
                 <button
                   key={l}
@@ -45,7 +45,7 @@ function ExercisesPage() {
                     padding: "8px 14px",
                     borderRadius: 9,
                     border: `1px solid ${filter === l ? THEME.teal : THEME.slate200}`,
-                    background: filter === l ? THEME.tealLight : (isDark ? THEME.slate100 : THEME.white),
+                    background: filter === l ? THEME.tealLight : THEME.surface,
                     color: filter === l ? THEME.tealDim : THEME.slate600,
                     fontSize: 12,
                     fontWeight: filter === l ? 700 : 400,
@@ -59,9 +59,15 @@ function ExercisesPage() {
           </div>
         }
       />
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 260px), 1fr))",
+          gap: isMobile ? 12 : 16,
+        }}
+      >
         {filtered.map((ex) => (
-          <Card key={ex.id} style={{ padding: "20px 22px" }}>
+          <Card key={ex.id} style={{ padding: isMobile ? "18px 16px" : "20px 22px" }}>
             <div
               style={{
                 display: "flex",

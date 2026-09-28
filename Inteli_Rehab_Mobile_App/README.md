@@ -1,57 +1,59 @@
 # Inteli Rehab — Patient Mobile App
 
-Flutter app for patients (FR-1: Patient Registration and Login). Talks to the
-same Supabase project as `Intelli_Rehab_Web_Portal`.
+Flutter app for patients: self-registration, onboarding and (later) rehab
+session tracking. Talks to the same Supabase project as
+`Intelli_Rehab_Web_Portal`, and uses the portal's colours and logo.
 
 ## What's here
 
-- `lib/core/network/supabase_client.dart` — Supabase init, same project as the web portal
-- `lib/core/models/patient_profile.dart` — maps a `patients` row
-- `lib/features/auth/` — sign in, and the `AuthService` wrapper around Supabase calls
-- `lib/features/onboarding/register_screen.dart` — registration ID + email/password
-- `lib/features/home/` — pending-approval screen and a placeholder home screen
-- `lib/app.dart` — `AuthGate`: routes between login → pending → home based on
-  session + `patients.approved`
+- `lib/app.dart` — `AuthGate`: routes a user to welcome, onboarding (resumed),
+  waiting-for-approval or home, based on their session and `patients` row
+- `lib/core/theme/` — portal colour tokens, light/dark themes, the app-wide theme toggle
+- `lib/features/onboarding/` — welcome screen and the 7-step onboarding flow
+  - `onboarding_repository.dart` — every Supabase call onboarding makes
+- `lib/features/auth/` — sign in, `AuthService`
+- `lib/features/home/` — placeholder home screen for approved patients
 
-## How registration actually works
+## How sign-up works
 
-A patient can't just sign up out of nowhere — a physio creates their
-`patients` row first (name, injury, clinic, and a `reg_id`), then hands the
-patient that registration ID. The patient enters it once in this app's
-Register screen, which:
+Patients create their own account — no clinic-issued ID needed.
 
-1. Calls `supabase.auth.signUp()` to create their login
-2. Calls the `claim_patient_record(reg_id)` RPC (see
-   `Intelli_Rehab_Web_Portal/supabase_patient_self_registration.sql`) to link
-   that login to the physio-created row
+| Step | Saved to |
+| --- | --- |
+| 1 Personal details, 2 Injury details, 3 Contact | `auth.signUp` then `register_patient_self()` → `patients` + `patient_injuries` |
+| 4 Clinic / physiotherapist | `list_onboarding_clinics()`, `list_clinic_physiotherapists()`, `choose_clinic_and_physio()` → `patients.clinic_id`, `physio_id` |
+| 5 Wearable | `wearable_devices` (`status = 'paired'`; earlier bands → `'replaced'`) |
+| 6 Calibration | `sessions` (rom = range, no exercise) + `movement_analysis` (`posture_status = 'baseline_calibration'`) |
+| 7 Wait for physiotherapist | reads `patients.approved`; the physio approves in the portal |
 
-They then land on the pending-approval screen until a physio approves them —
-the same `ApprovalsPage.jsx` flow already built in the web portal.
+If the Supabase project requires email confirmation, sign-up returns no
+session. The answers are saved in the auth user's metadata, and `AuthGate`
+finishes `register_patient_self()` on the first sign-in, then resumes at step 4.
+Once the account exists, steps 1–3 are locked; leaving signs out, and the
+patient resumes where they left off next time.
 
-## What's NOT here yet
+### Database migrations this needs
 
-- **No way to actually generate a `reg_id` for a real patient.** The web
-  portal has no "Add Patient" UI (only `PatientUseCases.getAllPatients()` —
-  read-only). Nothing end-to-end testable exists until that's built, mirroring
-  `AddPhysiotherapistModal.jsx` but for patients.
-- Android/iOS/etc. platform folders. This was hand-authored without the
-  Flutter SDK available in this environment — run `flutter create .` from
-  this directory once Flutter is installed locally; it fills in the missing
-  platform scaffolding without touching `lib/` or `pubspec.yaml` since those
-  already exist.
-- Everything past FR-1: wearable pairing, session tracking, digital twin,
-  AI feedback, offline sync (FR-7 through FR-19).
+Run in the Supabase SQL editor, in this order (all idempotent), from
+`Intelli_Rehab_Web_Portal/`:
+
+1. `supabase_patient_onboarding.sql`
+2. `supabase_patient_onboarding_v2.sql`
+3. `supabase_patient_choose_clinic_physio.sql`
+4. `supabase_patient_wearable_sync.sql` — keeps `patients.wearable_connected` in sync for the portal
+5. `supabase_patient_delete_account.sql` (not used by the app yet)
+
+## Not built yet
+
+- Real Bluetooth: the wearable scan/connect and the calibration readings are
+  simulated (`mock_directory.dart`); the chosen band and baseline *are* saved.
+- Everything after approval: sessions, exercise plans, progress, offline sync.
 
 ## Running it
 
 ```
-flutter create .        # generates android/, ios/, etc. — one-time
 flutter pub get
-flutter analyze         # this repo has NOT been run through analyze yet — expect to fix something
+flutter analyze
+flutter test
 flutter run
 ```
-
-**Important:** none of this Dart code has been compiled, analyzed, or run —
-the Flutter/Dart SDK isn't available in the environment it was written in.
-Treat it as a structural first draft, not verified working code. Run
-`flutter analyze` before trusting it.

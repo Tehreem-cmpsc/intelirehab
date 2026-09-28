@@ -18,8 +18,20 @@ import {
 } from "../components";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { computeWeeklyRom, computeWeekdayActivity } from "../../../domain/physio/utils/sessionAnalytics";
+import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
+import useIsMobile from "../../useIsMobile";
 
-function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
+function greetingFor(user) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  // "Dr. Tehreem Zaheer" -> "Dr. Zaheer"
+  const parts = (user?.name ?? "").trim().split(/\s+/).filter(Boolean);
+  const name = parts.length > 1 && /^dr\.?$/i.test(parts[0]) ? `Dr. ${parts[parts.length - 1]}` : parts[0];
+  return name ? `${greeting}, ${name}` : greeting;
+}
+
+function DashboardPage({ patients = [], setPage, setSelectedPatientId, user }) {
+  const isMobile = useIsMobile();
   // Every patient's sessions were already fetched once in PatientUseCases —
   // reuse that instead of a second clinic-wide query.
   const allSessionsAsc = [...patients.flatMap((p) => p.sessions)].sort(
@@ -68,24 +80,36 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
   ];
 
   return (
-    <div style={{ padding: "28px 32px" }}>
+    <div style={{ padding: pagePadding(isMobile) }}>
       <SectionHead
         title="Overview"
-        sub="Wednesday, 25 June 2026 · Good morning, Dr. Khan"
+        sub={`${new Date().toLocaleDateString("en-PK", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })} · ${greetingFor(user)}`}
       />
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4,1fr)",
-          gap: 16,
-          marginBottom: 24,
+          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
+          gap: isMobile ? 12 : 16,
+          marginBottom: isMobile ? 16 : 24,
         }}
       >
         {stats.map((s) => (
           <Card
             key={s.label}
-            style={{ padding: "20px 22px", display: "flex", gap: 14, alignItems: "flex-start" }}
+            style={{
+              padding: isMobile ? "16px" : "20px 22px",
+              display: "flex",
+              flexDirection: isMobile ? "column" : "row",
+              gap: isMobile ? 10 : 14,
+              alignItems: "flex-start",
+              minWidth: 0,
+            }}
           >
             <div
               style={{
@@ -121,8 +145,15 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr", gap: 20, marginBottom: 24 }}>
-        <Card style={{ padding: "22px 24px" }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "minmax(0, 1.5fr) minmax(0, 1fr)",
+          gap: isMobile ? 16 : 20,
+          marginBottom: isMobile ? 16 : 24,
+        }}
+      >
+        <Card style={{ padding: isMobile ? "18px 16px" : "22px 24px", minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: THEME.slate800, marginBottom: 4 }}>
             Average ROM trend
           </div>
@@ -151,27 +182,10 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
                     <stop offset="95%" stopColor={THEME.teal} stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-                <XAxis
-                  dataKey="week"
-                  tick={{ fontSize: 11, fill: THEME.slate400 }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 11, fill: THEME.slate400 }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 9,
-                    border: `1px solid ${THEME.slate200}`,
-                    fontSize: 12,
-                  }}
-                  formatter={(v) => [`${v}%`, "Avg ROM"]}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate200} />
+                <XAxis dataKey="week" tick={axisTick()} axisLine={false} tickLine={false} />
+                <YAxis tick={axisTick()} axisLine={false} tickLine={false} domain={[0, "auto"]} />
+                <Tooltip {...tooltipProps()} formatter={(v) => [`${v}%`, "Avg ROM"]} />
                 <Area
                   type="monotone"
                   dataKey="avg"
@@ -185,7 +199,7 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
           )}
         </Card>
 
-        <Card style={{ padding: "22px 24px" }}>
+        <Card style={{ padding: isMobile ? "18px 16px" : "22px 24px", minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: THEME.slate800, marginBottom: 4 }}>
             Session activity
           </div>
@@ -194,25 +208,10 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
           </div>
           <ResponsiveContainer width="100%" height={170}>
             <BarChart data={actData} margin={{ top: 5, right: 5, bottom: 0, left: -28 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate100} />
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 11, fill: THEME.slate400 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                tick={{ fontSize: 11, fill: THEME.slate400 }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: 9,
-                  border: `1px solid ${THEME.slate200}`,
-                  fontSize: 12,
-                }}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke={THEME.slate200} />
+              <XAxis dataKey="day" tick={axisTick()} axisLine={false} tickLine={false} />
+              <YAxis tick={axisTick()} axisLine={false} tickLine={false} allowDecimals={false} />
+              <Tooltip {...tooltipProps()} />
               <Bar dataKey="s" fill={THEME.teal} radius={[4, 4, 0, 0]} name="Sessions" />
             </BarChart>
           </ResponsiveContainer>
@@ -223,8 +222,8 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
       <Card style={{ overflow: "hidden" }}>
         <div
           style={{
-            padding: "18px 24px",
-            borderBottom: `1px solid ${THEME.slate100}`,
+            padding: isMobile ? "16px" : "18px 24px",
+            borderBottom: `1px solid ${THEME.slate200}`,
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
@@ -258,9 +257,12 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
               }}
               style={{
                 display: "grid",
-                gridTemplateColumns: "2fr 2fr 1.5fr 1fr 1fr",
-                padding: "13px 24px",
-                borderBottom: i < arr.length - 1 ? `1px solid ${THEME.slate100}` : "none",
+                gridTemplateColumns: isMobile
+                  ? "minmax(0, 1fr) auto"
+                  : "minmax(0, 2fr) minmax(0, 2fr) minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr)",
+                gap: isMobile ? "8px 12px" : 12,
+                padding: isMobile ? "12px 16px" : "13px 24px",
+                borderBottom: i < arr.length - 1 ? `1px solid ${THEME.slate200}` : "none",
                 alignItems: "center",
                 cursor: "pointer",
                 transition: "background 0.12s",
@@ -268,14 +270,14 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
               onMouseEnter={(e) => (e.currentTarget.style.background = THEME.slate50)}
               onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 <div
                   style={{
                     width: 32,
                     height: 32,
                     borderRadius: "50%",
-                    background: THEME.navy,
-                    color: THEME.white,
+                    background: THEME.teal,
+                    color: THEME.onFill,
                     fontSize: 12,
                     fontWeight: 700,
                     display: "flex",
@@ -286,13 +288,36 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
                 >
                   {VisualizationService.getInitials(p.name)}
                 </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: THEME.slate800 }}>
-                  {p.name}
+                <div style={{ minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: THEME.slate800,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {p.name}
+                  </div>
+                  {isMobile && <div style={{ fontSize: 12, color: THEME.slate500 }}>{p.injury}</div>}
                 </div>
               </div>
-              <div style={{ fontSize: 12, color: THEME.slate500 }}>{p.injury}</div>
-              <RomBar value={p.rom} />
-              <Badge status={p.status} />
+              {!isMobile && <div style={{ fontSize: 12, color: THEME.slate500 }}>{p.injury}</div>}
+              {isMobile ? (
+                <Badge status={p.status} />
+              ) : (
+                <>
+                  <RomBar value={p.rom} />
+                  <Badge status={p.status} />
+                </>
+              )}
+              {isMobile && (
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <RomBar value={p.rom} />
+                </div>
+              )}
               <div
                 style={{
                   fontSize: 11,
@@ -303,6 +328,7 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId }) {
                         ? THEME.red
                         : THEME.slate400,
                   fontWeight: 600,
+                  ...(isMobile && { gridColumn: "1 / -1", marginTop: -4 }),
                 }}
               >
                 {p.trend > 0 ? `+${p.trend}°` : p.trend < 0 ? `${p.trend}°` : "—"} this week

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Moon, Sun } from "lucide-react";
 import useAuth from "./domain/admin/useAuth";
 import LandingPage from "./presentation/admin/pages/LandingPage";
 import LoginPage from "./presentation/admin/pages/LoginPage";
@@ -10,7 +9,7 @@ import PhysiotherapistsPanel from "./presentation/admin/panels/PhysiotherapistsP
 import ClinicProfilePanel from "./presentation/admin/panels/ClinicProfilePanel";
 
 // Physio components
-import Sidebar from "./presentation/physio/layouts/Sidebar";
+import PhysioShell from "./presentation/physio/layouts/PhysioShell";
 import {
   DashboardPage,
   PatientsPage,
@@ -19,7 +18,7 @@ import {
   ExercisesPage,
 } from "./presentation/physio/pages";
 import PatientUseCases from "./domain/physio/usecases/PatientUseCases";
-import { THEME, setPhysioThemeMode } from "./infrastructure/physio/constants";
+import { setPhysioThemeMode } from "./infrastructure/physio/constants";
 
 export default function App() {
   const [route, setRoute] = useState("landing");
@@ -111,8 +110,11 @@ export default function App() {
   // Show nothing while auth initializes (prevents flash of wrong shell)
   if (auth.loading && route === "landing") {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}>
-        <div>Loading…</div>
+      <div
+        className="cp-root"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100dvh" }}
+      >
+        <div style={{ color: "var(--muted)" }}>Loading…</div>
       </div>
     );
   }
@@ -150,106 +152,37 @@ export default function App() {
       );
     }
 
-    const PHYSIO_TITLES = {
-      dashboard: "Dashboard",
-      patients: "Patients",
-      approvals: "Approvals",
-      atrisk: "At Risk",
-      exercises: "Exercise database",
-    };
     return (
-      <div
-        className="cp-root"
-        style={{
-          display: "flex",
-          height: "100vh",
-          fontFamily: "'Inter','Segoe UI',sans-serif",
-          background: darkMode ? "#0f1f22" : THEME.slate50,
-          color: darkMode ? "rgba(255,255,255,0.9)" : THEME.slate800,
-          overflow: "hidden",
-        }}
-        data-theme={darkMode ? "dark" : "light"}
+      <PhysioShell
+        page={physioPage}
+        setPage={setPhysioPage}
+        onLogout={handleLogout}
+        user={auth.user}
+        clinic={auth.clinic}
+        patients={patients}
+        darkMode={darkMode}
+        setDarkMode={setDarkMode}
       >
-        <Sidebar
-          page={physioPage}
-          setPage={setPhysioPage}
-          onLogout={handleLogout}
-          user={auth.user}
-          clinic={auth.clinic}
-          patients={patients}
-        />
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            minWidth: 0,
-            background: darkMode ? "#0f1f22" : THEME.slate50,
-          }}
-        >
-          <header
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "18px 24px",
-              borderBottom: darkMode ? "1px solid rgba(255,255,255,0.08)" : `1px solid ${THEME.slate200}`,
-              background: darkMode ? "#122b30" : THEME.white,
-              boxShadow: darkMode ? "none" : "0 1px 0 rgba(13,110,118,0.04)",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 800, color: darkMode ? "#F7FCFB" : THEME.slate800 }}>
-                {PHYSIO_TITLES[physioPage] || "Physio Portal"}
-              </div>
-              <div style={{ fontSize: 12, color: darkMode ? "rgba(255,255,255,0.78)" : THEME.slate500, marginTop: 2 }}>
-                {new Date().toLocaleDateString("en-PK", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </div>
-            </div>
-            <button
-              onClick={() => setDarkMode((prev) => !prev)}
-              title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                border: darkMode ? "1px solid rgba(255,255,255,0.12)" : `1px solid ${THEME.slate200}`,
-                background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)",
-                color: darkMode ? "#F5F5F5" : THEME.slate700,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-              }}
-              aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            >
-              {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-          </header>
-          <main style={{ flex: 1, overflowY: "auto", background: darkMode ? "#0f1f22" : THEME.slate50 }}>
-            {physioPage === "dashboard" && (
-              <DashboardPage
-                patients={patients}
-                setPage={setPhysioPage}
-                setSelectedPatientId={setSelectedPatientId}
-              />
-            )}
-            {physioPage === "patients" && (
-              <PatientsPage
-                patients={patients}
-                setPatients={setPatients}
-                selectedId={selectedPatientId}
-                setSelectedId={setSelectedPatientId}
-              />
-            )}
-            {physioPage === "approvals" && (
-              <ApprovalsPage patients={patients} setPatients={setPatients} />
-            )}
-            {physioPage === "atrisk" && <AtRiskPage patients={patients} setPatients={setPatients} />}
-            {physioPage === "exercises" && <ExercisesPage />}
-          </main>
-        </div>
-      </div>
+        {physioPage === "dashboard" && (
+          <DashboardPage
+            patients={patients}
+            setPage={setPhysioPage}
+            setSelectedPatientId={setSelectedPatientId}
+            user={auth.user}
+          />
+        )}
+        {physioPage === "patients" && (
+          <PatientsPage
+            patients={patients}
+            setPatients={setPatients}
+            selectedId={selectedPatientId}
+            setSelectedId={setSelectedPatientId}
+          />
+        )}
+        {physioPage === "approvals" && <ApprovalsPage patients={patients} setPatients={setPatients} />}
+        {physioPage === "atrisk" && <AtRiskPage patients={patients} setPatients={setPatients} />}
+        {physioPage === "exercises" && <ExercisesPage />}
+      </PhysioShell>
     );
   }
 

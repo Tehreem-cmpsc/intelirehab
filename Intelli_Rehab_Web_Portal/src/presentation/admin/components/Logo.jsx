@@ -68,8 +68,14 @@ export function LogoIcon({ size = 40, light = false }) {
   );
 }
 
-export default function Logo({ size = 40, light = false, showText = true }) {
-  const colors = light ? LIGHT_COLORS : DARK_COLORS;
+// `onDark`: the wordmark sits on a permanently dark surface (sidebar, hero
+// gradient) — keep its text white whatever the page theme is, while the
+// icon keeps the `light` variant's pale badge.
+export default function Logo({ size = 40, light = false, showText = true, onDark = false }) {
+  const base = light ? LIGHT_COLORS : DARK_COLORS;
+  const colors = onDark
+    ? { ...base, textPrimary: "#FFFFFF", textSecondary: "rgba(255,255,255,0.72)" }
+    : base;
 
   return (
     <div className="flex items-center gap-3">

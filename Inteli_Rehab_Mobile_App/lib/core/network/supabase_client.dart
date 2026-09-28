@@ -6,10 +6,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 const _supabaseUrl = 'https://ewnetwncsuvbvtrnuyke.supabase.co';
 const _supabasePublishableKey = 'sb_publishable_9GgLEFrfxrtFrIqL3xaSAA_hoAzuT5h';
 
-Future<void> initSupabase() {
+/// [authOptions] lets tests swap in in-memory session storage.
+Future<void> initSupabase({FlutterAuthClientOptions authOptions = const FlutterAuthClientOptions()}) {
   return Supabase.initialize(
     url: _supabaseUrl,
     publishableKey: _supabasePublishableKey,
+    authOptions: authOptions,
   );
 }
 

@@ -15,8 +15,8 @@ export default function PatientsPanel({ clinic }) {
         A read-only view across every physiotherapist at your clinic. Protocols and session
         detail are managed by each patient's assigned physiotherapist.
       </p>
-      <div className="cp-card rounded-2xl overflow-hidden text-[var(--ink)]">
-        <table className="w-full text-left text-[13.5px]">
+      <div className="cp-card rounded-2xl overflow-x-auto text-[var(--ink)]">
+        <table className="w-full min-w-[640px] text-left text-[13.5px]">
           <thead>
             <tr className="border-b" style={{ borderColor: "var(--border)" }}>
               {["Patient", "Physiotherapist", "Injury", "Status", "Added"].map((h) => (

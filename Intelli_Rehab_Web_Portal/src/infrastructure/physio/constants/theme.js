@@ -21,6 +21,11 @@ const LIGHT_PALETTE = {
   slate600: "#647B78",
   slate800: "#12242B",
   white: "#FFFFFF",
+  // Text/icons on a solid accent fill (teal, red, amber, green buttons,
+  // avatars, active nav). White works on the deep light-mode fills.
+  onFill: "#FFFFFF",
+  // Card / panel background.
+  surface: "#FFFFFF",
 };
 
 const DARK_PALETTE = {
@@ -46,6 +51,10 @@ const DARK_PALETTE = {
   slate600: "rgba(255,255,255,0.92)",
   slate800: "#F7FCFB",
   white: "#FFFFFF",
+  // Dark-mode fills are bright (#31E8C6 etc.), so white text on them is
+  // unreadable — use the deep teal instead.
+  onFill: "#062A2E",
+  surface: "#122b30",
 };
 
 export const THEME = { ...LIGHT_PALETTE };
@@ -58,8 +67,16 @@ export function setPhysioThemeMode(dark) {
   return THEME;
 }
 
+// Getters, not values: THEME is swapped in place when the theme changes,
+// and a plain object literal would freeze the light-mode colours forever.
 export const STATUS_META = {
-  active: { bg: THEME.tealLight, c: THEME.tealDim, label: "Active" },
-  recovered: { bg: THEME.greenLight, c: THEME.green, label: "Recovered" },
-  "at-risk": { bg: THEME.redLight, c: THEME.red, label: "At Risk" },
+  get active() {
+    return { bg: THEME.tealLight, c: THEME.tealDim, label: "Active" };
+  },
+  get recovered() {
+    return { bg: THEME.greenLight, c: THEME.green, label: "Recovered" };
+  },
+  get "at-risk"() {
+    return { bg: THEME.redLight, c: THEME.red, label: "At Risk" };
+  },
 };

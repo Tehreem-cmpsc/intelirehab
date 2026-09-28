@@ -21,8 +21,5 @@ export {
 // Helper exports
 export const initials = VisualizationService.getInitials.bind(VisualizationService);
 export const romColor = VisualizationService.getRomColor.bind(VisualizationService);
-export const statusMeta = {
-  active: { bg: THEME.tealLight, c: THEME.tealDim, label: "Active" },
-  recovered: { bg: THEME.greenLight, c: THEME.green, label: "Recovered" },
-  "at-risk": { bg: THEME.redLight, c: THEME.red, label: "At Risk" },
-};
+// Same getters as STATUS_META so the colours follow the current theme.
+export { STATUS_META as statusMeta } from "../../../infrastructure/physio/constants";

@@ -2,14 +2,13 @@ import { useState } from "react";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
+import { pagePadding } from "../components/chartTheme";
+import useIsMobile from "../../useIsMobile";
 
 function ApprovalsPage({ patients, setPatients }) {
   const [toast, setToast] = useState(null);
   const pending = patients.filter((p) => !p.approved);
-  // THEME.white is intentionally the same literal #FFFFFF in both palettes
-  // (e.g. white text on a colored badge) — wrong for a button background,
-  // which needs to actually change in dark mode.
-  const isDark = typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "dark";
+  const isMobile = useIsMobile();
 
   const showToast = (msg) => {
     setToast(msg);
@@ -29,13 +28,14 @@ function ApprovalsPage({ patients, setPatients }) {
   };
 
   return (
-    <div style={{ padding: "28px 32px", position: "relative" }}>
+    <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
       {toast && (
         <div
           style={{
             position: "fixed",
-            top: 24,
-            right: 32,
+            top: isMobile ? 16 : 24,
+            right: isMobile ? 16 : 32,
+            left: isMobile ? 16 : "auto",
             background: THEME.navy,
             color: THEME.white,
             borderRadius: 10,
@@ -51,12 +51,12 @@ function ApprovalsPage({ patients, setPatients }) {
 
       <SectionHead
         title="New patient approvals"
-        sub={`${pending.length} patients awaiting your review`}
+        sub={`${pending.length} ${pending.length === 1 ? "patient" : "patients"} awaiting your review`}
       />
 
       {pending.length === 0 ? (
-        <Card style={{ padding: "48px", textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
+        <Card style={{ padding: isMobile ? "36px 20px" : "48px", textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: 12, color: THEME.green }}>✓</div>
           <div style={{ fontSize: 15, fontWeight: 600, color: THEME.slate800, marginBottom: 6 }}>
             All caught up
           </div>
@@ -67,8 +67,8 @@ function ApprovalsPage({ patients, setPatients }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {pending.map((p) => (
-            <Card key={p.id} style={{ padding: "22px 26px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <Card key={p.id} style={{ padding: isMobile ? "18px 16px" : "22px 26px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14 }}>
                 <div
                   style={{
                     width: 46,
@@ -87,14 +87,21 @@ function ApprovalsPage({ patients, setPatients }) {
                   {VisualizationService.getInitials(p.name)}
                 </div>
 
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: THEME.slate800 }}>
+                <div style={{ flex: "1 1 260px", minWidth: 0 }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: THEME.slate800, overflowWrap: "anywhere" }}>
                     {p.name}
                   </div>
                   <div style={{ fontSize: 13, color: THEME.slate500 }}>
-                    {p.regId} · {p.injury}
+                    {[p.regId, p.injury].filter(Boolean).join(" · ") || "No injury on file"}
                   </div>
-                  <div style={{ display: "flex", gap: 16, marginTop: 10 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, minmax(0, max-content))",
+                      gap: isMobile ? 8 : 16,
+                      marginTop: 10,
+                    }}
+                  >
                     {[
                       ["Current ROM", `${p.rom}%`],
                       ["Wearable", p.wearable ? "Yes" : "No"],
@@ -104,27 +111,27 @@ function ApprovalsPage({ patients, setPatients }) {
                         key={l}
                         style={{
                           background: THEME.slate50,
-                          padding: "8px 14px",
+                          padding: isMobile ? "8px 10px" : "8px 14px",
                           borderRadius: 9,
+                          minWidth: 0,
                         }}
                       >
-                        <div style={{ fontSize: 11, color: THEME.slate400 }}>{l}</div>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800 }}>
-                          {v}
-                        </div>
+                        <div style={{ fontSize: 11, color: THEME.slate400, whiteSpace: "nowrap" }}>{l}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800 }}>{v}</div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ display: "flex", gap: 10, flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
                   <button
                     onClick={() => reject(p.id)}
                     style={{
+                      flex: 1,
                       padding: "10px 20px",
                       border: `1px solid ${THEME.slate200}`,
                       borderRadius: 10,
-                      background: isDark ? THEME.slate100 : THEME.white,
+                      background: THEME.surface,
                       color: THEME.slate600,
                       fontWeight: 600,
                       cursor: "pointer",
@@ -135,11 +142,12 @@ function ApprovalsPage({ patients, setPatients }) {
                   <button
                     onClick={() => approve(p.id)}
                     style={{
+                      flex: 1,
                       padding: "10px 20px",
                       background: THEME.teal,
                       border: "none",
                       borderRadius: 10,
-                      color: THEME.white,
+                      color: THEME.onFill,
                       fontWeight: 700,
                       cursor: "pointer",
                     }}

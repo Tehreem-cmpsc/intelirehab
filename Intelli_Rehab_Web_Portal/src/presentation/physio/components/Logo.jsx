@@ -1,8 +1,8 @@
 import { THEME } from "../../../infrastructure/physio/constants";
 
-function Logo({ size = 32, dark = false }) {
-  const circleBg = dark ? THEME.teal : THEME.teal;
-  const iconColor = THEME.white;
+function Logo({ size = 32 }) {
+  const circleBg = THEME.teal;
+  const iconColor = THEME.onFill;
   const strokeWidth = Math.max(1.5, size * 0.08);
 
   return (

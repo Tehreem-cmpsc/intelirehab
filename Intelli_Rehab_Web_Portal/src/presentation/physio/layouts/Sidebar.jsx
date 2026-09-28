@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  X,
 } from "lucide-react";
 import { THEME } from "../../../infrastructure/physio/constants";
 import LogoFull from "../components/LogoFull";
@@ -21,22 +22,53 @@ const NAV = [
   { key: "exercises", icon: Dumbbell, label: "Exercise DB" },
 ];
 
-function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
-  const [collapsed, setCollapsed] = useState(false);
+// `mobile`: render as an off-canvas drawer (controlled by `open` /
+// `onClose`) instead of a docked, collapsible column.
+function Sidebar({ page, setPage, onLogout, user, clinic, patients = [], mobile = false, open = false, onClose }) {
+  const [collapsedPref, setCollapsed] = useState(false);
+  const collapsed = mobile ? false : collapsedPref;
   const pending = patients.filter((p) => p.isPendingApproval()).length;
   const atRisk = patients.filter((p) => p.isAtRisk()).length;
 
   return (
+    <>
+    {mobile && (
+      <div
+        onClick={onClose}
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(4, 20, 23, 0.55)",
+          opacity: open ? 1 : 0,
+          pointerEvents: open ? "auto" : "none",
+          transition: "opacity 0.25s ease",
+          zIndex: 40,
+        }}
+      />
+    )}
     <aside
+      aria-hidden={mobile && !open ? true : undefined}
       style={{
-        width: collapsed ? 72 : 228,
+        width: collapsed ? 72 : mobile ? 264 : 228,
+        maxWidth: mobile ? "82vw" : undefined,
         background: THEME.navy,
         display: "flex",
         flexDirection: "column",
         flexShrink: 0,
         fontFamily: "'Inter','Segoe UI',sans-serif",
-        transition: "width 0.25s cubic-bezier(.4,0,.2,1)",
+        transition: mobile ? "transform 0.28s cubic-bezier(.4,0,.2,1)" : "width 0.25s cubic-bezier(.4,0,.2,1)",
         overflow: "hidden",
+        overflowY: "auto",
+        ...(mobile && {
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          left: 0,
+          zIndex: 50,
+          transform: open ? "translateX(0)" : "translateX(-100%)",
+          boxShadow: open ? "0 0 40px rgba(0,0,0,0.35)" : "none",
+        }),
       }}
     >
       <div
@@ -52,9 +84,9 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
         {collapsed ? <Logo dark size={30} /> : <LogoFull dark />}
         {!collapsed && (
           <button
-            onClick={() => setCollapsed(true)}
-            title="Collapse sidebar"
-            aria-label="Collapse sidebar"
+            onClick={() => (mobile ? onClose?.() : setCollapsed(true))}
+            title={mobile ? "Close menu" : "Collapse sidebar"}
+            aria-label={mobile ? "Close menu" : "Collapse sidebar"}
             style={{
               background: "rgba(255,255,255,0.08)",
               border: "1px solid rgba(255,255,255,0.12)",
@@ -69,7 +101,7 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
               flexShrink: 0,
             }}
           >
-            <ChevronLeft size={13} />
+            {mobile ? <X size={14} /> : <ChevronLeft size={13} />}
           </button>
         )}
       </div>
@@ -119,7 +151,7 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
                 border: "none",
                 cursor: "pointer",
                 background: active ? THEME.teal : "transparent",
-                color: active ? THEME.white : "rgba(255,255,255,0.82)",
+                color: active ? THEME.onFill : "rgba(255,255,255,0.82)",
                 fontWeight: active ? 600 : 400,
                 fontSize: 14,
                 marginBottom: 2,
@@ -138,7 +170,7 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
                     right: collapsed ? 4 : undefined,
                     marginLeft: collapsed ? 0 : "auto",
                     background: n.key === "atrisk" ? THEME.red : THEME.amber,
-                    color: n.key === "atrisk" ? THEME.white : THEME.navy,
+                    color: n.key === "atrisk" ? THEME.onFill : THEME.navy,
                     borderRadius: 10,
                     padding: collapsed ? "1px 4px" : "1px 7px",
                     fontSize: 10,
@@ -181,7 +213,7 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              color: THEME.white,
+              color: THEME.onFill,
               fontWeight: 700,
               fontSize: 14,
               flexShrink: 0,
@@ -225,6 +257,7 @@ function Sidebar({ page, setPage, onLogout, user, clinic, patients = [] }) {
         </button>
       </div>
     </aside>
+    </>
   );
 }
 

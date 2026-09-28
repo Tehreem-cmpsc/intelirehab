@@ -14,7 +14,8 @@ function LogoFull({ dark = false }) {
         }}
       >
         Inteli
-        <span style={{ color: THEME.teal }}>Rehab</span>
+        {/* On the dark sidebar the deep teal disappears; use the bright one. */}
+        <span style={{ color: dark ? THEME.tealBright : THEME.teal }}>Rehab</span>
       </div>
     </div>
   );
