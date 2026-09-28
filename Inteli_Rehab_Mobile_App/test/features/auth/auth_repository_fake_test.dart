@@ -69,14 +69,17 @@ void main() {
       );
     });
 
-    test('release mode guard throws AuthReleaseModeException when not allowed', () {
-      // AuthRepositoryFake defaults allowInReleaseForTesting to false
-      // When kReleaseMode is simulated or active, it throws AuthReleaseModeException
-      expect(
-        () => AuthRepositoryFake(allowInReleaseForTesting: false),
-        anything, // Instantiates cleanly in debug, throws in release
-      );
-    });
+    test(
+      'release mode guard throws AuthReleaseModeException when not allowed',
+      () {
+        // AuthRepositoryFake defaults allowInReleaseForTesting to false
+        // When kReleaseMode is simulated or active, it throws AuthReleaseModeException
+        expect(
+          () => AuthRepositoryFake(allowInReleaseForTesting: false),
+          anything, // Instantiates cleanly in debug, throws in release
+        );
+      },
+    );
 
     test('signOut clears authenticated state and emits false', () async {
       await repository.signIn(

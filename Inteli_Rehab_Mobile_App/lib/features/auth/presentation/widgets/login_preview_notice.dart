@@ -4,7 +4,13 @@ import '../../../../core/theme/app_theme.dart';
 
 /// Restrained preview notice informing users of the frontend preview nature.
 class LoginPreviewNotice extends StatelessWidget {
-  const LoginPreviewNotice({super.key});
+  final String text;
+
+  const LoginPreviewNotice({
+    super.key,
+    this.text =
+        'Frontend preview — use sample details. No real account is accessed.',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -20,15 +26,11 @@ class LoginPreviewNotice extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.info_outline_rounded,
-            size: 20,
-            color: colors.infoText,
-          ),
+          Icon(Icons.info_outline_rounded, size: 20, color: colors.infoText),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Frontend preview — use sample details. No real account is accessed.',
+              text,
               style: GoogleFonts.manrope(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,

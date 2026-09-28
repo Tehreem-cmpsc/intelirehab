@@ -18,7 +18,7 @@ class LoginBrandHeader extends StatelessWidget {
           width: 38,
           height: 38,
           child: Image.asset(
-            'assets/images/logo.png',
+            'assets/images/full_logo.png',
             fit: BoxFit.contain,
             semanticLabel: 'Inteli-Rehab logo',
           ),

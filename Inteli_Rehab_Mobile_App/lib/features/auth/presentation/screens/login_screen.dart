@@ -15,7 +15,7 @@ import 'auth_session_preview_screen.dart';
 import 'register_screen.dart';
 
 /// Patient login screen built for Inteli-Rehab.
-/// 
+///
 /// Key characteristics:
 /// - Light mode only, matching the calm healthcare aesthetic of Patient Stories.
 /// - Single open form column on the soft page background (#F5F8F7).
@@ -52,11 +52,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _emailTouched = false;
   bool _passwordTouched = false;
   String? _errorMessage;
+  String? _confirmationMessage;
 
   @override
   void initState() {
     super.initState();
-    _authRepository = widget.repository ??
+    _authRepository =
+        widget.repository ??
         (sl.isRegistered<AuthRepository>()
             ? sl<AuthRepository>()
             : AuthRepositoryFake());
@@ -68,8 +70,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onEmailChanged() {
-    if (_errorMessage != null) {
-      setState(() => _errorMessage = null);
+    if (_errorMessage != null || _confirmationMessage != null) {
+      setState(() {
+        _errorMessage = null;
+        _confirmationMessage = null;
+      });
     } else if (_emailTouched) {
       setState(() {});
     } else {
@@ -78,8 +83,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onPasswordChanged() {
-    if (_errorMessage != null) {
-      setState(() => _errorMessage = null);
+    if (_errorMessage != null || _confirmationMessage != null) {
+      setState(() {
+        _errorMessage = null;
+        _confirmationMessage = null;
+      });
     } else if (_passwordTouched) {
       setState(() {});
     } else {
@@ -118,11 +126,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   bool get _isFormValid => AuthValidators.isLoginFormValid(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
+    email: _emailController.text,
+    password: _passwordController.text,
+  );
 
-  String? get _emailError => AuthValidators.validateEmail(_emailController.text);
+  String? get _emailError =>
+      AuthValidators.validateEmail(_emailController.text);
 
   String? get _passwordError =>
       AuthValidators.validateLoginPassword(_passwordController.text);
@@ -139,21 +148,25 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     Navigator.of(context)
-        .push(
-      MaterialPageRoute(
-        builder: (_) => RegisterScreen(repository: _authRepository),
-      ),
-    )
-        .then((_) {
-      if (mounted) {
-        setState(() {
-          _navigatingToRegister = false;
-          _passwordController.clear();
-          _obscurePassword = true;
-          _passwordTouched = false;
+        .push<bool>(
+          MaterialPageRoute(
+            builder: (_) => RegisterScreen(repository: _authRepository),
+          ),
+        )
+        .then((result) {
+          if (mounted) {
+            setState(() {
+              _navigatingToRegister = false;
+              _passwordController.clear();
+              _obscurePassword = true;
+              _passwordTouched = false;
+              if (result == true) {
+                _confirmationMessage =
+                    'Registration preview complete. No account was created.';
+              }
+            });
+          }
         });
-      }
-    });
   }
 
   Future<void> _submit() async {
@@ -168,8 +181,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!_isFormValid) return;
 
-    final normalizedEmail =
-        AuthValidators.normalizeEmail(_emailController.text);
+    final normalizedEmail = AuthValidators.normalizeEmail(
+      _emailController.text,
+    );
     final rawPassword = _passwordController.text;
 
     // Immediately clear password controller from memory on submission
@@ -251,8 +265,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: const Icon(Icons.arrow_back_rounded),
                   color: colors.heading,
                   tooltip: 'Back to patient stories',
-                  constraints:
-                      const BoxConstraints(minWidth: 48, minHeight: 48),
+                  constraints: const BoxConstraints(
+                    minWidth: 48,
+                    minHeight: 48,
+                  ),
                   onPressed: _submitting
                       ? null
                       : () => Navigator.of(context).maybePop(),
@@ -302,8 +318,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // E. Restrained preview notice
-                        if (widget.isPreview) ...[
+                        // E. Restrained preview notice / Confirmation notice
+                        if (_confirmationMessage != null) ...[
+                          _LoginConfirmationBanner(
+                            message: _confirmationMessage!,
+                          ),
+                          const SizedBox(height: 24),
+                        ] else if (widget.isPreview) ...[
                           const LoginPreviewNotice(),
                           const SizedBox(height: 24),
                         ],
@@ -412,8 +433,9 @@ class _LoginScreenState extends State<LoginScreen> {
           decoration: InputDecoration(
             hintText: '••••••••',
             // Suppress field error when global auth error is active to prevent contradictory messaging
-            errorText:
-                (_passwordTouched && _errorMessage == null) ? _passwordError : null,
+            errorText: (_passwordTouched && _errorMessage == null)
+                ? _passwordError
+                : null,
             suffixIcon: IconButton(
               tooltip: _obscurePassword ? 'Show password' : 'Hide password',
               constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
@@ -436,6 +458,53 @@ class _LoginScreenState extends State<LoginScreen> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Accessible confirmation banner displaying honest preview registration completion notice.
+class _LoginConfirmationBanner extends StatelessWidget {
+  final String message;
+
+  const _LoginConfirmationBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.colors(context);
+
+    return Semantics(
+      liveRegion: true,
+      child: Container(
+        key: const Key('login_confirmation_banner'),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: colors.infoSurface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: colors.border, width: 1.0),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.check_circle_outline_rounded,
+              size: 20,
+              color: colors.primaryButton,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: colors.infoText,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

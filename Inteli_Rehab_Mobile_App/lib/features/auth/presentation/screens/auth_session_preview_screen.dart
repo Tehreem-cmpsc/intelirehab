@@ -7,7 +7,7 @@ import '../../domain/repositories/auth_repository.dart';
 import 'login_screen.dart';
 
 /// Canonical session-aware destination screen for the frontend preview.
-/// 
+///
 /// Enforces all security and session lifecycle requirements:
 /// - Actual user interaction refreshes the 30-minute inactivity deadline.
 /// - 30 minutes without activity automatically expires the session while the app is open.
@@ -54,7 +54,9 @@ class _AuthSessionPreviewScreenState extends State<AuthSessionPreviewScreen>
     }
 
     // Subscribe to auth state transitions
-    _authSubscription = _authRepository.authStateChanges.listen((isAuthenticated) {
+    _authSubscription = _authRepository.authStateChanges.listen((
+      isAuthenticated,
+    ) {
       if (!isAuthenticated && mounted && !_isExiting) {
         _returnToLogin();
       }
@@ -99,7 +101,7 @@ class _AuthSessionPreviewScreenState extends State<AuthSessionPreviewScreen>
   }
 
   /// Handles incoming pointer/tap events.
-  /// 
+  ///
   /// Critical HCI/Security Rule:
   /// Check expiry FIRST before recording activity so an interaction after expiry
   /// cannot revive a stale session.
@@ -184,7 +186,10 @@ class _AuthSessionPreviewScreenState extends State<AuthSessionPreviewScreen>
             child: Center(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 24,
+                ),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 440),
                   child: Column(

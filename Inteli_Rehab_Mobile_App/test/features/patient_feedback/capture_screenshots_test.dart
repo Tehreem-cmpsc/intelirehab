@@ -42,7 +42,10 @@ void main() {
 
       const path =
           r'C:\Users\malax\.gemini\antigravity\brain\b7838171-4afe-460f-965a-59e5df70a481\patient_stories_normal.png';
-      File(path).writeAsBytesSync(byteData!.buffer.asUint8List());
+      final file = File(path);
+      if (file.parent.existsSync()) {
+        file.writeAsBytesSync(byteData!.buffer.asUint8List());
+      }
     });
   });
 
@@ -84,7 +87,10 @@ void main() {
 
       const path =
           r'C:\Users\malax\.gemini\antigravity\brain\b7838171-4afe-460f-965a-59e5df70a481\patient_stories_enlarged.png';
-      File(path).writeAsBytesSync(byteData!.buffer.asUint8List());
+      final file = File(path);
+      if (file.parent.existsSync()) {
+        file.writeAsBytesSync(byteData!.buffer.asUint8List());
+      }
     });
   });
 }

@@ -41,7 +41,9 @@ abstract class AuthRepository {
 /// Thrown when authentication fails due to incorrect credentials.
 class InvalidCredentialsException implements Exception {
   final String message;
-  const InvalidCredentialsException([this.message = 'Incorrect email or password.']);
+  const InvalidCredentialsException([
+    this.message = 'Incorrect email or password.',
+  ]);
 
   @override
   String toString() => message;
@@ -50,7 +52,9 @@ class InvalidCredentialsException implements Exception {
 /// Thrown when authentication fails due to connectivity or backend outage.
 class AuthNetworkException implements Exception {
   final String message;
-  const AuthNetworkException([this.message = 'Unable to sign in right now. Please try again.']);
+  const AuthNetworkException([
+    this.message = 'Unable to sign in right now. Please try again.',
+  ]);
 
   @override
   String toString() => message;
@@ -60,7 +64,8 @@ class AuthNetworkException implements Exception {
 class AuthReleaseModeException implements Exception {
   final String message;
   const AuthReleaseModeException([
-    this.message = 'Preview authentication is disabled in production release builds. Backend integration is required.',
+    this.message =
+        'Preview authentication is disabled in production release builds. Backend integration is required.',
   ]);
 
   @override

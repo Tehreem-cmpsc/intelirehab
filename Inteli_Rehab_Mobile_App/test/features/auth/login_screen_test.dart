@@ -7,14 +7,8 @@ import 'package:inteli_rehab/features/auth/presentation/screens/auth_session_pre
 import 'package:inteli_rehab/features/auth/presentation/screens/login_screen.dart';
 import 'package:inteli_rehab/features/auth/presentation/screens/register_screen.dart';
 
-Widget _buildTestApp({
-  required Widget child,
-  ThemeData? theme,
-}) {
-  return MaterialApp(
-    theme: theme ?? AppTheme.lightTheme,
-    home: child,
-  );
+Widget _buildTestApp({required Widget child, ThemeData? theme}) {
+  return MaterialApp(theme: theme ?? AppTheme.lightTheme, home: child);
 }
 
 void main() {
@@ -37,7 +31,9 @@ void main() {
       'renders compact brand header, heading, preview notice, and removed elements are absent',
       (tester) async {
         await tester.pumpWidget(
-          _buildTestApp(child: LoginScreen(repository: fakeRepo, isPreview: true)),
+          _buildTestApp(
+            child: LoginScreen(repository: fakeRepo, isPreview: true),
+          ),
         );
         await tester.pumpAndSettle();
 
@@ -97,28 +93,29 @@ void main() {
       expect(find.text('Enter your password.'), findsNothing);
     });
 
-    testWidgets('shows helpful touched-field validation error after field is left', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _buildTestApp(child: LoginScreen(repository: fakeRepo)),
-      );
-      await tester.pumpAndSettle();
+    testWidgets(
+      'shows helpful touched-field validation error after field is left',
+      (tester) async {
+        await tester.pumpWidget(
+          _buildTestApp(child: LoginScreen(repository: fakeRepo)),
+        );
+        await tester.pumpAndSettle();
 
-      // Enter invalid email and move to password field
-      await tester.enterText(
-        find.byKey(const Key('login_email_field')),
-        'invalidemail',
-      );
-      // Tap password field to blur email
-      await tester.tap(find.byKey(const Key('login_password_field')));
-      await tester.pumpAndSettle();
+        // Enter invalid email and move to password field
+        await tester.enterText(
+          find.byKey(const Key('login_email_field')),
+          'invalidemail',
+        );
+        // Tap password field to blur email
+        await tester.tap(find.byKey(const Key('login_password_field')));
+        await tester.pumpAndSettle();
 
-      expect(
-        find.text('Enter an email address such as you@example.com.'),
-        findsOneWidget,
-      );
-    });
+        expect(
+          find.text('Enter an email address such as you@example.com.'),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('entering valid email and password enables submit button', (
       tester,
@@ -164,7 +161,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.byKey(const Key('login_submit_button')));
+        await tester.ensureVisible(
+          find.byKey(const Key('login_submit_button')),
+        );
         await tester.tap(find.byKey(const Key('login_submit_button')));
         await tester.pump(); // Start async submit
 
@@ -213,7 +212,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.ensureVisible(find.byKey(const Key('login_submit_button')));
+        await tester.ensureVisible(
+          find.byKey(const Key('login_submit_button')),
+        );
         await tester.tap(find.byKey(const Key('login_submit_button')));
         await tester.pumpAndSettle();
 
@@ -335,7 +336,6 @@ void main() {
         expect(innerTextField.obscureText, isTrue);
       },
     );
-
   });
 
   group('LoginScreen - Theme Modes & WCAG AA Contrast', () {

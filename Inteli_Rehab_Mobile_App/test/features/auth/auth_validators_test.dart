@@ -4,18 +4,9 @@ import 'package:inteli_rehab/features/auth/presentation/validators/auth_validato
 void main() {
   group('AuthValidators - Email', () {
     test('rejects null or empty email with actionable error message', () {
-      expect(
-        AuthValidators.validateEmail(null),
-        'Enter your email address.',
-      );
-      expect(
-        AuthValidators.validateEmail(''),
-        'Enter your email address.',
-      );
-      expect(
-        AuthValidators.validateEmail('   '),
-        'Enter your email address.',
-      );
+      expect(AuthValidators.validateEmail(null), 'Enter your email address.');
+      expect(AuthValidators.validateEmail(''), 'Enter your email address.');
+      expect(AuthValidators.validateEmail('   '), 'Enter your email address.');
     });
 
     test('rejects email missing @ symbol', () {
@@ -60,18 +51,9 @@ void main() {
 
   group('AuthValidators - Password', () {
     test('rejects null or empty password', () {
-      expect(
-        AuthValidators.validatePassword(null),
-        'Enter your password.',
-      );
-      expect(
-        AuthValidators.validatePassword(''),
-        'Enter your password.',
-      );
-      expect(
-        AuthValidators.validateLoginPassword(''),
-        'Enter your password.',
-      );
+      expect(AuthValidators.validatePassword(null), 'Enter your password.');
+      expect(AuthValidators.validatePassword(''), 'Enter your password.');
+      expect(AuthValidators.validateLoginPassword(''), 'Enter your password.');
     });
 
     test('rejects registration password shorter than 8 characters', () {
@@ -100,15 +82,15 @@ void main() {
     test('rejects null, empty, or whitespace-only regId', () {
       expect(
         AuthValidators.validateClinicRegId(null),
-        'Please enter your Clinic Registration ID.',
+        'Enter your clinic registration ID.',
       );
       expect(
         AuthValidators.validateClinicRegId(''),
-        'Please enter your Clinic Registration ID.',
+        'Enter your clinic registration ID.',
       );
       expect(
         AuthValidators.validateClinicRegId('   '),
-        'Please enter your Clinic Registration ID.',
+        'Enter your clinic registration ID.',
       );
     });
 
@@ -119,17 +101,34 @@ void main() {
       );
     });
 
-    test('rejects regId with invalid special characters', () {
+    test('rejects regId longer than 20 characters', () {
       expect(
-        AuthValidators.validateClinicRegId('REG#101!'),
-        'Registration ID may only contain letters, numbers, and hyphens.',
+        AuthValidators.validateClinicRegId('REG-12345678901234567'), // 21 chars
+        'Registration ID cannot exceed 20 characters.',
       );
     });
 
-    test('accepts valid clinic registration IDs', () {
+    test('rejects regId with invalid special characters', () {
+      expect(
+        AuthValidators.validateClinicRegId('REG#101!'),
+        'Registration ID may only contain letters, numbers, hyphens, and underscores.',
+      );
+    });
+
+    test('accepts valid clinic registration IDs and boundary lengths', () {
+      // 3 characters minimum boundary
+      expect(AuthValidators.validateClinicRegId('R-1'), isNull);
+      expect(AuthValidators.validateClinicRegId('R_1'), isNull);
+      // Typical formats
       expect(AuthValidators.validateClinicRegId('REG-101'), isNull);
       expect(AuthValidators.validateClinicRegId('AMC-004'), isNull);
       expect(AuthValidators.validateClinicRegId('PAT2026'), isNull);
+      expect(AuthValidators.validateClinicRegId('CLI_2026_A'), isNull);
+      // 20 characters maximum boundary
+      expect(
+        AuthValidators.validateClinicRegId('12345678901234567890'),
+        isNull,
+      );
     });
   });
 

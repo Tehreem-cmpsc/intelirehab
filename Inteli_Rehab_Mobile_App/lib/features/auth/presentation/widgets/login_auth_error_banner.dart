@@ -5,8 +5,13 @@ import '../../../../core/theme/app_theme.dart';
 /// Inline error banner displaying safe, non-revealing authentication error feedback.
 class LoginAuthErrorBanner extends StatelessWidget {
   final String message;
+  final Key? bannerKey;
 
-  const LoginAuthErrorBanner({super.key, required this.message});
+  const LoginAuthErrorBanner({
+    super.key,
+    required this.message,
+    this.bannerKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +20,7 @@ class LoginAuthErrorBanner extends StatelessWidget {
     return Semantics(
       liveRegion: true,
       child: Container(
-        key: const Key('login_error_banner'),
+        key: bannerKey ?? const Key('login_error_banner'),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: colors.errorBackground,

@@ -1,0 +1,55 @@
+name: Mobile App CI
+
+on:
+  push:
+    branches:
+      - main
+      - kashmala-frontend
+    paths:
+      - 'Inteli_Rehab_Mobile_App/**'
+      - '.github/workflows/mobile-ci.yml'
+  pull_request:
+    branches:
+      - main
+      - kashmala-frontend
+    paths:
+      - 'Inteli_Rehab_Mobile_App/**'
+      - '.github/workflows/mobile-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  mobile-ci:
+    name: Flutter Lint & Test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: Inteli_Rehab_Mobile_App
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Verify Flutter version
+        run: flutter --version
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze
+
+      - name: Run unit and widget tests
+        run: flutter test

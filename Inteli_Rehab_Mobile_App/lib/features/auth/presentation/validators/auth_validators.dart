@@ -7,8 +7,6 @@ class AuthValidators {
     r'^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+$',
   );
 
-  static final RegExp _regIdRegExp = RegExp(r'^[a-zA-Z0-9\-_]{3,20}$');
-
   /// Trims and converts email to lower case according to security standards.
   static String normalizeEmail(String? rawEmail) {
     if (rawEmail == null) return '';
@@ -49,19 +47,25 @@ class AuthValidators {
   }
 
   /// Backward-compatible alias for registration password validation.
-  static String? validatePassword(String? value) => validateRegisterPassword(value);
+  static String? validatePassword(String? value) =>
+      validateRegisterPassword(value);
 
-  /// Validates clinic-issued patient registration ID (e.g. "REG-101", "AMC-004").
+  static final RegExp _regIdCharsRegExp = RegExp(r'^[a-zA-Z0-9\-_]+$');
+
+  /// Validates clinic-issued patient registration ID (e.g. "REG-101", "AMC-004", "CLI_09").
   static String? validateClinicRegId(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter your Clinic Registration ID.';
+      return 'Enter your clinic registration ID.';
     }
     final trimmed = value.trim();
     if (trimmed.length < 3) {
       return 'Registration ID must be at least 3 characters long.';
     }
-    if (!_regIdRegExp.hasMatch(trimmed)) {
-      return 'Registration ID may only contain letters, numbers, and hyphens.';
+    if (trimmed.length > 20) {
+      return 'Registration ID cannot exceed 20 characters.';
+    }
+    if (!_regIdCharsRegExp.hasMatch(trimmed)) {
+      return 'Registration ID may only contain letters, numbers, hyphens, and underscores.';
     }
     return null;
   }
@@ -71,7 +75,8 @@ class AuthValidators {
     required String? email,
     required String? password,
   }) {
-    return validateEmail(email) == null && validateLoginPassword(password) == null;
+    return validateEmail(email) == null &&
+        validateLoginPassword(password) == null;
   }
 
   /// Determines if the registration form is ready for submission.
