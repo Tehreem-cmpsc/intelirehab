@@ -1,6 +1,13 @@
 import '../../domain/entities/patient_feedback_entity.dart';
 import '../../domain/repositories/patient_feedback_repository.dart';
 
+/// In-memory fake repository providing clearly labeled sample feedback for preview.
+/// 
+/// CLINICAL & COMPLIANCE NOTE:
+/// For future production backend integration, all featured feedback items must be
+/// formally reviewed and approved for public display with explicit patient consent.
+/// No patient health information (PHI) or unconsented identifying data should ever
+/// be exposed. Only consented public display names and approved quotes are used.
 class PatientFeedbackRepositoryFake implements PatientFeedbackRepository {
   @override
   Future<List<PatientFeedbackEntity>> getFeaturedFeedback() async {
@@ -10,26 +17,27 @@ class PatientFeedbackRepositoryFake implements PatientFeedbackRepository {
       PatientFeedbackEntity(
         id: 'demo-1',
         patientDisplayName: 'Ayesha K.',
-        message: 'The repetition counter helped me stay consistent with my home exercises.',
-        exerciseName: 'Elbow flexion',
+        message:
+            'I find the exercise instructions easy to follow, with everything I need in one place.',
+        exerciseName: 'Patient experience',
         rating: 5,
         submittedAt: DateTime(2026, 9, 25),
-        therapistResponse: 'Keep following your prescribed pace.',
       ),
       PatientFeedbackEntity(
         id: 'demo-2',
-        patientDisplayName: 'Hassan R.',
-        message: 'The movement guidance made it easier to notice when I was compensating with my shoulder.',
-        exerciseName: 'Shoulder abduction',
+        patientDisplayName: 'Ahmed R.',
+        message:
+            'My session summary helps me explain how practice went when I speak with my physiotherapist.',
+        exerciseName: 'Patient experience',
         rating: 5,
         submittedAt: DateTime(2026, 9, 22),
-        therapistResponse: 'Your form is improving.',
       ),
       PatientFeedbackEntity(
         id: 'demo-3',
         patientDisplayName: 'Sana M.',
-        message: 'Seeing my range-of-motion progress gave me confidence to keep going.',
-        exerciseName: 'Shoulder flexion',
+        message:
+            'The connection status helps me check that my wearable is ready before I begin.',
+        exerciseName: 'Patient experience',
         rating: 5,
         submittedAt: DateTime(2026, 9, 19),
       ),

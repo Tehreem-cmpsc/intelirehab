@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../main.dart' show AuthGate;
+import '../../../patient_feedback/presentation/screens/patient_feedback_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -199,10 +199,13 @@ class _SplashScreenState extends State<SplashScreen>
       parent: _subtitleController,
       curve: Curves.easeIn,
     );
-    _subtitleSlide = Tween<Offset>(
-      begin: const Offset(0, 0.25),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _subtitleController, curve: Curves.easeOutCubic));
+    _subtitleSlide =
+        Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _subtitleController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
   }
 
   void _initDotsAnimation() {
@@ -214,11 +217,11 @@ class _SplashScreenState extends State<SplashScreen>
 
   void _scheduleNavigation() {
     // Was 900ms — extended to ~2100ms so there's real time to register the
-    // glow, the subtitle beat, and the status line before cutting to login.
-    _navTimer = Timer(const Duration(milliseconds: 2100), _goToAuthGate);
+    // glow, the subtitle beat, and the status line before cutting to stories.
+    _navTimer = Timer(const Duration(milliseconds: 2100), _goToPatientStories);
   }
 
-  void _goToAuthGate() {
+  void _goToPatientStories() {
     if (_navigating || !mounted) return;
     _navigating = true;
     _navTimer?.cancel();
@@ -226,9 +229,13 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 650),
-        pageBuilder: (context, animation, secondaryAnimation) => const AuthGate(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const PatientFeedbackScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final fade = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+          final fade = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          );
           return FadeTransition(
             opacity: fade,
             child: ScaleTransition(
@@ -260,7 +267,7 @@ class _SplashScreenState extends State<SplashScreen>
     return Scaffold(
       backgroundColor: _bg,
       body: GestureDetector(
-        onTap: _revealComplete ? _goToAuthGate : null,
+        onTap: _revealComplete ? _goToPatientStories : null,
         behavior: HitTestBehavior.opaque,
         child: SafeArea(
           child: AnimatedContainer(
@@ -533,9 +540,7 @@ class _SplashScreenState extends State<SplashScreen>
             width: 42,
             height: 3,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [_primaryTealDark, _tealLight],
-              ),
+              gradient: LinearGradient(colors: [_primaryTealDark, _tealLight]),
               borderRadius: BorderRadius.circular(2),
             ),
           ),

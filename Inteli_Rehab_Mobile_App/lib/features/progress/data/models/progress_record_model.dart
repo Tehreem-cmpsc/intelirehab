@@ -9,7 +9,9 @@ class ProgressRecordModel extends ProgressRecordEntity {
 
   factory ProgressRecordModel.fromJson(Map<String, dynamic> json) {
     return ProgressRecordModel(
-      date: json['date'] != null ? DateTime.parse(json['date'] as String) : DateTime.now(),
+      date: json['date'] != null
+          ? DateTime.parse(json['date'] as String)
+          : DateTime.now(),
       romDegree: (json['romDegree'] as num?)?.toDouble() ?? 0.0,
       completedSessions: json['completedSessions'] as int? ?? 0,
     );

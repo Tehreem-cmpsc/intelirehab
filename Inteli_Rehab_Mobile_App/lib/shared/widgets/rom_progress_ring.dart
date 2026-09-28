@@ -21,12 +21,14 @@ class RomProgressRing extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final progress = (targetRom == 0) ? 0.0 : (currentRom / targetRom).clamp(0.0, 1.0);
+    final progress = (targetRom == 0)
+        ? 0.0
+        : (currentRom / targetRom).clamp(0.0, 1.0);
     final color = progress >= 0.8
         ? Colors.green
         : progress >= 0.5
-            ? Colors.orange
-            : Colors.red;
+        ? Colors.orange
+        : Colors.red;
 
     return SizedBox(
       width: size,
@@ -36,17 +38,27 @@ class RomProgressRing extends StatelessWidget {
         children: [
           CustomPaint(
             size: Size(size, size),
-            painter: _RingPainter(progress: progress, color: color, strokeWidth: strokeWidth),
+            painter: _RingPainter(
+              progress: progress,
+              color: color,
+              strokeWidth: strokeWidth,
+            ),
           ),
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 '${currentRom.toStringAsFixed(0)}°',
-                style: TextStyle(fontSize: size * 0.2, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: size * 0.2,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               if (label != null)
-                Text(label!, style: TextStyle(fontSize: size * 0.12, color: Colors.grey)),
+                Text(
+                  label!,
+                  style: TextStyle(fontSize: size * 0.12, color: Colors.grey),
+                ),
             ],
           ),
         ],
@@ -60,7 +72,11 @@ class _RingPainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
 
-  const _RingPainter({required this.progress, required this.color, required this.strokeWidth});
+  const _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.strokeWidth,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -70,7 +86,9 @@ class _RingPainter extends CustomPainter {
     // Background track
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2, 2 * math.pi, false,
+      -math.pi / 2,
+      2 * math.pi,
+      false,
       Paint()
         ..color = Colors.grey.shade200
         ..strokeWidth = strokeWidth
@@ -81,7 +99,9 @@ class _RingPainter extends CustomPainter {
     // Progress arc
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -math.pi / 2, 2 * math.pi * progress, false,
+      -math.pi / 2,
+      2 * math.pi * progress,
+      false,
       Paint()
         ..color = color
         ..strokeWidth = strokeWidth

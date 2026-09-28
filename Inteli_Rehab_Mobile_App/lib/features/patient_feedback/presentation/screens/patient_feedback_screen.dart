@@ -1,12 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../auth/domain/repositories/auth_repository.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
+import '../../data/repositories/patient_feedback_repository_fake.dart';
 import '../../domain/entities/patient_feedback_entity.dart';
 import '../../domain/repositories/patient_feedback_repository.dart';
-import '../../data/repositories/patient_feedback_repository_fake.dart';
+import '../widgets/feedback_state_panel.dart';
+import '../widgets/patient_feedback_card.dart';
+import '../widgets/patient_stories_header.dart';
 
+/// Patient Stories (feedback) screen designed for Inteli-Rehab.
+/// 
+/// Key characteristics:
+/// - Light mode only, calm healthcare aesthetic (off-white #F5F8F7, teal #0D6E76, white cards).
+/// - Manual scrolling only — zero videos, carousels, or automated transitions.
+/// - Clearly labeled sample stories for preview without inflated medical claims.
+/// - Pinned bottom "Continue to sign in" action accessible across all states.
+/// - Fully responsive across 320dp phones, tablets, and 200% text scale.
 class PatientFeedbackScreen extends StatefulWidget {
   final PatientFeedbackRepository? repository;
-  const PatientFeedbackScreen({super.key, this.repository});
+  final AuthRepository? authRepository;
+  final bool isPreviewSample;
+
+  const PatientFeedbackScreen({
+    super.key,
+    this.repository,
+    this.authRepository,
+    this.isPreviewSample = true,
+  });
 
   @override
   State<PatientFeedbackScreen> createState() => _PatientFeedbackScreenState();
@@ -15,222 +38,238 @@ class PatientFeedbackScreen extends StatefulWidget {
 class _PatientFeedbackScreenState extends State<PatientFeedbackScreen> {
   late final PatientFeedbackRepository _repo;
   late Future<List<PatientFeedbackEntity>> _future;
+  bool _navigatingToLogin = false;
 
   @override
   void initState() {
     super.initState();
-    _repo = widget.repository ?? PatientFeedbackRepositoryFake();
+    _repo = widget.repository ??
+        (sl.isRegistered<PatientFeedbackRepository>()
+            ? sl<PatientFeedbackRepository>()
+            : PatientFeedbackRepositoryFake());
     _future = _repo.getFeaturedFeedback();
   }
 
-  void _retry() => setState(() => _future = _repo.getFeaturedFeedback());
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      appBar: AppBar(
-        title: const Text('Patient Feedback'),
-      ),
-      body: FutureBuilder<List<PatientFeedbackEntity>>(
-        future: _future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator(color: AppTheme.primaryTeal));
-          }
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.error_outline_rounded, size: 48, color: AppTheme.red),
-                  const SizedBox(height: 12),
-                  const Text('Failed to load patient experiences.', style: TextStyle(fontSize: 15, color: AppTheme.slate600)),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _retry,
-                    icon: const Icon(Icons.refresh_rounded),
-                    label: const Text('Try Again'),
-                  ),
-                ],
-              ),
-            );
-          }
-          final items = snapshot.data ?? const <PatientFeedbackEntity>[];
-          if (items.isEmpty) {
-            return const Center(
-              child: Text(
-                'No featured feedback is available yet.',
-                style: TextStyle(fontSize: 16, color: AppTheme.slate500),
-              ),
-            );
-          }
-          return RefreshIndicator(
-            color: AppTheme.primaryTeal,
-            onRefresh: () async => _retry(),
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-              children: [
-                const Text(
-                  'Real progress, shared by patients',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: AppTheme.slate800),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Encouraging experiences from people using guided rehabilitation.',
-                  style: TextStyle(fontSize: 15, height: 1.4, color: AppTheme.slate500),
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.tealSoftBackground,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppTheme.slate200),
-                  ),
-                  child: Row(
-                    children: const [
-                      Icon(Icons.verified_user_outlined, size: 18, color: AppTheme.primaryTeal),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Feedback shown here is reviewed by clinical therapists before it is featured.',
-                          style: TextStyle(fontSize: 14, color: AppTheme.primaryTealDark, height: 1.35),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                ...items.map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: _FeedbackCard(item: item),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+  void _retry() {
+    setState(() {
+      _future = _repo.getFeaturedFeedback();
+    });
   }
-}
 
-class _FeedbackCard extends StatelessWidget {
-  final PatientFeedbackEntity item;
-  const _FeedbackCard({required this.item});
+  Future<void> _handleRefresh() async {
+    try {
+      final updated = await _repo.getFeaturedFeedback();
+      if (mounted) {
+        setState(() {
+          _future = Future.value(updated);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Couldn't refresh patient stories. Showing previously loaded stories.",
+              style: GoogleFonts.manrope(fontSize: 14),
+            ),
+            backgroundColor: AppTheme.colors(context).heading,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _continueToSignIn() {
+    if (_navigatingToLogin || !mounted) return;
+    setState(() => _navigatingToLogin = true);
+
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(repository: widget.authRepository),
+      ),
+    )
+        .then((_) {
+      if (mounted) {
+        setState(() => _navigatingToLogin = false);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.slate200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: AppTheme.primaryTeal,
-                child: Text(
-                  item.patientDisplayName.isNotEmpty ? item.patientDisplayName.substring(0, 1) : 'P',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.patientDisplayName,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.slate800),
+    final colors = AppTheme.colors(context);
+
+    return Scaffold(
+      backgroundColor: colors.pageBackground,
+      appBar: const PatientStoriesHeader(),
+      body: SafeArea(
+        top: false,
+        bottom: false,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: FutureBuilder<List<PatientFeedbackEntity>>(
+              future: _future,
+              builder: (context, snapshot) {
+                return RefreshIndicator(
+                  color: colors.primaryButton,
+                  backgroundColor: colors.cardSurface,
+                  onRefresh: _handleRefresh,
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
                     ),
-                    Text(
-                      item.exerciseName,
-                      style: const TextStyle(fontSize: 14.5, color: AppTheme.slate500, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.format_quote_rounded, color: AppTheme.tealBright, size: 28),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            '“${item.message}”',
-            style: const TextStyle(
-              fontSize: 15,
-              height: 1.45,
-              color: AppTheme.slate800,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              for (var i = 0; i < 5; i++)
-                Icon(
-                  i < item.rating ? Icons.star_rounded : Icons.star_border_rounded,
-                  color: AppTheme.amber,
-                  size: 20,
-                ),
-              const Spacer(),
-              Text(
-                '${item.submittedAt.day}/${item.submittedAt.month}/${item.submittedAt.year}',
-                style: const TextStyle(fontSize: 14, color: AppTheme.slate500, fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          if (item.therapistResponse != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.tealSoftBackground,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.tealLight),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.medical_services_outlined, size: 16, color: AppTheme.primaryTeal),
-                  const SizedBox(width: 8),
-                  Expanded(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Therapist Response',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryTealDark),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          item.therapistResponse!,
-                          style: const TextStyle(fontSize: 15, height: 1.35, color: AppTheme.slate800),
-                        ),
+                        // Persistent Introduction — visible across all states
+                        _buildStoriesIntro(colors),
+                        const SizedBox(height: 24),
+
+                        // Content based on snapshot state
+                        _buildStateContent(colors, snapshot),
                       ],
                     ),
                   ),
-                ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: _buildBottomAction(colors),
+    );
+  }
+
+  /// Persistent introduction section that anchors screen identity across all states.
+  Widget _buildStoriesIntro(AppThemeColors colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Patient stories',
+          style: GoogleFonts.sora(
+            fontSize: 28,
+            fontWeight: FontWeight.w600,
+            color: colors.heading,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Experiences shared by people using Inteli-Rehab.',
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 1.45,
+            color: colors.secondaryText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// State switcher: Loading, Error, Empty, or Stacked Feedback Cards.
+  Widget _buildStateContent(
+    AppThemeColors colors,
+    AsyncSnapshot<List<PatientFeedbackEntity>> snapshot,
+  ) {
+    // 1. Loading state
+    if (snapshot.connectionState != ConnectionState.done) {
+      return const FeedbackStatePanel.loading();
+    }
+
+    // 2. Error state
+    if (snapshot.hasError) {
+      return FeedbackStatePanel.error(onRetry: _retry);
+    }
+
+    final items = snapshot.data ?? const <PatientFeedbackEntity>[];
+
+    // 3. Empty state
+    if (items.isEmpty) {
+      return const FeedbackStatePanel.empty();
+    }
+
+    // 4. Success state with honest sample-data notice and stacked cards
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (widget.isPreviewSample) ...[
+          Text(
+            'Sample stories for this preview.',
+            style: GoogleFonts.manrope(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              color: colors.secondaryText,
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+        ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 16),
+          itemBuilder: (context, index) {
+            return PatientFeedbackCard(item: items[index]);
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Pinned bottom bar with full-width primary action.
+  Widget _buildBottomAction(AppThemeColors colors) {
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.cardSurface,
+        border: Border(
+          top: BorderSide(color: colors.border, width: 1.0),
+        ),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          heightFactor: 1.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
+              child: ElevatedButton(
+                key: const Key('patient_stories_continue_button'),
+                onPressed: _navigatingToLogin ? null : _continueToSignIn,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.primaryButton,
+                  foregroundColor: colors.primaryButtonText,
+                  disabledBackgroundColor: colors.primaryButton.withValues(alpha: 0.6),
+                  disabledForegroundColor: colors.primaryButtonText.withValues(alpha: 0.8),
+                  elevation: 0,
+                  minimumSize: const Size.fromHeight(56),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                ),
+                child: Text(
+                  'Continue to sign in',
+                  textAlign: TextAlign.center,
+                  softWrap: true,
+                  style: GoogleFonts.manrope(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: colors.primaryButtonText,
+                  ),
+                ),
               ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

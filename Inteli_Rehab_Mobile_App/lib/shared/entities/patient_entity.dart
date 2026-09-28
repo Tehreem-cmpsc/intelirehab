@@ -44,7 +44,8 @@ class PatientEntity {
       status: map['status']?.toString() ?? 'active',
       approved: map['approved'] as bool? ?? false,
       warning: map['warning']?.toString(),
-      recoveryPercentage: (map['recovery_percentage'] as num?)?.toDouble() ?? 0.0,
+      recoveryPercentage:
+          (map['recovery_percentage'] as num?)?.toDouble() ?? 0.0,
       streakDays: (map['streak_days'] as num?)?.toInt() ?? 0,
     );
   }

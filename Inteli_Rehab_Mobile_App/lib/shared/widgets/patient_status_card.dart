@@ -32,7 +32,9 @@ class PatientStatusCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 28,
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+                backgroundColor: theme.colorScheme.primary.withValues(
+                  alpha: 0.12,
+                ),
                 child: Text(
                   patient.name.isNotEmpty ? patient.name[0].toUpperCase() : 'P',
                   style: TextStyle(
@@ -47,13 +49,28 @@ class PatientStatusCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(patient.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      patient.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                     const SizedBox(height: 2),
-                    Text('Clinic: $clinicName',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
-                    Text('Therapist: $therapistName',
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14)),
+                    Text(
+                      'Clinic: $clinicName',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      'Therapist: $therapistName',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -68,7 +85,14 @@ class PatientStatusCard extends StatelessWidget {
                       color: theme.colorScheme.primary,
                     ),
                   ),
-                  Text('Recovery', style: TextStyle(color: Colors.grey.shade600, fontSize: 14, fontWeight: FontWeight.w500)),
+                  Text(
+                    'Recovery',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             ],

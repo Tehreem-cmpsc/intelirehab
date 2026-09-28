@@ -5,7 +5,8 @@ abstract class ProfileSettingsRemoteDataSource {
   Future<void> updateProfile(UserProfileModel model);
 }
 
-class ProfileSettingsRemoteDataSourceImpl implements ProfileSettingsRemoteDataSource {
+class ProfileSettingsRemoteDataSourceImpl
+    implements ProfileSettingsRemoteDataSource {
   @override
   Future<UserProfileModel> getProfile() async {
     return const UserProfileModel(

@@ -1,495 +1,441 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../data/datasources/auth_remote_data_source.dart';
+import '../../data/repositories/auth_repository_fake.dart';
+import '../../domain/repositories/auth_repository.dart';
+import '../validators/auth_validators.dart';
+import '../widgets/login_auth_error_banner.dart';
+import '../widgets/login_brand_header.dart';
+import '../widgets/login_preview_notice.dart';
+import '../widgets/login_register_action.dart';
+import '../widgets/login_submit_button.dart';
+import 'auth_session_preview_screen.dart';
 import 'register_screen.dart';
 
+/// Patient login screen built for Inteli-Rehab.
+/// 
+/// Key characteristics:
+/// - Light mode only, matching the calm healthcare aesthetic of Patient Stories.
+/// - Single open form column on the soft page background (#F5F8F7).
+/// - Modular presentational sub-widgets adhering to Frontend Engineering Standards.
+/// - Error prevention with touched-field validation and actionable error guidance.
+/// - Memory-safe lifecycle: immediate password clearing, visibility reset, controller disposal.
+/// - Canonical session-aware destination routing.
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final AuthRepository? repository;
+  final bool isPreview;
+
+  const LoginScreen({
+    super.key,
+    this.repository,
+    this.isPreview = AppConfig.isFrontendPreview,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _authService = AuthService();
+  late final AuthRepository _authRepository;
   final _formKey = GlobalKey<FormState>();
+
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
 
   bool _submitting = false;
+  bool _navigatingToRegister = false;
   bool _obscurePassword = true;
+  bool _emailTouched = false;
+  bool _passwordTouched = false;
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _authRepository = widget.repository ??
+        (sl.isRegistered<AuthRepository>()
+            ? sl<AuthRepository>()
+            : AuthRepositoryFake());
+
+    _emailController.addListener(_onEmailChanged);
+    _passwordController.addListener(_onPasswordChanged);
+    _emailFocusNode.addListener(_onEmailFocusChanged);
+    _passwordFocusNode.addListener(_onPasswordFocusChanged);
+  }
+
+  void _onEmailChanged() {
+    if (_errorMessage != null) {
+      setState(() => _errorMessage = null);
+    } else if (_emailTouched) {
+      setState(() {});
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _onPasswordChanged() {
+    if (_errorMessage != null) {
+      setState(() => _errorMessage = null);
+    } else if (_passwordTouched) {
+      setState(() {});
+    } else {
+      setState(() {});
+    }
+  }
+
+  void _onEmailFocusChanged() {
+    if (!_emailFocusNode.hasFocus) {
+      if (_emailController.text.isNotEmpty || _emailTouched) {
+        setState(() => _emailTouched = true);
+      }
+    }
+  }
+
+  void _onPasswordFocusChanged() {
+    if (!_passwordFocusNode.hasFocus) {
+      if (_passwordController.text.isNotEmpty || _passwordTouched) {
+        setState(() => _passwordTouched = true);
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    _emailController.removeListener(_onEmailChanged);
+    _passwordController.removeListener(_onPasswordChanged);
+    _emailFocusNode.removeListener(_onEmailFocusChanged);
+    _passwordFocusNode.removeListener(_onPasswordFocusChanged);
+
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  bool get _isFormValid => AuthValidators.isLoginFormValid(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+  String? get _emailError => AuthValidators.validateEmail(_emailController.text);
+
+  String? get _passwordError =>
+      AuthValidators.validateLoginPassword(_passwordController.text);
+
+  void _openRegister() {
+    if (_navigatingToRegister || _submitting) return;
+
+    setState(() {
+      _navigatingToRegister = true;
+      _passwordController.clear();
+      _obscurePassword = true;
+      _passwordTouched = false;
+      _errorMessage = null;
+    });
+
+    Navigator.of(context)
+        .push(
+      MaterialPageRoute(
+        builder: (_) => RegisterScreen(repository: _authRepository),
+      ),
+    )
+        .then((_) {
+      if (mounted) {
+        setState(() {
+          _navigatingToRegister = false;
+          _passwordController.clear();
+          _obscurePassword = true;
+          _passwordTouched = false;
+        });
+      }
+    });
   }
 
   Future<void> _submit() async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (!_formKey.currentState!.validate()) return;
+
+    if (_submitting) return;
+
+    setState(() {
+      _emailTouched = true;
+      _passwordTouched = true;
+    });
+
+    if (!_isFormValid) return;
+
+    final normalizedEmail =
+        AuthValidators.normalizeEmail(_emailController.text);
+    final rawPassword = _passwordController.text;
+
+    // Immediately clear password controller from memory on submission
+    _passwordController.clear();
+
     setState(() {
       _submitting = true;
+      _obscurePassword = true;
+      _passwordTouched = false;
       _errorMessage = null;
     });
+
     try {
-      await _authService.signIn(
-        email: _emailController.text.trim().toLowerCase(),
-        password: _passwordController.text,
+      await _authRepository.signIn(
+        email: normalizedEmail,
+        password: rawPassword,
       );
-      // Navigation is automatically handled in main.dart via AuthGate stream
-    } catch (e) {
-      setState(() {
-        _errorMessage = 'Invalid email or password. Please verify your credentials or contact your clinic.';
-      });
-    } finally {
-      _passwordController.clear();
-      if (mounted) setState(() => _submitting = false);
-    }
-  }
 
-  void _showForgotPasswordDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.tealSoftBackground,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.help_outline_rounded, color: AppTheme.primaryTealDark, size: 24),
-            ),
-            const SizedBox(width: 12),
-            const Text('Need Help?'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'For security, patient accounts are managed directly by your rehabilitation clinic.',
-              style: TextStyle(fontSize: 14, height: 1.4),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.tealSoftBackground,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.tealLight.withValues(alpha: 0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Ayub Medical Complex — Rehab Dept.',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryTealDark),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Contact your physiotherapist or reception to reset your password or verify your Clinic Registration ID.',
-                    style: TextStyle(fontSize: 14, color: Colors.grey.shade700, height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close', style: TextStyle(color: AppTheme.primaryTealDark, fontWeight: FontWeight.bold)),
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) =>
+                AuthSessionPreviewScreen(repository: _authRepository),
           ),
-        ],
-      ),
-    );
-  }
-
-  void _fillDemoCredentials() {
-    setState(() {
-      _emailController.text = 'ayesha@intelirehab.com';
-      _passwordController.text = 'test1234';
-      _errorMessage = null;
-    });
+          (route) => false,
+        );
+      }
+    } on InvalidCredentialsException catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Incorrect email or password.';
+        });
+      }
+    } on AuthNetworkException catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Unable to sign in right now. Please try again.';
+        });
+      }
+    } on AuthReleaseModeException catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Unable to sign in right now. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _passwordController.clear();
+          _obscurePassword = true;
+          _passwordTouched = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppTheme.backgroundWhite,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Brand Logo & Header ────────────────────────────────────
-                    Center(
-                      child: Container(
-                        width: 90,
-                        height: 90,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          border: Border.all(color: AppTheme.tealLight.withValues(alpha: 0.3), width: 2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primaryTealDark.withValues(alpha: 0.08),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.all(12),
-                        child: Image.asset(
-                          'assets/images/logo.png',
-                          fit: BoxFit.contain,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
+    final colors = AppTheme.colors(context);
+    final canPop = Navigator.canPop(context);
 
-                    // App Title
-                    Center(
-                      child: RichText(
-                        text: const TextSpan(
-                          text: 'INTELI-',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 28,
-                            color: AppTheme.primaryTealDark,
-                            letterSpacing: 0.5,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: 'REHAB',
-                              style: TextStyle(
-                                color: AppTheme.primaryTeal,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-
-                    // Badge
-                    Center(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.tealLight.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Text(
-                          'PATIENT REHABILITATION PORTAL',
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
-                            color: AppTheme.primaryTealDark,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 28),
-
-                    // ── Main Card Form ─────────────────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.12)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryTealDark.withValues(alpha: 0.06),
-                            blurRadius: 24,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Sign In',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppTheme.primaryTealDark,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Enter your registered email & password',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
-
-                          // Email Field
-                          TextFormField(
-                            controller: _emailController,
-                            enabled: !_submitting,
-                            keyboardType: TextInputType.emailAddress,
-                            textInputAction: TextInputAction.next,
-                            autofillHints: const [AutofillHints.email],
-                            style: const TextStyle(fontSize: 16),
-                            decoration: const InputDecoration(
-                              labelText: 'Email Address',
-                              hintText: 'patient@clinic.com',
-                              prefixIcon: Icon(Icons.email_outlined),
-                            ),
-                            validator: (v) {
-                              if (v == null || v.trim().isEmpty) return 'Please enter your email';
-                              if (!v.contains('@')) return 'Please enter a valid email address';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Password Field
-                          TextFormField(
-                            controller: _passwordController,
-                            enabled: !_submitting,
-                            obscureText: _obscurePassword,
-                            textInputAction: TextInputAction.done,
-                            autofillHints: const [AutofillHints.password],
-                            onFieldSubmitted: (_) => _submit(),
-                            style: const TextStyle(fontSize: 16),
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              hintText: '••••••••',
-                              prefixIcon: const Icon(Icons.lock_outline_rounded),
-                              suffixIcon: IconButton(
-                                tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                                  color: AppTheme.sensorGrey,
-                                  size: 22,
-                                ),
-                                onPressed: _submitting ? null : () => setState(() => _obscurePassword = !_obscurePassword),
-                              ),
-                            ),
-                            validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password' : null,
-                          ),
-
-                          // Forgot Password
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: _showForgotPasswordDialog,
-                              style: TextButton.styleFrom(
-                                minimumSize: const Size(48, 48),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-                                tapTargetSize: MaterialTapTargetSize.padded,
-                              ),
-                              child: const Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: AppTheme.primaryTeal,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          // Error Display
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red.shade200),
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: TextStyle(color: Colors.red.shade700, fontSize: 14, height: 1.35),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 18),
-
-                          // Submit Button
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [AppTheme.primaryTealDark, AppTheme.primaryTeal],
-                              ),
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryTeal.withValues(alpha: 0.35),
-                                  blurRadius: 14,
-                                  offset: const Offset(0, 5),
-                                ),
-                              ],
-                            ),
-                            child: ElevatedButton(
-                              onPressed: _submitting ? null : _submit,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                foregroundColor: Colors.white,
-                                minimumSize: const Size(double.infinity, 52),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                              ),
-                              child: _submitting
-                                  ? const SizedBox(
-                                      height: 22,
-                                      width: 22,
-                                      child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
-                                    )
-                                  : const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Sign In',
-                                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                                        ),
-                                        SizedBox(width: 8),
-                                        Icon(Icons.arrow_forward_rounded, size: 18),
-                                      ],
-                                    ),
-                            ),
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Demo Autofill Helper
-                          Center(
-                            child: InkWell(
-                              onTap: _fillDemoCredentials,
-                              borderRadius: BorderRadius.circular(8),
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
-                                child: Container(
-                                  alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                  child: Text(
-                                    'Tap to fill demo test account',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: Colors.grey.shade600,
-                                      decoration: TextDecoration.underline,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Register Navigation ────────────────────────────────────
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppTheme.primaryTeal.withValues(alpha: 0.15)),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.tealSoftBackground,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.badge_outlined, color: AppTheme.primaryTealDark, size: 22),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'New Patient?',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.sensorGrey),
-                                ),
-                                Text(
-                                  'Register using your Clinic ID',
-                                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _submitting
-                                ? null
-                                : () => Navigator.of(context).push(
-                                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                                    ),
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.primaryTealDark,
-                              minimumSize: const Size(48, 48),
-                              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                            child: const Text('Register →'),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Security Assurance Footer ──────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+    return PopScope(
+      canPop: !_submitting,
+      child: Scaffold(
+        backgroundColor: colors.pageBackground,
+        appBar: canPop
+            ? AppBar(
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                leading: IconButton(
+                  key: const Key('login_back_button'),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  color: colors.heading,
+                  tooltip: 'Back to patient stories',
+                  constraints:
+                      const BoxConstraints(minWidth: 48, minHeight: 48),
+                  onPressed: _submitting
+                      ? null
+                      : () => Navigator.of(context).maybePop(),
+                ),
+              )
+            : null,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 440),
+                child: AutofillGroup(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Icon(Icons.shield_outlined, size: 16, color: Colors.grey.shade600),
-                        const SizedBox(width: 6),
+                        // B. Modest brand row
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: LoginBrandHeader(),
+                        ),
+                        const SizedBox(height: 28),
+
+                        // C. Heading: "Welcome back"
                         Text(
-                          'Clinically Supervised · Secure Patient Gateway',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
+                          'Welcome back',
+                          style: GoogleFonts.sora(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w600,
+                            color: colors.heading,
                           ),
+                        ),
+                        const SizedBox(height: 8),
+
+                        // D. Supporting text
+                        Text(
+                          'Sign in to continue your rehabilitation.',
+                          style: GoogleFonts.manrope(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w400,
+                            height: 1.45,
+                            color: colors.secondaryText,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // E. Restrained preview notice
+                        if (widget.isPreview) ...[
+                          const LoginPreviewNotice(),
+                          const SizedBox(height: 24),
+                        ],
+
+                        // F. Email field group
+                        _buildEmailField(colors),
+                        const SizedBox(height: 18),
+
+                        // G. Password field group
+                        _buildPasswordField(colors),
+
+                        // H. Inline authentication error
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 18),
+                          LoginAuthErrorBanner(message: _errorMessage!),
+                        ],
+                        const SizedBox(height: 24),
+
+                        // I. Primary Sign in button
+                        LoginSubmitButton(
+                          isSubmitting: _submitting,
+                          isValid: _isFormValid,
+                          onSubmit: _submit,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // J. Secondary Register action
+                        LoginRegisterAction(
+                          enabled: !_submitting && !_navigatingToRegister,
+                          onRegister: _openRegister,
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildEmailField(AppThemeColors colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Email address',
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colors.bodyText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: const Key('login_email_field'),
+          controller: _emailController,
+          focusNode: _emailFocusNode,
+          enabled: !_submitting,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          autocorrect: false,
+          enableSuggestions: false,
+          style: GoogleFonts.manrope(fontSize: 16, color: colors.bodyText),
+          decoration: InputDecoration(
+            hintText: 'you@example.com',
+            errorText: _emailTouched ? _emailError : null,
+          ),
+          onFieldSubmitted: (_) {
+            FocusScope.of(context).requestFocus(_passwordFocusNode);
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPasswordField(AppThemeColors colors) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Password',
+          style: GoogleFonts.manrope(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: colors.bodyText,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          key: const Key('login_password_field'),
+          controller: _passwordController,
+          focusNode: _passwordFocusNode,
+          enabled: !_submitting,
+          obscureText: _obscurePassword,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.password],
+          autocorrect: false,
+          enableSuggestions: false,
+          style: GoogleFonts.manrope(fontSize: 16, color: colors.bodyText),
+          decoration: InputDecoration(
+            hintText: '••••••••',
+            // Suppress field error when global auth error is active to prevent contradictory messaging
+            errorText:
+                (_passwordTouched && _errorMessage == null) ? _passwordError : null,
+            suffixIcon: IconButton(
+              tooltip: _obscurePassword ? 'Show password' : 'Hide password',
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+              icon: Icon(
+                _obscurePassword
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: colors.secondaryText,
+                size: 22,
+              ),
+              onPressed: _submitting
+                  ? null
+                  : () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+          ),
+          onFieldSubmitted: (_) {
+            if (_isFormValid && !_submitting) {
+              _submit();
+            }
+          },
+        ),
+      ],
     );
   }
 }

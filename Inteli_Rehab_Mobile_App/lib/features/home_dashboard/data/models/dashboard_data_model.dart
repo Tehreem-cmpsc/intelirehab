@@ -13,7 +13,8 @@ class DashboardDataModel extends DashboardDataEntity {
       patientName: json['patientName'] as String? ?? '',
       assignedExercise: json['assignedExercise'] as String? ?? '',
       streakDays: json['streakDays'] as int? ?? 0,
-      recoveryPercentage: (json['recoveryPercentage'] as num?)?.toDouble() ?? 0.0,
+      recoveryPercentage:
+          (json['recoveryPercentage'] as num?)?.toDouble() ?? 0.0,
     );
   }
 

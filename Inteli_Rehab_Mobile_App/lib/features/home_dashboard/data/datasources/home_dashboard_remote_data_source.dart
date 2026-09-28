@@ -4,7 +4,8 @@ abstract class HomeDashboardRemoteDataSource {
   Future<DashboardDataModel> getDashboardData();
 }
 
-class HomeDashboardRemoteDataSourceImpl implements HomeDashboardRemoteDataSource {
+class HomeDashboardRemoteDataSourceImpl
+    implements HomeDashboardRemoteDataSource {
   @override
   Future<DashboardDataModel> getDashboardData() async {
     return const DashboardDataModel(

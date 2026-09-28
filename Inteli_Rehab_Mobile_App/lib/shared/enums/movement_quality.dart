@@ -1,5 +1,1 @@
-enum MovementQuality {
-  good,
-  warning,
-  poor,
-}
+enum MovementQuality { good, warning, poor }

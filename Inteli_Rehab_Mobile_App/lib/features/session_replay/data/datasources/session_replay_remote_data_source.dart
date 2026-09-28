@@ -4,7 +4,8 @@ abstract class SessionReplayRemoteDataSource {
   Future<SessionReplayModel> getReplayData(String sessionId);
 }
 
-class SessionReplayRemoteDataSourceImpl implements SessionReplayRemoteDataSource {
+class SessionReplayRemoteDataSourceImpl
+    implements SessionReplayRemoteDataSource {
   @override
   Future<SessionReplayModel> getReplayData(String sessionId) async {
     return const SessionReplayModel(

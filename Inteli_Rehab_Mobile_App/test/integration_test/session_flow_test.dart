@@ -12,8 +12,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Session Flow Integration', () {
-    test('placeholder — add tests when rehab_session backend integration is complete', () {
-      expect(true, isTrue);
-    });
+    test(
+      'placeholder — add tests when rehab_session backend integration is complete',
+      () {
+        expect(true, isTrue);
+      },
+    );
   });
 }

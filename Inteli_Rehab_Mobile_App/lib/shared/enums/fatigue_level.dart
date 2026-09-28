@@ -1,7 +1,1 @@
-enum FatigueLevel {
-  none,
-  mild,
-  moderate,
-  high,
-  critical,
-}
+enum FatigueLevel { none, mild, moderate, high, critical }

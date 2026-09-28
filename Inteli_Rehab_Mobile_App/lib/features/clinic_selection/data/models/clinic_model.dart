@@ -16,10 +16,6 @@ class ClinicModel extends ClinicEntity {
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'address': address,
-    };
+    return {'id': id, 'name': name, 'address': address};
   }
 }

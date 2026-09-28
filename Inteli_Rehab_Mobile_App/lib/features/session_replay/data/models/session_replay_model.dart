@@ -10,7 +10,11 @@ class SessionReplayModel extends SessionReplayEntity {
   factory SessionReplayModel.fromJson(Map<String, dynamic> json) {
     return SessionReplayModel(
       sessionId: json['sessionId'] as String? ?? '',
-      angleFrames: (json['angleFrames'] as List<dynamic>?)?.map((e) => (e as num).toDouble()).toList() ?? [],
+      angleFrames:
+          (json['angleFrames'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          [],
       totalDuration: Duration(seconds: json['durationSeconds'] as int? ?? 0),
     );
   }

@@ -4,7 +4,8 @@ abstract class NotificationsRemoteDataSource {
   Future<List<NotificationItemModel>> getNotifications();
 }
 
-class NotificationsRemoteDataSourceImpl implements NotificationsRemoteDataSource {
+class NotificationsRemoteDataSourceImpl
+    implements NotificationsRemoteDataSource {
   @override
   Future<List<NotificationItemModel>> getNotifications() async {
     return [];

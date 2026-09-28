@@ -4,7 +4,8 @@ abstract class MedicalIntakeRemoteDataSource {
   Future<void> submitIntake(MedicalIntakeModel model);
 }
 
-class MedicalIntakeRemoteDataSourceImpl implements MedicalIntakeRemoteDataSource {
+class MedicalIntakeRemoteDataSourceImpl
+    implements MedicalIntakeRemoteDataSource {
   @override
   Future<void> submitIntake(MedicalIntakeModel model) async {}
 }

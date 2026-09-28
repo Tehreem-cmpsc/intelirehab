@@ -32,13 +32,16 @@ class AuthService {
     );
     final user = authRes.user;
     if (user == null) {
-      throw Exception('Registration failed: no user returned from auth server.');
+      throw Exception(
+        'Registration failed: no user returned from auth server.',
+      );
     }
 
     try {
-      await supabase.rpc('claim_patient_record', params: {
-        'target_reg_id': regId,
-      });
+      await supabase.rpc(
+        'claim_patient_record',
+        params: {'target_reg_id': regId},
+      );
     } catch (_) {
       throw Exception(
         'Account was created, but your registration ID could not be '

@@ -5,7 +5,9 @@ import '../../domain/repositories/physiotherapist_repository.dart';
 /// DO NOT delete: Kashmala owns this. Tehreem edits physiotherapist_repository_impl.dart instead.
 class PhysiotherapistRepositoryFake implements PhysiotherapistRepository {
   @override
-  Future<List<PhysiotherapistEntity>> getPhysiotherapists(String clinicId) async {
+  Future<List<PhysiotherapistEntity>> getPhysiotherapists(
+    String clinicId,
+  ) async {
     await Future.delayed(const Duration(milliseconds: 500));
     return const [
       PhysiotherapistEntity(

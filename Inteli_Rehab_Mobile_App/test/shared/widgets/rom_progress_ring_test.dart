@@ -23,13 +23,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shows 0° when currentRom is zero', (WidgetTester tester) async {
+    testWidgets('shows 0° when currentRom is zero', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
-            body: Center(
-              child: RomProgressRing(currentRom: 0, targetRom: 90),
-            ),
+            body: Center(child: RomProgressRing(currentRom: 0, targetRom: 90)),
           ),
         ),
       );

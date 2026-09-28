@@ -3,10 +3,7 @@ import 'package:flutter/material.dart';
 class FatigueAlertWidget extends StatelessWidget {
   final bool isFatigueDetected;
 
-  const FatigueAlertWidget({
-    super.key,
-    this.isFatigueDetected = false,
-  });
+  const FatigueAlertWidget({super.key, this.isFatigueDetected = false});
 
   @override
   Widget build(BuildContext context) {

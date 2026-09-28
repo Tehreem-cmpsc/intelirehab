@@ -1,28 +1,36 @@
 import 'package:flutter/material.dart';
+import 'core/config/app_config.dart';
 import 'core/services/supabase_service.dart';
 import 'core/di/injection.dart';
 import 'core/theme/app_theme.dart';
-import 'shared/entities/patient_entity.dart';
-import 'features/auth/data/datasources/auth_remote_data_source.dart';
+import 'features/auth/domain/repositories/auth_repository.dart';
+import 'features/auth/presentation/screens/auth_session_preview_screen.dart';
 import 'features/auth/presentation/screens/login_screen.dart';
-import 'features/home_dashboard/presentation/screens/home_dashboard_screen.dart';
-import 'features/home_dashboard/presentation/screens/pending_approval_screen.dart';
 import 'features/onboarding/presentation/splash/splash_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // 1. Initialize Dependency Injection (GetIt switch for fake/real repos)
   setupInjection();
-  
-  // 2. Initialize live Supabase client using Tehreem's backend
-  await SupabaseService.initialize();
+
+  // 2. Initialize live Supabase client only when not in frontend-preview configuration
+  // (Frontend-only preview uses fake repositories; Tehreem integrates real backend later).
+  if (!AppConfig.isFrontendPreview) {
+    try {
+      await SupabaseService.initialize();
+    } catch (e) {
+      debugPrint('Supabase initialization skipped: $e');
+    }
+  }
 
   runApp(const InteliRehabApp());
 }
 
 class InteliRehabApp extends StatelessWidget {
-  const InteliRehabApp({super.key});
+  final ThemeMode themeMode;
+
+  const InteliRehabApp({super.key, this.themeMode = ThemeMode.light});
 
   @override
   Widget build(BuildContext context) {
@@ -30,69 +38,55 @@ class InteliRehabApp extends StatelessWidget {
       title: 'Inteli-Rehab',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const SplashScreen(), // ← Show splash first, then AuthGate
+      themeMode: themeMode,
+      home: const SplashScreen(),
     );
   }
 }
 
-/// Dynamic routing based on authentication and approval state from Supabase
-class AuthGate extends StatelessWidget {
+/// Dynamic routing based on authentication state from AuthRepository.
+/// Monitors app lifecycle to enforce 30-minute inactivity session expiry on resume.
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
   @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> with WidgetsBindingObserver {
+  late final AuthRepository _authRepository;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _authRepository = sl<AuthRepository>();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _authRepository.checkSessionExpiry();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final authService = AuthService();
-    return StreamBuilder(
-      stream: authService.onAuthStateChange,
-      builder: (context, _) {
-        final session = authService.currentSession;
-        if (session == null) {
+    return StreamBuilder<bool>(
+      stream: _authRepository.authStateChanges,
+      initialData: _authRepository.isAuthenticated,
+      builder: (context, snapshot) {
+        final isAuthenticated = snapshot.data ?? false;
+        if (!isAuthenticated) {
           return const LoginScreen();
         }
-
-        return FutureBuilder<PatientProfile?>(
-          future: authService.fetchMyPatientProfile(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
-            }
-
-            final profile = snapshot.data;
-            if (profile == null) {
-              return Scaffold(
-                body: SafeArea(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.info_outline, size: 48, color: Colors.orange),
-                          const SizedBox(height: 16),
-                          const Text(
-                            "We couldn't link your patient record. Please contact your clinic.",
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          TextButton(
-                            onPressed: () => authService.signOut(),
-                            child: const Text('Sign Out'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }
-
-            return profile.approved
-                ? const HomeDashboardScreen()
-                : PendingApprovalScreen(profile: profile);
-          },
-        );
+        return AuthSessionPreviewScreen(repository: _authRepository);
       },
     );
   }

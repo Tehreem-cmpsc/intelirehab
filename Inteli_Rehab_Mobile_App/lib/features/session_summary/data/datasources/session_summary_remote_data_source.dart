@@ -4,7 +4,8 @@ abstract class SessionSummaryRemoteDataSource {
   Future<SessionSummaryModel> getSummary(String sessionId);
 }
 
-class SessionSummaryRemoteDataSourceImpl implements SessionSummaryRemoteDataSource {
+class SessionSummaryRemoteDataSourceImpl
+    implements SessionSummaryRemoteDataSource {
   @override
   Future<SessionSummaryModel> getSummary(String sessionId) async {
     return const SessionSummaryModel(

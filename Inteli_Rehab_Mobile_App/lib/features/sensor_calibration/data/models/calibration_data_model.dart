@@ -10,7 +10,8 @@ class CalibrationDataModel extends CalibrationDataEntity {
   factory CalibrationDataModel.fromJson(Map<String, dynamic> json) {
     return CalibrationDataModel(
       neutralJointAngle: (json['neutralJointAngle'] as num?)?.toDouble() ?? 0.0,
-      restingEmgBaseline: (json['restingEmgBaseline'] as num?)?.toDouble() ?? 0.0,
+      restingEmgBaseline:
+          (json['restingEmgBaseline'] as num?)?.toDouble() ?? 0.0,
       isCalibrated: json['isCalibrated'] as bool? ?? false,
     );
   }
