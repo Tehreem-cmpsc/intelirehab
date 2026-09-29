@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
@@ -7,17 +7,37 @@ import { pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
 
 function ExercisesPage() {
+  const [exercises, setExercises] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const levels = ExerciseUseCases.getDifficultyLevels();
-  const filtered = ExerciseUseCases.filterExercises(filter, search);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    let mounted = true;
+    ExerciseUseCases.getAllExercises()
+      .then((data) => {
+        if (mounted) setExercises(data);
+      })
+      .catch(() => {
+        if (mounted) setExercises([]);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const filtered = ExerciseUseCases.filterExercises(exercises, filter, search);
 
   return (
     <div style={{ padding: pagePadding(isMobile) }}>
       <SectionHead
         title="Exercise database"
-        sub={`${ExerciseUseCases.getTotalExerciseCount()} clinic-approved exercises`}
+        sub={loading ? "Loading…" : `${exercises.length} clinic-approved exercises`}
         action={
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <input
@@ -122,7 +142,7 @@ function ExercisesPage() {
             </div>
           </Card>
         ))}
-        {filtered.length === 0 && (
+        {!loading && filtered.length === 0 && (
           <div
             style={{
               gridColumn: "1/-1",
@@ -132,7 +152,7 @@ function ExercisesPage() {
               fontSize: 13,
             }}
           >
-            No exercises match your search.
+            {exercises.length === 0 ? "No exercises in the catalogue yet." : "No exercises match your search."}
           </div>
         )}
       </div>

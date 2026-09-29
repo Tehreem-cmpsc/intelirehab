@@ -1,16 +1,22 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../mock_directory.dart';
+import '../../home/ble/arm_band_ble_service.dart';
+import '../../home/ble/arm_band_protocol.dart';
+import '../../home/bluetooth_rationale.dart';
+import '../../home/wearable_connection_controller.dart' show simulatedWearableBattery;
 import '../onboarding_data.dart';
 import '../widgets/form_widgets.dart';
 
-enum _BleState { idle, scanning, found, connecting, connected }
+enum _BleState { idle, scanning, found, connecting, connected, error }
 
-/// BLE pairing — UI only. Scanning and connecting are simulated with
-/// timers against [mockWearables]; swap in a real BLE plugin later.
+/// Real BLE pairing, against firmware/lib/BLEStreamer.cpp's GATT profile
+/// (ArmBandProtocol) — own [ArmBandBleService] instance, since this runs
+/// before a patient is fully registered (WearableConnectionController,
+/// used everywhere after onboarding, doesn't exist yet at this point).
 class WearableSetupStep extends StatefulWidget {
   final OnboardingData data;
 
@@ -23,51 +29,98 @@ class WearableSetupStep extends StatefulWidget {
 class _WearableSetupStepState extends State<WearableSetupStep> with SingleTickerProviderStateMixin {
   late final AnimationController _radar =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
-  Timer? _timer;
-  late _BleState _state = widget.data.wearable != null ? _BleState.connected : _BleState.idle;
+  final _ble = ArmBandBleService();
+  StreamSubscription<List<ArmBandScanResult>>? _scanSub;
+  List<ArmBandScanResult> _found = [];
   String? _connectingId;
+  String? _errorMessage;
+  late _BleState _state = widget.data.wearable != null ? _BleState.connected : _BleState.idle;
 
   OnboardingData get data => widget.data;
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _scanSub?.cancel();
     _radar.dispose();
+    _ble.dispose();
     super.dispose();
   }
 
-  void _scan() {
-    setState(() => _state = _BleState.scanning);
+  /// Explains Bluetooth first, in context (Rule 23), then scans for real.
+  Future<void> _scan() async {
+    if (!await BluetoothRationale.ensure(context) || !mounted) return;
+    setState(() {
+      _state = _BleState.scanning;
+      _found = [];
+      _errorMessage = null;
+    });
     _radar.repeat();
-    _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 2600), () {
+    await _scanSub?.cancel();
+    _scanSub = _ble.scan().listen(
+      (results) {
+        if (!mounted) return;
+        setState(() {
+          _found = results;
+          if (_state == _BleState.scanning) _state = _BleState.found;
+        });
+      },
+      onError: (Object e) {
+        if (!mounted) return;
+        _radar.stop();
+        setState(() {
+          _state = _BleState.error;
+          _errorMessage = e is ArmBandException ? e.message : "Couldn't scan for bands.";
+        });
+      },
+    );
+    // A scan runs until stopped — show whatever's found after a fixed
+    // window rather than waiting forever for more.
+    Future.delayed(const Duration(seconds: 6), () {
+      if (!mounted || _state != _BleState.scanning) return;
       _radar.stop();
-      setState(() => _state = _BleState.found);
+      setState(() => _state = _found.isEmpty ? _BleState.error : _BleState.found);
+      if (_found.isEmpty) _errorMessage = "No bands found nearby. Make sure it's switched on.";
     });
   }
 
   void _cancelScan() {
-    _timer?.cancel();
+    _scanSub?.cancel();
     _radar.stop();
     setState(() => _state = _BleState.idle);
   }
 
-  void _connect(WearableDevice device) {
+  Future<void> _connect(ArmBandScanResult found) async {
     setState(() {
       _state = _BleState.connecting;
-      _connectingId = device.id;
+      _connectingId = found.id;
     });
-    _timer?.cancel();
-    _timer = Timer(const Duration(milliseconds: 1600), () {
+    await _scanSub?.cancel();
+    try {
+      await _ble.connect(found.id);
+      if (!mounted) return;
+      final device = WearableDevice(
+        found.id,
+        ArmBandProtocol.advertisedName,
+        found.signalBars,
+        simulatedWearableBattery(found.id),
+        macAddress: Platform.isAndroid ? found.id : null, // Android's remoteId IS the MAC; iOS's isn't
+      );
       data.update(() {
         data.wearable = device;
         data.wearableSkipped = false;
       });
       setState(() => _state = _BleState.connected);
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _state = _BleState.error;
+        _errorMessage = e is ArmBandException ? e.message : "Couldn't connect to that band.";
+      });
+    }
   }
 
   void _disconnect() {
+    _ble.disconnect();
     data.update(() {
       data.wearable = null;
       data.baseline = null;
@@ -85,8 +138,9 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         child: switch (_state) {
           _BleState.idle => _idle(context),
           _BleState.scanning => _scanning(context),
-          _BleState.found || _BleState.connecting => _found(context),
+          _BleState.found || _BleState.connecting => _found_(context),
           _BleState.connected => _connected(context),
+          _BleState.error => _error(context),
         },
       ),
     );
@@ -169,14 +223,14 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
     );
   }
 
-  Widget _found(BuildContext context) {
+  Widget _found_(BuildContext context) {
     final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
-            Text('${mockWearables.length} bands found',
+            Text('${_found.length} band${_found.length == 1 ? '' : 's'} found',
                 style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: c.ink)),
             const Spacer(),
             TextButton.icon(
@@ -187,7 +241,7 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
           ],
         ),
         const SizedBox(height: 6),
-        for (final d in mockWearables) ...[
+        for (final d in _found) ...[
           SurfaceCard(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
@@ -207,9 +261,9 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          _SignalBars(bars: d.signal),
+                          _SignalBars(bars: d.signalBars),
                           const SizedBox(width: 6),
-                          Text(d.signal >= 2 ? 'Strong signal' : 'Weak signal — move closer',
+                          Text(d.signalBars >= 2 ? 'Strong signal' : 'Weak signal — move closer',
                               style: TextStyle(fontSize: 12, color: c.muted)),
                         ],
                       ),
@@ -244,6 +298,31 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         const InfoBanner(
           icon: Icons.lightbulb_outline,
           text: 'Not sure which is yours? The code on the back of your band matches the last 4 characters.',
+        ),
+        const SizedBox(height: 8),
+        _skipLink(),
+      ],
+    );
+  }
+
+  Widget _error(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 20),
+        Icon(Icons.bluetooth_disabled_rounded, size: 56, color: c.alert),
+        const SizedBox(height: 14),
+        Text(
+          _errorMessage ?? "Couldn't find or connect to your band.",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14.5, color: c.ink, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        FilledButton.icon(
+          onPressed: _scan,
+          icon: const Icon(Icons.refresh, size: 20),
+          label: const Text('Try again'),
         ),
         const SizedBox(height: 8),
         _skipLink(),

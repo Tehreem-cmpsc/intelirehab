@@ -1,30 +1,62 @@
 import { useState } from "react";
 import { THEME } from "../../../infrastructure/physio/constants";
-import { SectionHead, Card } from "../components";
+import { SectionHead, Card, PatientDetails, chosenPhysioLabel } from "../components";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
+import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
+import { armLabel, jointLabel, injuryTypeLabel, painLabel, ageFrom } from "../../../domain/physio/utils/patientLabels";
 
-function ApprovalsPage({ patients, setPatients }) {
+// "Right arm · Elbow · Fracture" from the patient's self-reported injury,
+// falling back to the denormalised patients.injury text.
+const injurySummary = (p) => {
+  const i = p.injuryDetails;
+  if (!i) return p.injury;
+  return [i.side && `${armLabel(i.side)} arm`, jointLabel(i.joint), injuryTypeLabel(i.type)].filter(Boolean).join(" · ");
+};
+
+function ApprovalsPage({ patients, setPatients, currentPhysioId }) {
   const [toast, setToast] = useState(null);
-  const pending = patients.filter((p) => !p.approved);
+  const [busyId, setBusyId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
+  // Patients who picked this physio first; the rest chose a colleague at
+  // the same clinic but are still visible (and approvable) under RLS.
+  const pending = patients
+    .filter((p) => !p.approved)
+    .sort((a, b) => (b.profile.physioId === currentPhysioId) - (a.profile.physioId === currentPhysioId));
   const isMobile = useIsMobile();
 
-  const showToast = (msg) => {
-    setToast(msg);
+  const showToast = (msg, isError = false) => {
+    setToast({ msg, isError });
     setTimeout(() => setToast(null), 3000);
   };
 
-  const approve = (id) => {
+  const approve = async (id) => {
     const p = patients.find((x) => x.id === id);
-    setPatients((prev) => prev.map((x) => (x.id === id ? { ...x, approved: true } : x)));
-    showToast(`${p.name} approved and activated.`);
+    setBusyId(id);
+    try {
+      await PatientUseCases.approvePatient(id);
+      setPatients((prev) => prev.map((x) => (x.id === id ? { ...x, approved: true } : x)));
+      showToast(`${p.name} approved and activated.`);
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setBusyId(null);
+    }
   };
 
-  const reject = (id) => {
+  const reject = async (id) => {
     const p = patients.find((x) => x.id === id);
-    setPatients((prev) => prev.filter((x) => x.id !== id));
-    showToast(`${p.name} removed.`);
+    setBusyId(id);
+    try {
+      await PatientUseCases.removePatient(id);
+      setPatients((prev) => prev.filter((x) => x.id !== id));
+      showToast(`${p.name} removed.`);
+    } catch (e) {
+      showToast(e.message, true);
+    } finally {
+      setBusyId(null);
+    }
   };
 
   return (
@@ -36,7 +68,7 @@ function ApprovalsPage({ patients, setPatients }) {
             top: isMobile ? 16 : 24,
             right: isMobile ? 16 : 32,
             left: isMobile ? 16 : "auto",
-            background: THEME.navy,
+            background: toast.isError ? THEME.red : THEME.navy,
             color: THEME.white,
             borderRadius: 10,
             padding: "12px 20px",
@@ -45,7 +77,7 @@ function ApprovalsPage({ patients, setPatients }) {
             fontWeight: 600,
           }}
         >
-          ✓ {toast}
+          {toast.isError ? "!" : "✓"} {toast.msg}
         </div>
       )}
 
@@ -92,20 +124,26 @@ function ApprovalsPage({ patients, setPatients }) {
                     {p.name}
                   </div>
                   <div style={{ fontSize: 13, color: THEME.slate500 }}>
-                    {[p.regId, p.injury].filter(Boolean).join(" · ") || "No injury on file"}
+                    {[
+                      injurySummary(p),
+                      ageFrom(p.profile.dateOfBirth) != null && `Age ${ageFrom(p.profile.dateOfBirth)}`,
+                      p.injuryDetails?.painLevel != null && `Pain ${painLabel(p.injuryDetails.painLevel)}`,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "No injury on file"}
                   </div>
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "repeat(3, minmax(0, max-content))",
+                      gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "repeat(3, minmax(0, max-content))",
                       gap: isMobile ? 8 : 16,
                       marginTop: 10,
                     }}
                   >
                     {[
-                      ["Current ROM", `${p.rom}%`],
-                      ["Wearable", p.wearable ? "Yes" : "No"],
-                      ["Trend", p.trend > 0 ? `+${p.trend}°` : `${p.trend}°`],
+                      ["Chose", chosenPhysioLabel(p, currentPhysioId)],
+                      ["Wearable", p.device?.serial ?? (p.wearable ? "Paired" : "Not paired")],
+                      ["Baseline", p.baseline ? `${Math.round(p.baseline.range)}° range` : "Not calibrated"],
                     ].map(([l, v]) => (
                       <div
                         key={l}
@@ -126,6 +164,7 @@ function ApprovalsPage({ patients, setPatients }) {
                 <div style={{ display: "flex", gap: 10, flex: isMobile ? "1 1 100%" : "0 0 auto" }}>
                   <button
                     onClick={() => reject(p.id)}
+                    disabled={busyId === p.id}
                     style={{
                       flex: 1,
                       padding: "10px 20px",
@@ -134,13 +173,14 @@ function ApprovalsPage({ patients, setPatients }) {
                       background: THEME.surface,
                       color: THEME.slate600,
                       fontWeight: 600,
-                      cursor: "pointer",
+                      cursor: busyId === p.id ? "wait" : "pointer",
                     }}
                   >
                     Decline
                   </button>
                   <button
                     onClick={() => approve(p.id)}
+                    disabled={busyId === p.id}
                     style={{
                       flex: 1,
                       padding: "10px 20px",
@@ -149,13 +189,34 @@ function ApprovalsPage({ patients, setPatients }) {
                       borderRadius: 10,
                       color: THEME.onFill,
                       fontWeight: 700,
-                      cursor: "pointer",
+                      cursor: busyId === p.id ? "wait" : "pointer",
                     }}
                   >
                     Approve
                   </button>
                 </div>
               </div>
+
+              <button
+                onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                style={{
+                  marginTop: 12,
+                  padding: 0,
+                  background: "none",
+                  border: "none",
+                  color: THEME.teal,
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {expandedId === p.id ? "Hide details ▲" : "Show all details ▼"}
+              </button>
+              {expandedId === p.id && (
+                <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${THEME.slate200}` }}>
+                  <PatientDetails patient={p} currentPhysioId={currentPhysioId} />
+                </div>
+              )}
             </Card>
           ))}
         </div>

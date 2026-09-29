@@ -23,4 +23,15 @@ class AuthService {
     if (uid == null) return null;
     return supabase.from('patients').select().eq('user_id', uid).maybeSingle();
   }
+
+  /// The patient's currently paired band, if any — used to seed the Home
+  /// screen's wearable status chip before it's connected live.
+  Future<Map<String, dynamic>?> fetchPairedDevice(String patientId) {
+    return supabase
+        .from('wearable_devices')
+        .select('serial_no')
+        .eq('patient_id', patientId)
+        .eq('status', 'paired')
+        .maybeSingle();
+  }
 }

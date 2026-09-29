@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/radial_progress.dart';
@@ -59,7 +60,15 @@ class _CalibrationStepState extends State<CalibrationStep> {
       };
 
   @override
+  void initState() {
+    super.initState();
+    // Live capture: an accidental rotation mustn't re-layout mid-rep (Rule 30).
+    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  }
+
+  @override
   void dispose() {
+    SystemChrome.setPreferredOrientations(const []);
     _timer?.cancel();
     super.dispose();
   }

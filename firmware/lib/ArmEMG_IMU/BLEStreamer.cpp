@@ -62,6 +62,7 @@ void BLEStreamer::begin(const char *deviceName) {
 
     NimBLEAdvertising *advertising = NimBLEDevice::getAdvertising();
     advertising->addServiceUUID(SERVICE_UUID);
+    advertising->setName(deviceName);
     advertising->start();
 }
 

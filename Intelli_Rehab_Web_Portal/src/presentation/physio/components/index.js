@@ -4,6 +4,7 @@ import SectionHead from "./SectionHead";
 import RomBar from "./RomBar";
 import Logo from "./Logo";
 import LogoFull from "./LogoFull";
+import PatientDetails, { chosenPhysioLabel } from "./PatientDetails";
 import { THEME } from "../../../infrastructure/physio/constants";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 
@@ -14,6 +15,8 @@ export {
   RomBar,
   Logo,
   LogoFull,
+  PatientDetails,
+  chosenPhysioLabel,
   THEME,
   VisualizationService,
 };

@@ -1,8 +1,24 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Arm band BLE connection (Communication Layer, SDD §3.1.2). -->
+    <!-- Android 12+ (API 31+): usesPermissionFlags="neverForLocation" tells the
+         OS/Play Store we scan by service UUID, not to derive location, so we
+         don't need ACCESS_FINE_LOCATION on these OS versions. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Android <12 (API <31): BLE scanning needs the legacy Bluetooth
+         permissions plus a location permission — required by the OS for BLE
+         scanning on these versions, not because this app uses location. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <application
         android:label="inteli_rehab_mobile_app"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
+        <!-- model_viewer_plus (Home dashboard's 3D arm model) renders via an
+             embedded WebView; its bundled JS/glb are local assets, but the
+             WebView still needs this to load them without a TLS error. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

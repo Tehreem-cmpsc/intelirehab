@@ -14,6 +14,9 @@ class ThemeController extends ValueNotifier<ThemeMode> {
   void toggle(Brightness current) {
     value = current == Brightness.dark ? ThemeMode.light : ThemeMode.dark;
   }
+
+  /// Direct pick — used by the Profile screen's Light/Dark/System control.
+  void set(ThemeMode mode) => value = mode;
 }
 
 class ThemeScope extends InheritedNotifier<ThemeController> {

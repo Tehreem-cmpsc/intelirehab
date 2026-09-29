@@ -4,10 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/models/patient_profile.dart';
+import 'core/network/load_guard.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/auth/auth_service.dart';
-import 'features/home/home_screen.dart';
+import 'features/home/home_shell.dart';
 import 'features/onboarding/onboarding_flow.dart';
 import 'features/onboarding/onboarding_repository.dart';
 import 'features/onboarding/waiting_for_physio_screen.dart';
@@ -77,14 +78,14 @@ class _AuthGateState extends State<AuthGate> {
   void initState() {
     super.initState();
     _uid = _auth.currentSession?.user.id;
-    _view = _resolve();
+    _view = _resolveGuarded();
     // Only a change of user matters — token refreshes keep the same uid.
     _subscription = _auth.onAuthStateChange.listen((state) {
       final uid = state.session?.user.id;
       if (uid != _uid && mounted) {
         setState(() {
           _uid = uid;
-          _view = _resolve();
+          _view = _resolveGuarded();
         });
       }
     });
@@ -96,7 +97,11 @@ class _AuthGateState extends State<AuthGate> {
     super.dispose();
   }
 
-  void _retry() => setState(() => _view = _resolve());
+  void _retry() => setState(() => _view = _resolveGuarded());
+
+  /// No infinite spinner at launch (Rule 26): a hung lookup falls back to
+  /// the "Couldn't load your account" screen with Try again.
+  Future<Widget> _resolveGuarded() => _resolve().guarded();
 
   Future<Widget> _resolve() async {
     if (_uid == null) return const WelcomeScreen();
@@ -107,7 +112,15 @@ class _AuthGateState extends State<AuthGate> {
     }
     if (row == null) return const _NoPatientRecord();
 
-    if (row['approved'] == true) return HomeScreen(profile: PatientProfile.fromMap(row));
+    if (row['approved'] == true) {
+      final profile = PatientProfile.fromMap(row);
+      final device = await _auth.fetchPairedDevice(profile.id);
+      return HomeShell(
+        profile: profile,
+        wearablePaired: device != null,
+        deviceSerial: device?['serial_no'] as String?,
+      );
+    }
 
     final data = await _repo.hydrate(row);
     if (row['clinic_id'] == null) {
@@ -155,9 +168,7 @@ class _LoadError extends StatelessWidget {
     return _GateMessage(
       icon: Icons.cloud_off_outlined,
       title: "Couldn't load your account",
-      text: error is OnboardingException
-          ? (error as OnboardingException).message
-          : 'Check your connection and try again.',
+      text: friendlyError(error, fallback: "We couldn't reach Inteli Rehab."),
       onRetry: onRetry,
     );
   }

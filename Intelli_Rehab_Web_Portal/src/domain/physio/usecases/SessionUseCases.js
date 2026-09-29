@@ -6,10 +6,15 @@ const SessionUseCases = {
   // clinic_id/patient_id filter is needed here. Fetched once and shared
   // across the patient list (per-patient rom/trend/streak) and the
   // dashboard (clinic-wide charts) rather than querying separately.
+  // movement_analysis comes along so PatientUseCases can tell the mobile
+  // app's onboarding calibration (posture_status = 'baseline_calibration')
+  // apart from exercise sessions.
   async getAllSessions() {
     const { data, error } = await supabase
       .from("sessions")
-      .select("id, patient_id, performed_at, rom, quality, fatigue, reps, exercises(name)")
+      .select(
+        "id, patient_id, performed_at, rom, quality, fatigue, reps, exercises(name), movement_analysis(posture_status, joint_angle, rom)"
+      )
       .order("performed_at", { ascending: false });
 
     if (error) {

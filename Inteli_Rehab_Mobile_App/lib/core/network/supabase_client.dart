@@ -1,8 +1,12 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Same Supabase project the web portal (Intelli_Rehab_Web_Portal/.env) uses.
-/// This is the publishable/anon key — safe to embed in a client app; every
-/// table it touches is gated by the RLS policies in the supabase_*.sql files.
+/// Cloud & Infrastructure Layer (SDD §3.1.6) entry point — the one place
+/// both the mobile app and the web portal's Supabase client point at the
+/// same project (Intelli_Rehab_Web_Portal/.env), so auth, the database and
+/// realtime all agree. This is the publishable/anon key — safe to embed in
+/// a client app; every table it touches is gated by the RLS policies in
+/// the supabase_*.sql files, which is what actually enforces "each layer
+/// only reaches the one below it" for data access.
 const _supabaseUrl = 'https://ewnetwncsuvbvtrnuyke.supabase.co';
 const _supabasePublishableKey = 'sb_publishable_9GgLEFrfxrtFrIqL3xaSAA_hoAzuT5h';
 

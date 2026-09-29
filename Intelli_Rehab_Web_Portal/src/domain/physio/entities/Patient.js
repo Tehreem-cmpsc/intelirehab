@@ -12,9 +12,12 @@ export class Patient {
     approved,
     warning,
     sessions,
-    currentExercise,
     emg,
     romWeekly,
+    profile,
+    injuryDetails,
+    device,
+    baseline,
   }) {
     this.id = id;
     this.name = name;
@@ -28,9 +31,13 @@ export class Patient {
     this.approved = approved;
     this.warning = warning;
     this.sessions = sessions || [];
-    this.currentExercise = currentExercise;
     this.emg = emg || [];
     this.romWeekly = romWeekly || [];
+    // Onboarding answers from the mobile app (see PatientUseCases.toPatient).
+    this.profile = profile || {};
+    this.injuryDetails = injuryDetails || null;
+    this.device = device || null;
+    this.baseline = baseline || null;
   }
 
   isAtRisk() {

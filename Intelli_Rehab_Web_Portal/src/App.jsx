@@ -67,16 +67,50 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Fix: load patients properly on mount
+  // Patients are RLS-scoped to the signed-in physio's clinic, so load them
+  // once that physio is known (not on mount, when there may be no session
+  // yet), and keep re-fetching so patients who sign up in the mobile app
+  // show up without a page refresh.
+  const physioUserId = auth.user?.authRole === "physio" ? auth.user.id : null;
   useEffect(() => {
+    if (!physioUserId) {
+      setPatients([]);
+      return;
+    }
     let mounted = true;
-    PatientUseCases.getAllPatients().then((data) => {
-      if (mounted) setPatients(data || []);
-    });
+    const load = () =>
+      PatientUseCases.getAllPatients()
+        .then((data) => {
+          if (!mounted) return;
+          // Warnings (AtRiskPage) are still a local-only edit — carry it
+          // over so a refresh doesn't wipe it. Exercise assignments are
+          // real now (ExercisePlanUseCases) and fetched per-patient on
+          // demand in PatientsPage, not stored on the bulk Patient object.
+          setPatients((prev) => {
+            const prevById = new Map(prev.map((p) => [p.id, p]));
+            return (data || []).map((p) => {
+              const old = prevById.get(p.id);
+              if (old) p.warning = old.warning;
+              return p;
+            });
+          });
+        })
+        .catch(() => {
+          // Already logged in getAllPatients; keep the last list shown.
+        });
+
+    load();
+    const interval = setInterval(load, 30000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       mounted = false;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, []);
+  }, [physioUserId]);
 
   // Fix: auto-redirect when session restores on refresh
   useEffect(() => {
@@ -177,9 +211,12 @@ export default function App() {
             setPatients={setPatients}
             selectedId={selectedPatientId}
             setSelectedId={setSelectedPatientId}
+            currentPhysioId={auth.user.physio_id}
           />
         )}
-        {physioPage === "approvals" && <ApprovalsPage patients={patients} setPatients={setPatients} />}
+        {physioPage === "approvals" && (
+          <ApprovalsPage patients={patients} setPatients={setPatients} currentPhysioId={auth.user.physio_id} />
+        )}
         {physioPage === "atrisk" && <AtRiskPage patients={patients} setPatients={setPatients} />}
         {physioPage === "exercises" && <ExercisesPage />}
       </PhysioShell>

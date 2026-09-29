@@ -13,12 +13,19 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:inteli_rehab_mobile_app/core/network/supabase_client.dart';
-import 'package:inteli_rehab_mobile_app/features/onboarding/mock_directory.dart';
 import 'package:inteli_rehab_mobile_app/features/onboarding/onboarding_data.dart';
 import 'package:inteli_rehab_mobile_app/features/onboarding/onboarding_repository.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // ignore_for_file: avoid_print
+
+// Local fixtures for exercising OnboardingRepository.saveWearable's
+// replace-on-repair logic — this test is checking that repository method
+// against the live DB, not doing a real BLE scan, so plain WearableDevice
+// values are all it needs (mock_directory.dart, the UI's old mock
+// catalogue, is gone now that pairing is real BLE).
+const _testDevice1 = WearableDevice('TEST-A1F3', 'Test Band A1F3', 3, 86, firmware: '1.4.2');
+const _testDevice2 = WearableDevice('TEST-7C02', 'Test Band 7C02', 1, 54, firmware: '1.4.2');
 
 void main() {
   setUpAll(() async {
@@ -94,10 +101,10 @@ void main() {
       print('✓ sign-up metadata cleared');
 
       // --- Wearable ---------------------------------------------------
-      data.wearable = mockWearables.first;
+      data.wearable = _testDevice1;
       data.deviceRecordId = await repo.saveWearable(data.patientId!, data.wearable!);
       final device = await supabase.from('wearable_devices').select().eq('id', data.deviceRecordId!).single();
-      expect(device['serial_no'], mockWearables.first.id);
+      expect(device['serial_no'], _testDevice1.id);
       expect(device['status'], 'paired');
       expect(device['firmware_version'], '1.4.2');
       final flag = await supabase.from('patients').select('wearable_connected').eq('id', data.patientId!).single();
@@ -105,7 +112,7 @@ void main() {
       print('✓ wearable_devices row + patients.wearable_connected (trigger)');
 
       // Re-pairing a different band replaces the first one.
-      final second = mockWearables[1];
+      const second = _testDevice2;
       final secondId = await repo.saveWearable(data.patientId!, second);
       final devices =
           await supabase.from('wearable_devices').select('id, status').eq('patient_id', data.patientId!);

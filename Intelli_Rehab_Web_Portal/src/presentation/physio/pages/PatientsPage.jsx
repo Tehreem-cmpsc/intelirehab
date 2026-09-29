@@ -8,23 +8,40 @@ import {
   Tooltip,
   Area,
 } from "recharts";
-import { THEME, EXERCISES } from "../../../infrastructure/physio/constants";
-import { Card, SectionHead, RomBar, Badge } from "../components";
+import { THEME } from "../../../infrastructure/physio/constants";
+import { Card, SectionHead, RomBar, Badge, PatientDetails } from "../components";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
+import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
+import ExercisePlanUseCases from "../../../domain/physio/usecases/ExercisePlanUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
 
-function AssignExerciseModal({ patient, onClose, onAssign }) {
-  const [exId, setExId] = useState(patient.currentExercise?.id || 1);
-  const [sets, setSets] = useState(patient.currentExercise?.sets || 3);
-  const [reps, setReps] = useState(patient.currentExercise?.reps || 10);
-  const [romTarget, setRomTarget] = useState(patient.currentExercise?.romTarget || 70);
+const FREQUENCIES = ["Daily", "Every other day", "3× per week", "Weekly"];
+const emptyRow = () => ({ key: Math.random().toString(36).slice(2), exerciseId: "", sets: 3, reps: 10, romTarget: 70, frequency: "Daily" });
+
+// A session is one or more exercises assigned together (rehabilitation_plans
+// + one patient_exercise_plans row per exercise, all sharing that plan_id).
+// Pre-filled from the patient's current active assignment so re-opening this
+// reads as "edit what they have," not a blank form every time.
+function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssign, saving, error }) {
+  const [planName, setPlanName] = useState(currentPlan?.planName || "");
+  const [rows, setRows] = useState(() => {
+    if (currentPlan?.exercises?.length) {
+      return currentPlan.exercises.map((ex) => ({
+        key: ex.assignmentId,
+        exerciseId: ex.exerciseId,
+        sets: ex.sets,
+        reps: ex.reps,
+        romTarget: ex.romTarget ?? 70,
+        frequency: ex.frequency || "Daily",
+      }));
+    }
+    return [emptyRow()];
+  });
   const surface = THEME.surface;
-  const [freq, setFreq] = useState(patient.currentExercise?.freq || "Daily");
   const isMobile = useIsMobile();
 
-  const ex = EXERCISES.find((e) => e.id === exId);
   const inp = {
     width: "100%",
     padding: "10px 12px",
@@ -37,6 +54,27 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
     background: THEME.slate50,
     outline: "none",
     boxSizing: "border-box",
+  };
+
+  const updateRow = (key, patch) => setRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const addRow = () => setRows((prev) => [...prev, emptyRow()]);
+  const removeRow = (key) => setRows((prev) => (prev.length > 1 ? prev.filter((r) => r.key !== key) : prev));
+
+  const usedIds = new Set(rows.map((r) => r.exerciseId).filter(Boolean));
+  const incomplete = rows.some((r) => !r.exerciseId);
+
+  const handleSubmit = () => {
+    if (incomplete || saving) return;
+    onAssign({
+      planName,
+      exercises: rows.map((r) => ({
+        exerciseId: r.exerciseId,
+        sets: r.sets,
+        reps: r.reps,
+        romTarget: r.romTarget,
+        frequency: r.frequency,
+      })),
+    });
   };
 
   return (
@@ -57,7 +95,7 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
           background: surface,
           borderRadius: 18,
           padding: isMobile ? 20 : 32,
-          width: 520,
+          width: 640,
           maxWidth: "100%",
           maxHeight: "90dvh",
           overflowY: "auto",
@@ -97,101 +135,148 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
           </button>
         </div>
 
-        <div style={{ marginBottom: 16 }}>
-          <label
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: THEME.slate600,
-              display: "block",
-              marginBottom: 6,
-            }}
-          >
-            EXERCISE
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 6 }}>
+            SESSION NAME
           </label>
-          <select
-            value={exId}
-            onChange={(e) => setExId(Number(e.target.value))}
+          <input
+            value={planName}
+            onChange={(e) => setPlanName(e.target.value)}
+            placeholder="e.g. Week 3 — shoulder mobility"
             style={inp}
-          >
-            {EXERCISES.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
 
-        {ex && (
-          <div
-            style={{
-              background: THEME.tealLight,
-              borderRadius: 10,
-              padding: "12px 14px",
-              marginBottom: 18,
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 600, color: THEME.tealDim }}>
-              Target: {ex.target} · {ex.difficulty}
-            </div>
-            <div style={{ fontSize: 12, color: THEME.slate600, marginTop: 4 }}>
-              {ex.desc}
-            </div>
-          </div>
-        )}
-
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
-          {[
-            ["SETS", sets, setSets, 1, 6],
-            ["REPS", reps, setReps, 3, 20],
-            ["ROM TARGET (%)", romTarget, setRomTarget, 20, 100],
-          ].map(([l, v, fn, min, max]) => (
-            <div key={l}>
-              <label
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 6 }}>
+          {rows.map((row, i) => {
+            const ex = catalogue.find((e) => e.id === row.exerciseId);
+            return (
+              <div
+                key={row.key}
                 style={{
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: THEME.slate600,
-                  display: "block",
-                  marginBottom: 6,
+                  border: `1px solid ${THEME.slate200}`,
+                  borderRadius: 12,
+                  padding: 14,
+                  position: "relative",
                 }}
               >
-                {l}
-              </label>
-              <input
-                type="number"
-                min={min}
-                max={max}
-                value={v}
-                onChange={(e) => fn(Number(e.target.value))}
-                style={inp}
-              />
-            </div>
-          ))}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600 }}>EXERCISE {i + 1}</label>
+                  {rows.length > 1 && (
+                    <button
+                      onClick={() => removeRow(row.key)}
+                      aria-label="Remove exercise"
+                      style={{
+                        border: "none",
+                        background: "none",
+                        color: THEME.slate400,
+                        cursor: "pointer",
+                        fontSize: 16,
+                        lineHeight: 1,
+                        padding: 4,
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={row.exerciseId}
+                  onChange={(e) => updateRow(row.key, { exerciseId: e.target.value })}
+                  style={{ ...inp, marginBottom: ex ? 10 : 0 }}
+                >
+                  <option value="" disabled>
+                    Select an exercise…
+                  </option>
+                  {catalogue.map((e) => (
+                    <option key={e.id} value={e.id} disabled={usedIds.has(e.id) && e.id !== row.exerciseId}>
+                      {e.name}
+                    </option>
+                  ))}
+                </select>
+
+                {ex && (
+                  <div
+                    style={{
+                      background: THEME.tealLight,
+                      borderRadius: 10,
+                      padding: "10px 12px",
+                      marginBottom: 12,
+                    }}
+                  >
+                    <div style={{ fontSize: 12, fontWeight: 600, color: THEME.tealDim }}>
+                      Target: {ex.target} · {ex.difficulty}
+                    </div>
+                    <div style={{ fontSize: 12, color: THEME.slate600, marginTop: 4 }}>{ex.desc}</div>
+                  </div>
+                )}
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: 10 }}>
+                  {[
+                    ["SETS", row.sets, "sets", 1, 6],
+                    ["REPS", row.reps, "reps", 3, 20],
+                    ["ROM TARGET (%)", row.romTarget, "romTarget", 20, 100],
+                  ].map(([l, v, field, min, max]) => (
+                    <div key={l}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 4 }}>
+                        {l}
+                      </label>
+                      <input
+                        type="number"
+                        min={min}
+                        max={max}
+                        value={v}
+                        onChange={(e) => updateRow(row.key, { [field]: Number(e.target.value) })}
+                        style={inp}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 4 }}>
+                    FREQUENCY
+                  </label>
+                  <select value={row.frequency} onChange={(e) => updateRow(row.key, { frequency: e.target.value })} style={inp}>
+                    {FREQUENCIES.map((f) => (
+                      <option key={f}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div style={{ marginBottom: 24 }}>
-          <label
-            style={{
-              fontSize: 12,
-              fontWeight: 600,
-              color: THEME.slate600,
-              display: "block",
-              marginBottom: 6,
-            }}
-          >
-            FREQUENCY
-          </label>
-          <select value={freq} onChange={(e) => setFreq(e.target.value)} style={inp}>
-            {["Daily", "Every other day", "3× per week", "Weekly"].map((f) => (
-              <option key={f}>{f}</option>
-            ))}
-          </select>
-        </div>
+        <button
+          onClick={addRow}
+          disabled={usedIds.size >= catalogue.length}
+          style={{
+            width: "100%",
+            padding: "10px",
+            marginTop: 14,
+            marginBottom: 20,
+            border: `1.5px dashed ${THEME.slate200}`,
+            borderRadius: 10,
+            background: "none",
+            color: THEME.teal,
+            fontWeight: 600,
+            fontSize: 13,
+            cursor: usedIds.size >= catalogue.length ? "not-allowed" : "pointer",
+            opacity: usedIds.size >= catalogue.length ? 0.5 : 1,
+          }}
+        >
+          + Add another exercise
+        </button>
+
+        {error && (
+          <div style={{ fontSize: 13, color: THEME.red, marginBottom: 16 }}>{error}</div>
+        )}
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
             onClick={onClose}
+            disabled={saving}
             style={{
               flex: 1,
               padding: "12px",
@@ -206,7 +291,8 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
             Cancel
           </button>
           <button
-            onClick={() => onAssign({ exId, sets, reps, romTarget, freq })}
+            onClick={handleSubmit}
+            disabled={incomplete || saving}
             style={{
               flex: 2,
               padding: "12px",
@@ -215,10 +301,11 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
               borderRadius: 10,
               color: THEME.onFill,
               fontWeight: 700,
-              cursor: "pointer",
+              cursor: incomplete || saving ? "not-allowed" : "pointer",
+              opacity: incomplete || saving ? 0.6 : 1,
             }}
           >
-            Assign session
+            {saving ? "Assigning…" : "Assign session"}
           </button>
         </div>
       </div>
@@ -226,19 +313,41 @@ function AssignExerciseModal({ patient, onClose, onAssign }) {
   );
 }
 
-function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
+function PatientsPage({ patients, setPatients, selectedId, setSelectedId, currentPhysioId }) {
   const [showAssign, setShowAssign] = useState(false);
   const [toast, setToast] = useState(null);
   const [emg, setEmg] = useState([]);
   const [emgLoading, setEmgLoading] = useState(false);
+  const [activePlan, setActivePlan] = useState(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [catalogue, setCatalogue] = useState([]);
+  const [assignSaving, setAssignSaving] = useState(false);
+  const [assignError, setAssignError] = useState(null);
   const selected = patients.find((p) => p.id === selectedId);
 
-  // EMG is per-muscle readings from the patient's most recent session —
-  // only needed for whichever one patient is currently open, so it's
-  // fetched on demand instead of bulk-loaded with the patient list.
+  // The exercise catalogue is the same handful of rows for every patient,
+  // so it's loaded once for the whole page rather than per selection.
+  useEffect(() => {
+    ExerciseUseCases.getAllExercises()
+      .then(setCatalogue)
+      .catch(() => setCatalogue([]));
+  }, []);
+
+  const loadActivePlan = (patientId) => {
+    setPlanLoading(true);
+    return ExercisePlanUseCases.getActivePlan(patientId)
+      .then(setActivePlan)
+      .catch(() => setActivePlan(null))
+      .finally(() => setPlanLoading(false));
+  };
+
+  // EMG and the active exercise plan are both per-patient — only needed
+  // for whichever one is currently open, so both are fetched on demand
+  // instead of bulk-loaded with the patient list.
   useEffect(() => {
     if (!selectedId) {
       setEmg([]);
+      setActivePlan(null);
       return;
     }
     let cancelled = false;
@@ -253,6 +362,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
       .finally(() => {
         if (!cancelled) setEmgLoading(false);
       });
+    loadActivePlan(selectedId);
     return () => {
       cancelled = true;
     };
@@ -263,16 +373,25 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
     setTimeout(() => setToast(null), 3000);
   };
 
-  const handleAssign = ({ exId, sets, reps, romTarget, freq }) => {
-    setPatients((prev) =>
-      prev.map((p) =>
-        p.id === selectedId
-          ? { ...p, currentExercise: { id: exId, sets, reps, romTarget, freq } }
-          : p
-      )
-    );
-    setShowAssign(false);
-    showToast(`Exercise assigned to ${selected.name}`);
+  const handleAssign = async ({ planName, exercises }) => {
+    setAssignSaving(true);
+    setAssignError(null);
+    try {
+      await ExercisePlanUseCases.assignSession({
+        patientId: selectedId,
+        physioId: currentPhysioId,
+        planName,
+        exercises,
+      });
+      await loadActivePlan(selectedId);
+      setShowAssign(false);
+      showToast(`Exercise session assigned to ${selected.name}`);
+    } catch (err) {
+      console.error("Error assigning exercise session:", err);
+      setAssignError(err.message || "Couldn't assign this session. Please try again.");
+    } finally {
+      setAssignSaving(false);
+    }
   };
 
   const approvedPatients = patients.filter((p) => p.approved);
@@ -306,8 +425,15 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
       {showAssign && selected && (
         <AssignExerciseModal
           patient={selected}
-          onClose={() => setShowAssign(false)}
+          catalogue={catalogue}
+          currentPlan={activePlan}
+          onClose={() => {
+            setShowAssign(false);
+            setAssignError(null);
+          }}
           onAssign={handleAssign}
+          saving={assignSaving}
+          error={assignError}
         />
       )}
 
@@ -534,6 +660,13 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
               )}
             </Card>
 
+            <Card style={{ padding: isMobile ? "18px 16px" : "20px 22px" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 14 }}>
+                Patient details
+              </div>
+              <PatientDetails patient={selected} currentPhysioId={currentPhysioId} />
+            </Card>
+
             {/* ROM + EMG charts */}
             <div
               style={{
@@ -630,37 +763,37 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
               </Card>
             </div>
 
-            {/* Current exercise */}
-            {selected.currentExercise &&
-              (() => {
-                const ex = EXERCISES.find((e) => e.id === selected.currentExercise.id);
-                return (
-                  <Card style={{ padding: isMobile ? "18px 16px" : "20px 24px" }}>
+            {/* Assigned exercise session — one or more exercises under the
+                same active rehabilitation_plans row */}
+            <Card style={{ padding: isMobile ? "18px 16px" : "20px 24px" }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: THEME.slate800, marginBottom: 4 }}>
+                {activePlan?.planName || "Current exercise session"}
+              </div>
+              {planLoading ? (
+                <div style={{ fontSize: 13, color: THEME.slate400, padding: "12px 0" }}>Loading…</div>
+              ) : !activePlan?.exercises?.length ? (
+                <div style={{ fontSize: 13, color: THEME.slate400, padding: "8px 0 4px" }}>
+                  No exercises assigned yet.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 10 }}>
+                  {activePlan.exercises.map((ex, i) => (
                     <div
+                      key={ex.assignmentId}
                       style={{
                         display: "flex",
                         flexWrap: "wrap",
                         gap: 16,
                         justifyContent: "space-between",
                         alignItems: "flex-start",
+                        paddingBottom: 12,
+                        borderBottom: i < activePlan.exercises.length - 1 ? `1px solid ${THEME.slate200}` : "none",
                       }}
                     >
                       <div>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            fontWeight: 700,
-                            color: THEME.slate800,
-                            marginBottom: 4,
-                          }}
-                        >
-                          Current exercise plan
-                        </div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: THEME.teal }}>
-                          {ex?.name}
-                        </div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: THEME.teal }}>{ex.name}</div>
                         <div style={{ fontSize: 13, color: THEME.slate500, marginTop: 2 }}>
-                          {ex?.target} · {ex?.difficulty}
+                          {[ex.target, ex.difficulty].filter(Boolean).join(" · ")}
                         </div>
                       </div>
                       <div
@@ -672,10 +805,10 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                         }}
                       >
                         {[
-                          ["Sets", selected.currentExercise.sets],
-                          ["Reps", selected.currentExercise.reps],
-                          ["ROM target", `${selected.currentExercise.romTarget}%`],
-                          ["Frequency", selected.currentExercise.freq],
+                          ["Sets", ex.sets],
+                          ["Reps", ex.reps],
+                          ["ROM target", ex.romTarget != null ? `${ex.romTarget}%` : "—"],
+                          ["Frequency", ex.frequency || "—"],
                         ].map(([l, v]) => (
                           <div
                             key={l}
@@ -686,17 +819,16 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId }) {
                               borderRadius: 10,
                             }}
                           >
-                            <div style={{ fontSize: 18, fontWeight: 800, color: THEME.slate800 }}>
-                              {v}
-                            </div>
+                            <div style={{ fontSize: 18, fontWeight: 800, color: THEME.slate800 }}>{v}</div>
                             <div style={{ fontSize: 11, color: THEME.slate400 }}>{l}</div>
                           </div>
                         ))}
                       </div>
                     </div>
-                  </Card>
-                );
-              })()}
+                  ))}
+                </div>
+              )}
+            </Card>
 
             {/* Session history */}
             <Card style={{ overflow: "hidden" }}>

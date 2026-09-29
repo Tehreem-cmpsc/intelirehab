@@ -1,32 +1,20 @@
 import ExerciseRepository from "../../../infrastructure/physio/repositories/ExerciseRepository";
 
 class ExerciseUseCases {
+  // Loaded once by whichever screen needs the catalogue (ExercisesPage,
+  // the assign-session picker) and filtered client-side from there —
+  // there aren't enough rows for this to need a server-side query per
+  // keystroke.
   getAllExercises() {
     return ExerciseRepository.getAll();
   }
 
-  getExerciseById(id) {
-    return ExerciseRepository.getById(id);
-  }
-
-  getExercisesByDifficulty(difficulty) {
-    return ExerciseRepository.getByDifficulty(difficulty);
-  }
-
-  searchExercises(query) {
-    return ExerciseRepository.search(query);
-  }
-
-  filterExercises(difficulty, query) {
-    return ExerciseRepository.filter(difficulty, query);
+  filterExercises(exercises, difficulty, query) {
+    return ExerciseRepository.filter(exercises, difficulty, query);
   }
 
   getDifficultyLevels() {
     return ["All", "Beginner", "Intermediate", "Advanced"];
-  }
-
-  getTotalExerciseCount() {
-    return ExerciseRepository.getAll().length;
   }
 }
 

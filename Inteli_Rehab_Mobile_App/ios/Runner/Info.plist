@@ -66,5 +66,13 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- model_viewer_plus (Home dashboard's 3D arm model) embeds a WKWebView. -->
+	<key>io.flutter.embedded_views_preview</key>
+	<true/>
+	<!-- Arm band BLE connection (Communication Layer, SDD §3.1.2). -->
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Inteli Rehab uses Bluetooth to connect to your Inteli Band and read your exercise sensor data.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Inteli Rehab uses Bluetooth to connect to your Inteli Band and read your exercise sensor data.</string>
 </dict>
 </plist>
