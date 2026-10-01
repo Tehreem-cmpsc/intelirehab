@@ -167,10 +167,43 @@ class WearableConnectionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---- live presence, for the clinic portal ----------------------------
+
+  /// How often to tell the portal the link is still up. The portal counts a
+  /// band as live for 45 s after the last report, so this leaves room for two
+  /// missed beats.
+  static const _heartbeat = Duration(seconds: 15);
+  Timer? _presenceTimer;
+
+  /// Starts/stops reporting. Called from every place [state] changes to or
+  /// from connected, so the portal's view follows the real BLE link.
+  void _syncPresence() {
+    if (isDisposed) return;
+    if (isConnected) {
+      if (_presenceTimer != null) return;
+      unawaited(_repo.reportWearablePresence(true));
+      _presenceTimer = Timer.periodic(_heartbeat, (_) => unawaited(_repo.reportWearablePresence(true)));
+    } else if (_presenceTimer != null) {
+      _presenceTimer!.cancel();
+      _presenceTimer = null;
+      unawaited(_repo.reportWearablePresence(false));
+    }
+  }
+
+  @override
+  void notifyListeners() {
+    _syncPresence();
+    super.notifyListeners();
+  }
+
   bool isDisposed = false;
 
   @override
   void dispose() {
+    final wasReporting = _presenceTimer != null;
+    _presenceTimer?.cancel();
+    _presenceTimer = null;
+    if (wasReporting) unawaited(_repo.reportWearablePresence(false));
     isDisposed = true;
     _attempt++;
     _ble.dispose();

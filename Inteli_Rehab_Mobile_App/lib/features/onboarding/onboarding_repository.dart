@@ -121,6 +121,16 @@ class OnboardingRepository {
   // Wearable step
   // ------------------------------------------------------------
 
+  /// Tells the clinic portal whether this phone's Bluetooth link to the band
+  /// is up right now (supabase_wearable_presence.sql). Best-effort by design:
+  /// a failure here must never disturb the app, and the portal treats silence
+  /// as "not connected" within 45 s anyway.
+  Future<void> reportWearablePresence(bool connected) async {
+    try {
+      await _db.rpc('report_wearable_presence', params: {'p_connected': connected});
+    } catch (_) {}
+  }
+
   /// Records [device] as the patient's paired band and marks any band
   /// paired before it as replaced. Returns the wearable_devices id.
   Future<String> saveWearable(String patientId, WearableDevice device) async {

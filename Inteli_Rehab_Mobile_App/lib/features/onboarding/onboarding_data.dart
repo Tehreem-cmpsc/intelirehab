@@ -39,7 +39,6 @@ class OnboardingData extends ChangeNotifier {
 
   // Wearable
   WearableDevice? wearable;
-  bool wearableSkipped = false;
 
   // Calibration
   BaselineReading? baseline;

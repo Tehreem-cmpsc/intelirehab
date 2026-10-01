@@ -80,7 +80,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool get _canContinue =>
       !_busy &&
       switch (_index) {
-        4 => _data.wearable != null || _data.wearableSkipped,
+        4 => _data.wearable != null, // the band is compulsory
         5 => _data.baseline != null || _data.calibrationSkipped,
         _ => true,
       };

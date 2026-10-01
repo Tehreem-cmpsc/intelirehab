@@ -10,7 +10,7 @@ import '../exercises/plan_list_screen.dart';
 import '../exercises/session_journal.dart';
 import '../profile/profile_screen.dart';
 import '../progress/progress_screen.dart';
-import 'bluetooth_rationale.dart';
+import 'band_required_gate.dart';
 import 'home_screen.dart';
 import 'wearable_connection_controller.dart';
 
@@ -53,7 +53,6 @@ class _HomeShellState extends State<HomeShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkUnfinishedSession();
-      await _promptConnectIfNeeded();
     });
   }
 
@@ -65,40 +64,6 @@ class _HomeShellState extends State<HomeShell> {
 
   void _goToExercises() => setState(() => _index = 1);
   void _goToProgress() => setState(() => _index = 2);
-
-  /// Once per login/session (Rule 22-style once-per-run, not a repeat nag
-  /// for every transient drop during the day — that stays Home's ambient
-  /// "Wearable not connected" card): if the band still isn't connected
-  /// once the launch-time auto-reconnect attempt has settled, ask the
-  /// patient to connect it before they do anything else.
-  Future<void> _promptConnectIfNeeded() async {
-    while (mounted &&
-        (_connection.state == WearableConnState.searching || _connection.state == WearableConnState.calibrating)) {
-      final settled = Completer<void>();
-      void onChange() => settled.complete();
-      _connection.addListener(onChange);
-      await settled.future;
-      _connection.removeListener(onChange);
-    }
-    if (!mounted || _connection.isConnected) return;
-
-    final connectNow = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        icon: Icon(Icons.bluetooth_disabled_rounded, color: context.colors.alert, size: 32),
-        title: const Text('Connect your wearable'),
-        content: const Text(
-          "Your Inteli Band isn't connected yet. Connect it now so your exercises can be tracked accurately.",
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Not now')),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('Connect')),
-        ],
-      ),
-    );
-    if (connectNow != true || !mounted) return;
-    if (await BluetoothRationale.ensure(context)) await _connection.reconnect();
-  }
 
   Future<void> _checkUnfinishedSession() async {
     final unfinished = await SessionJournal.readInProgress(widget.profile.id);
@@ -156,7 +121,19 @@ class _HomeShellState extends State<HomeShell> {
         if (!didPop) setState(() => _index = 0);
       },
       child: Scaffold(
-        body: IndexedStack(index: _index, children: pages),
+        // The band is compulsory: BandRequiredGate covers everything (nav
+        // bar included) until a real BLE link is up.
+        body: Stack(
+          children: [
+            IndexedStack(index: _index, children: pages),
+            Positioned.fill(
+              child: BandRequiredGate(
+                connection: _connection,
+                onSignOut: () => unawaited(AuthService().signOut()),
+              ),
+            ),
+          ],
+        ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
           onDestinationSelected: (i) => setState(() => _index = i),

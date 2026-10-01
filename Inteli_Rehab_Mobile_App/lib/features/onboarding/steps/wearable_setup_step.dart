@@ -107,7 +107,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
       );
       data.update(() {
         data.wearable = device;
-        data.wearableSkipped = false;
       });
       setState(() => _state = _BleState.connected);
     } catch (e) {
@@ -130,7 +129,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    if (data.wearableSkipped) return _skipped(context);
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 250),
       child: KeyedSubtree(
@@ -145,13 +143,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
       ),
     );
   }
-
-  Widget _skipLink() => Center(
-        child: TextButton(
-          onPressed: () => data.update(() => data.wearableSkipped = true),
-          child: const Text("I don't have my band yet — set up later"),
-        ),
-      );
 
   Widget _idle(BuildContext context) {
     final c = context.colors;
@@ -181,12 +172,10 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         ),
         const SizedBox(height: 8),
         Text(
-          'The app will ask for Bluetooth and nearby-device permission.',
+          'Your band is required to use Inteli Rehab. The app will ask for Bluetooth and nearby-device permission.',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: c.muted),
         ),
-        const SizedBox(height: 8),
-        _skipLink(),
       ],
     );
   }
@@ -299,8 +288,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
           icon: Icons.lightbulb_outline,
           text: 'Not sure which is yours? The code on the back of your band matches the last 4 characters.',
         ),
-        const SizedBox(height: 8),
-        _skipLink(),
       ],
     );
   }
@@ -324,8 +311,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
           icon: const Icon(Icons.refresh, size: 20),
           label: const Text('Try again'),
         ),
-        const SizedBox(height: 8),
-        _skipLink(),
       ],
     );
   }
@@ -393,26 +378,6 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         const SizedBox(height: 8),
         Center(
           child: TextButton(onPressed: _disconnect, child: const Text('Use a different band')),
-        ),
-      ],
-    );
-  }
-
-  Widget _skipped(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const InfoBanner(
-          icon: Icons.schedule,
-          tone: BannerTone.warning,
-          text: "No problem — you can pair your band later from Settings. You'll need it before your first "
-              'tracked session.',
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => data.update(() => data.wearableSkipped = false),
-          icon: const Icon(Icons.bluetooth, size: 18),
-          label: const Text('Set up my band now instead'),
         ),
       ],
     );

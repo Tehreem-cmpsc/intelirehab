@@ -288,18 +288,13 @@ class _CalibrationStepState extends State<CalibrationStep> {
         const InfoBanner(
           icon: Icons.bluetooth_disabled,
           tone: BannerTone.warning,
-          text: 'Calibration needs your Inteli Band. Pair it first, or calibrate later once it arrives.',
+          text: 'Calibration needs your Inteli Band. Pair it first.',
         ),
         const SizedBox(height: 14),
         FilledButton.icon(
           onPressed: widget.onBackToWearable,
           icon: const Icon(Icons.bluetooth, size: 18),
           label: const Text('Pair my band'),
-        ),
-        const SizedBox(height: 8),
-        OutlinedButton(
-          onPressed: data.calibrationSkipped ? null : () => data.update(() => data.calibrationSkipped = true),
-          child: Text(data.calibrationSkipped ? 'Calibration set for later' : 'Calibrate later'),
         ),
       ],
     );
