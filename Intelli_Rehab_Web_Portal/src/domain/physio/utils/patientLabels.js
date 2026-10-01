@@ -74,3 +74,19 @@ export function formatDate(value) {
   if (!value) return null;
   return new Date(value).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+// Who the patient picked during onboarding. Physios can only read their own
+// physiotherapists row under RLS, so a colleague is shown generically.
+export function chosenPhysioLabel(patient, currentPhysioId) {
+  const id = patient.profile.physioId;
+  if (!id) return "Not chosen yet";
+  return id === currentPhysioId ? "You" : "Another physio at your clinic";
+}
+
+// Three honest states: connected right now / paired but not connected /
+// never paired. "Paired" alone never reads as "connected".
+export function wearableState(patient) {
+  if (patient.wearableLive) return "live";
+  if (patient.wearable) return "offline";
+  return "none";
+}

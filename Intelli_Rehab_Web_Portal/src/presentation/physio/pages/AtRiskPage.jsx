@@ -10,6 +10,8 @@ import {
 } from "recharts";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { SectionHead, Card } from "../components";
+import useToast from "../../useToast";
+import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
@@ -73,49 +75,40 @@ function EmgIndicators({ patientId }) {
 
 function AtRiskPage({ patients, setPatients }) {
   const [warnInputs, setWarnInputs] = useState({});
-  const [toast, setToast] = useState(null);
   const atRisk = patients.filter((p) => p.status === "at-risk");
   const isMobile = useIsMobile();
+  const { toastNode, showToast } = useToast();
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+
+  const saveWarning = async (id, message) => {
+    await PatientUseCases.setWarning(id, message);
+    setPatients((prev) => prev.map((x) => (x.id === id ? x.with({ warning: message }) : x)));
   };
 
-  const sendWarning = (id) => {
+  const sendWarning = async (id) => {
     const msg = warnInputs[id]?.trim();
     if (!msg) return;
     const p = patients.find((x) => x.id === id);
-    setPatients((prev) => prev.map((x) => (x.id === id ? { ...x, warning: msg } : x)));
-    setWarnInputs((prev) => ({ ...prev, [id]: "" }));
-    showToast(`Warning sent to ${p.name}`);
+    try {
+      await saveWarning(id, msg);
+      setWarnInputs((prev) => ({ ...prev, [id]: "" }));
+      showToast(`Warning sent to ${p.name}`);
+    } catch (err) {
+      showToast(err.message || "Couldn't send the warning. Try again.", { error: true });
+    }
   };
 
-  const clearWarning = (id) => {
-    setPatients((prev) => prev.map((x) => (x.id === id ? { ...x, warning: null } : x)));
+  const clearWarning = async (id) => {
+    try {
+      await saveWarning(id, null);
+    } catch (err) {
+      showToast(err.message || "Couldn't clear the warning. Try again.", { error: true });
+    }
   };
 
   return (
     <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: isMobile ? 16 : 24,
-            right: isMobile ? 16 : 32,
-            left: isMobile ? 16 : "auto",
-            background: THEME.navy,
-            color: THEME.white,
-            borderRadius: 10,
-            padding: "12px 20px",
-            zIndex: 200,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          ✓ {toast}
-        </div>
-      )}
+      {toastNode}
 
       <SectionHead
         title="At-risk patients"

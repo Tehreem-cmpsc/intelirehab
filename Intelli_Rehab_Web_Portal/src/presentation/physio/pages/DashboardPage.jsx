@@ -252,8 +252,7 @@ function DashboardPage({ patients = [], setPage, setSelectedPatientId, user }) {
             <div
               key={p.id}
               onClick={() => {
-                setSelectedPatientId(p.id);
-                setPage("patients");
+                setSelectedPatientId(p.id); // navigates to the Patients page
               }}
               style={{
                 display: "grid",

@@ -4,7 +4,8 @@ import SectionHead from "./SectionHead";
 import RomBar from "./RomBar";
 import Logo from "./Logo";
 import LogoFull from "./LogoFull";
-import PatientDetails, { chosenPhysioLabel } from "./PatientDetails";
+import PatientDetails from "./PatientDetails";
+import { chosenPhysioLabel } from "../../../domain/physio/utils/patientLabels";
 import { THEME } from "../../../infrastructure/physio/constants";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 

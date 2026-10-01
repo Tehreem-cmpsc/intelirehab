@@ -1,0 +1,7 @@
+# Only what the portal's Edge Functions need; `supabase link` fills in the rest.
+[functions.manage-physiotherapist]
+verify_jwt = true
+
+# Called before sign-in, so there is no JWT to verify.
+[functions.physio-auth]
+verify_jwt = false

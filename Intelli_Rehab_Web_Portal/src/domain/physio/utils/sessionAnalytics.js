@@ -85,3 +85,12 @@ export function computeWeekdayActivity(sessionsAsc) {
   }
   return counts;
 }
+
+// YYYY-MM-DD in the user's own timezone. (toISOString() is UTC, which is the
+// wrong calendar day for part of every day in e.g. Pakistan.)
+export function localDateString(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}

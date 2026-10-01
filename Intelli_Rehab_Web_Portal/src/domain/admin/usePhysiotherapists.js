@@ -19,6 +19,7 @@ const toUiShape = (row) => ({
 export default function usePhysiotherapists(clinicId) {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     if (!clinicId) {
@@ -27,6 +28,7 @@ export default function usePhysiotherapists(clinicId) {
       return;
     }
     setLoading(true);
+    setError(null);
     const { data, error } = await supabase
       .from("physiotherapists")
       .select("*")
@@ -35,6 +37,7 @@ export default function usePhysiotherapists(clinicId) {
 
     if (error) {
       console.error("Failed to load physiotherapists:", error);
+      setError("Unable to load this data. Check your connection and try again.");
       setList([]);
     } else {
       setList((data ?? []).map(toUiShape));
@@ -44,97 +47,50 @@ export default function usePhysiotherapists(clinicId) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Edge Function errors arrive as a generic FunctionsHttpError; the useful
+  // message is in the response body.
+  const functionError = async (error, fallback) => {
+    try {
+      const body = await error.context.json();
+      if (body?.error) return new Error(body.error);
+    } catch {
+      // not JSON - use the fallback
+    }
+    return new Error(fallback);
+  };
+
+  // Account + profile are created together server-side (manage-physiotherapist):
+  // the password is generated there and returned once, the clinic is taken
+  // from the caller's identity, and a failure leaves nothing half-created.
   const addPhysiotherapist = useCallback(async (form) => {
     if (!clinicId) throw new Error("No clinic is associated with this admin account.");
 
-    const email = form.email.trim();
-    const name = form.name.trim();
-    const physioCode = form.physioId.trim();
-
-    // Creating another user from the browser (no service-role key available
-    // here) briefly swaps the active session to the new user, so we snapshot
-    // the admin's session first and restore it once the account exists.
-    const { data: { session: adminSession } } = await supabase.auth.getSession();
-
-    // The admin sets the physio's initial password directly and hands it to
-    // them outside the app — Supabase's default email sender is rate-limited
-    // and unreliable for real delivery, and no custom SMTP is configured yet.
-    // The physio can change it after logging in for the first time.
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password: form.password,
-      options: { data: { full_name: name } },
-    });
-
-    if (adminSession) {
-      await supabase.auth.setSession({
-        access_token: adminSession.access_token,
-        refresh_token: adminSession.refresh_token,
-      });
-    }
-
-    if (signUpError) {
-      throw new Error(signUpError.message || "Unable to create the physiotherapist's account.");
-    }
-    // Supabase returns a user with no identities (and no error) when the
-    // email is already registered, to avoid leaking which emails exist.
-    if (signUpData.user && signUpData.user.identities?.length === 0) {
-      throw new Error("An account with this email already exists.");
-    }
-
-    const newUserId = signUpData.user?.id;
-    if (!newUserId) {
-      throw new Error("Unable to create the physiotherapist's account.");
-    }
-
-    const { data: inserted, error: insertError } = await supabase
-      .from("physiotherapists")
-      .insert({
-        user_id: newUserId,
-        physio_code: physioCode,
-        full_name: name,
+    const { data, error } = await supabase.functions.invoke("manage-physiotherapist", {
+      body: {
+        action: "create",
+        name: form.name.trim(),
+        email: form.email.trim(),
+        physioId: form.physioId.trim(),
         specialization: form.specialization.trim(),
-        license_number: form.license.trim(),
+        license: form.license.trim(),
         cnic: form.cnic.trim(),
         qualification: form.qualification.trim(),
-        years_experience: Number(form.yearsExperience),
-        joining_date: form.joiningDate,
-        // New physios start Pending — an admin must verify their
-        // credentials and approve them before they can log in.
-        status: "Pending",
-        clinic_id: clinicId,
-      })
-      .select()
-      .single();
+        yearsExperience: Number(form.yearsExperience),
+        joiningDate: form.joiningDate,
+      },
+    });
+    if (error) throw await functionError(error, "Unable to add the physiotherapist.");
 
-    if (insertError) {
-      // The auth account exists at this point but the profile row didn't get
-      // created — surface that clearly since it needs manual cleanup.
-      throw new Error(
-        `Account was created but saving the profile failed: ${insertError.message}. ` +
-        "Contact support before reusing this physiotherapist ID or email."
-      );
-    }
-
-    // Best-effort — the physio account is already created either way, so a
-    // failed log entry shouldn't surface as an error to the admin.
-    try {
-      await supabase.from("activity_log").insert({
-        clinic_id: clinicId,
-        message: `${name} was added to the roster and is awaiting approval.`,
-      });
-    } catch (err) {
-      console.error("Failed to record activity log entry:", err);
-    }
-
-    const record = toUiShape(inserted);
+    const record = { ...toUiShape(data.physio), temporaryPassword: data.temporaryPassword };
     setList((cur) => [record, ...cur]);
     return record;
   }, [clinicId]);
 
   const removePhysiotherapist = useCallback(async (id) => {
-    const { error } = await supabase.from("physiotherapists").delete().eq("id", id);
-    if (error) throw new Error(error.message || "Unable to remove physiotherapist.");
+    const { error } = await supabase.functions.invoke("manage-physiotherapist", {
+      body: { action: "remove", id },
+    });
+    if (error) throw await functionError(error, "Unable to remove physiotherapist.");
     setList((cur) => cur.filter((item) => item.id !== id));
   }, []);
 
@@ -161,5 +117,5 @@ export default function usePhysiotherapists(clinicId) {
     return record;
   }, [clinicId]);
 
-  return { list, loading, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist, refresh };
+  return { list, loading, error, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist, refresh };
 }

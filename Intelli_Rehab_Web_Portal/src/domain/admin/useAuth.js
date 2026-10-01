@@ -1,5 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../../infrastructure/supabase/supabaseClient";
+
+// Wrong credentials and "the sign-in service isn't reachable" must not look
+// the same: the first is the user's to fix, the second is a deployment problem
+// (function not deployed, CORS origin not allowed, offline) that would
+// otherwise be invisible behind "Invalid ID or password".
+async function physioSignInError(error) {
+  const status = error?.context?.status;
+  if (status === 401) return new Error("Invalid ID or password.");
+  if (status === 429) return new Error("Too many attempts. Try again in a few minutes.");
+  console.error("physio-auth sign-in failed:", error);
+  return new Error(
+    "Physiotherapist sign-in is unavailable right now. Check your connection, or contact your administrator if it persists."
+  );
+}
 
 export default function useAuth() {
   const [user, setUser] = useState(null);
@@ -11,6 +25,11 @@ export default function useAuth() {
   // physio clicking their invite link would get signed straight back out
   // before they ever got a chance to set a password.
   const [recoveryMode, setRecoveryMode] = useState(false);
+  // supabase-js re-fires SIGNED_IN on tab refocus and token refresh. These
+  // let the listener ignore those (same user already loaded) and ignore the
+  // SIGNED_IN that login() itself triggers, which login() handles directly.
+  const knownUserId = useRef(null);
+  const loginInFlight = useRef(false);
 
   const resolveUser = useCallback(async (authUser) => {
     if (!authUser) return { user: null, clinic: null };
@@ -47,7 +66,7 @@ export default function useAuth() {
     const { data: clinics, error: cErr } = await supabase
       .from("clinics")
       .select("*")
-      .eq("email", authUser.email)
+      .eq("admin_user_id", authUser.id)
       .limit(1);
 
     if (cErr) console.error("Clinic fetch error:", cErr);
@@ -87,6 +106,7 @@ export default function useAuth() {
           setUser(null);
           setClinic(null);
         } else {
+          knownUserId.current = result.user?.id ?? null;
           setUser(result.user);
           setClinic(result.clinic);
         }
@@ -105,6 +125,7 @@ export default function useAuth() {
           return;
         }
         if (event === "SIGNED_IN" && session?.user) {
+          if (loginInFlight.current || knownUserId.current === session.user.id) return;
           const result = await resolveUser(session.user);
           if (mounted) {
             if (isUnapprovedPhysio(result.user)) {
@@ -112,11 +133,13 @@ export default function useAuth() {
               setUser(null);
               setClinic(null);
             } else {
+              knownUserId.current = result.user?.id ?? null;
               setUser(result.user);
               setClinic(result.clinic);
             }
           }
         } else if (event === "SIGNED_OUT") {
+          knownUserId.current = null;
           if (mounted) {
             setUser(null);
             setClinic(null);
@@ -135,30 +158,47 @@ export default function useAuth() {
   const login = useCallback(
     async (emailOrId, password, role) => {
       setLoading(true);
+      loginInFlight.current = true;
       try {
-        let email = emailOrId;
+        const email = emailOrId;
 
-        // If physio, look up email by physio code first
+        let authUser;
         if (role === "physio") {
-          const { data: lookupEmail, error: rpcErr } = await supabase.rpc(
-            "get_physio_email",
-            { physio_code: emailOrId.trim() }
-          );
-
-          if (rpcErr || !lookupEmail) {
-            throw new Error("Physio ID not found.");
+          // The ID -> email lookup and the password check happen server-side
+          // (physio-auth), so the browser never learns a physio's email and
+          // a wrong ID looks identical to a wrong password.
+          const { data, error } = await supabase.functions.invoke("physio-auth", {
+            body: { action: "sign-in", physioCode: emailOrId.trim(), password },
+          });
+          if (error?.context?.status === 404 && import.meta.env.DEV) {
+            // DEVELOPMENT ONLY (removed from production builds): the Edge
+            // Function isn't deployed yet, so use the old direct lookup so
+            // local work isn't blocked. Needs get_physio_email to still be
+            // executable, i.e. supabase_security_hardening.sql not yet run.
+            console.warn("physio-auth is not deployed - using the dev-only fallback sign-in.");
+            const { data: lookupEmail, error: rpcErr } = await supabase.rpc("get_physio_email", {
+              physio_code: emailOrId.trim(),
+            });
+            if (rpcErr || !lookupEmail) throw new Error("Invalid ID or password.");
+            const { data: pw, error: pwErr } = await supabase.auth.signInWithPassword({
+              email: lookupEmail,
+              password,
+            });
+            if (pwErr) throw new Error("Invalid ID or password.");
+            authUser = pw.user;
+          } else {
+            if (error || !data?.session) throw await physioSignInError(error);
+            const { data: sessionData, error: sessionErr } = await supabase.auth.setSession(data.session);
+            if (sessionErr || !sessionData.user) throw new Error("Invalid ID or password.");
+            authUser = sessionData.user;
           }
-          email = lookupEmail;
+        } else {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) throw error;
+          authUser = data.user;
         }
 
-        // Sign in with Supabase Auth
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        if (error) throw error;
-
-        const result = await resolveUser(data.user);
+        const result = await resolveUser(authUser);
 
         // Role mismatch guard
         if (role && result.user?.authRole !== role) {
@@ -177,9 +217,11 @@ export default function useAuth() {
           );
         }
 
+        knownUserId.current = result.user?.id ?? null;
         setUser(result.user);
         setClinic(result.clinic);
       } finally {
+        loginInFlight.current = false;
         setLoading(false);
       }
     },
@@ -187,17 +229,15 @@ export default function useAuth() {
   );
 
   const requestPasswordReset = useCallback(async (idOrEmail, role) => {
-    let email = idOrEmail.trim();
+    const email = idOrEmail.trim();
 
     if (role === "physio") {
-      const { data: lookupEmail, error: rpcErr } = await supabase.rpc(
-        "get_physio_email",
-        { physio_code: email }
-      );
-      if (rpcErr || !lookupEmail) {
-        throw new Error("Physio ID not found.");
-      }
-      email = lookupEmail;
+      // Always resolves the same way, whether or not the ID exists.
+      const { error } = await supabase.functions.invoke("physio-auth", {
+        body: { action: "reset", physioCode: email },
+      });
+      if (error) throw new Error("Unable to send password reset email.");
+      return;
     }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -207,6 +247,7 @@ export default function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
+    knownUserId.current = null;
     setLoading(true);
     await supabase.auth.signOut();
     setUser(null);
@@ -233,16 +274,12 @@ export default function useAuth() {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) throw new Error(error.message || "Unable to set password.");
 
-    if (user?.physio_id) {
-      const { error: updateErr } = await supabase
-        .from("physiotherapists")
-        .update({ must_reset_password: false })
-        .eq("id", user.physio_id);
-      if (updateErr) throw new Error(updateErr.message || "Unable to update your account.");
-    }
+    // A narrow RPC (physios can't update their own row directly).
+    const { error: updateErr } = await supabase.rpc("complete_first_login_reset");
+    if (updateErr) throw new Error(updateErr.message || "Unable to update your account.");
 
     setUser((prev) => (prev ? { ...prev, must_reset_password: false } : prev));
-  }, [user]);
+  }, []);
 
   return {
     user,
@@ -255,5 +292,6 @@ export default function useAuth() {
     setNewPassword,
     completeFirstLoginReset,
     requestPasswordReset,
+    updateClinic: setClinic,
   };
 }

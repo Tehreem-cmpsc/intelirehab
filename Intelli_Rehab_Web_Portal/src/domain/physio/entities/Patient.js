@@ -18,6 +18,9 @@ export class Patient {
     injuryDetails,
     device,
     baseline,
+    noRecentSessions,
+    wearableLive,
+    wearableLastSeen,
   }) {
     this.id = id;
     this.name = name;
@@ -38,6 +41,19 @@ export class Patient {
     this.injuryDetails = injuryDetails || null;
     this.device = device || null;
     this.baseline = baseline || null;
+    // True when there are no exercise sessions in the loaded window, so ROM /
+    // trend / streak of 0 mean "no recent data", not "zero progress".
+    this.noRecentSessions = Boolean(noRecentSessions);
+    // `wearable` means "a band has been paired"; these say whether it is
+    // connected right now (WearablePresenceUseCases), merged in by App.
+    this.wearableLive = Boolean(wearableLive);
+    this.wearableLastSeen = wearableLastSeen || null;
+  }
+
+  // Copy with some fields changed, keeping the class (and its methods).
+  // `{ ...patient }` would silently drop isAtRisk() etc.
+  with(changes) {
+    return Object.assign(Object.create(Object.getPrototypeOf(this)), this, changes);
   }
 
   isAtRisk() {

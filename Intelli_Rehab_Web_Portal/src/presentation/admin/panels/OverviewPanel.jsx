@@ -4,6 +4,7 @@ import SectionHeading from "../components/SectionHeading";
 import RadialProgress from "../components/RadialProgress";
 import useDashboardStats from "../../../domain/admin/useDashboardStats";
 import useActivityLog from "../../../domain/admin/useActivityLog";
+import ErrorNotice from "../../ErrorNotice";
 
 function relativeTime(isoString) {
   const diffMs = Date.now() - new Date(isoString).getTime();
@@ -17,13 +18,14 @@ function relativeTime(isoString) {
 
 export default function OverviewPanel({ user, clinic }) {
   const stats = useDashboardStats(clinic?.id);
-  const { list: activity, loading: activityLoading } = useActivityLog(clinic?.id);
+  const { list: activity, loading: activityLoading, error: activityError, refresh: refreshActivity } = useActivityLog(clinic?.id);
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div>
       <SectionHeading eyebrow="OVERVIEW" title={`${greeting}, ${user?.name?.split(" ")[0]}`} />
+      <ErrorNotice message={stats?.error || activityError} onRetry={activityError ? refreshActivity : undefined} />
       {!stats ? (
         <div className="text-[var(--muted)] text-sm flex items-center gap-2">
           <Loader2 size={15} className="animate-spin" /> Loading your clinic's numbers…

@@ -4,6 +4,8 @@ import { SectionHead, Card, PatientDetails, chosenPhysioLabel } from "../compone
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
+import useToast from "../../useToast";
+import useConfirm from "../../useConfirm";
 import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import { armLabel, jointLabel, injuryTypeLabel, painLabel, ageFrom } from "../../../domain/physio/utils/patientLabels";
 
@@ -16,7 +18,6 @@ const injurySummary = (p) => {
 };
 
 function ApprovalsPage({ patients, setPatients, currentPhysioId }) {
-  const [toast, setToast] = useState(null);
   const [busyId, setBusyId] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
   // Patients who picked this physio first; the rest chose a colleague at
@@ -25,21 +26,19 @@ function ApprovalsPage({ patients, setPatients, currentPhysioId }) {
     .filter((p) => !p.approved)
     .sort((a, b) => (b.profile.physioId === currentPhysioId) - (a.profile.physioId === currentPhysioId));
   const isMobile = useIsMobile();
+  const { toastNode, showToast } = useToast();
+  const { confirm, confirmNode } = useConfirm();
 
-  const showToast = (msg, isError = false) => {
-    setToast({ msg, isError });
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const approve = async (id) => {
     const p = patients.find((x) => x.id === id);
     setBusyId(id);
     try {
       await PatientUseCases.approvePatient(id);
-      setPatients((prev) => prev.map((x) => (x.id === id ? { ...x, approved: true } : x)));
+      setPatients((prev) => prev.map((x) => (x.id === id ? x.with({ approved: true }) : x)));
       showToast(`${p.name} approved and activated.`);
     } catch (e) {
-      showToast(e.message, true);
+      showToast(e.message, { error: true });
     } finally {
       setBusyId(null);
     }
@@ -47,13 +46,22 @@ function ApprovalsPage({ patients, setPatients, currentPhysioId }) {
 
   const reject = async (id) => {
     const p = patients.find((x) => x.id === id);
+    const ok = await confirm({
+      title: `Decline ${p.name}?`,
+      message:
+        "This permanently deletes their registration and everything they entered. " +
+        "They would have to register again.",
+      confirmLabel: "Decline patient",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusyId(id);
     try {
       await PatientUseCases.removePatient(id);
       setPatients((prev) => prev.filter((x) => x.id !== id));
       showToast(`${p.name} removed.`);
     } catch (e) {
-      showToast(e.message, true);
+      showToast(e.message, { error: true });
     } finally {
       setBusyId(null);
     }
@@ -61,25 +69,8 @@ function ApprovalsPage({ patients, setPatients, currentPhysioId }) {
 
   return (
     <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: isMobile ? 16 : 24,
-            right: isMobile ? 16 : 32,
-            left: isMobile ? 16 : "auto",
-            background: toast.isError ? THEME.red : THEME.navy,
-            color: THEME.white,
-            borderRadius: 10,
-            padding: "12px 20px",
-            zIndex: 200,
-            fontSize: 14,
-            fontWeight: 600,
-          }}
-        >
-          {toast.isError ? "!" : "✓"} {toast.msg}
-        </div>
-      )}
+      {toastNode}
+      {confirmNode}
 
       <SectionHead
         title="New patient approvals"

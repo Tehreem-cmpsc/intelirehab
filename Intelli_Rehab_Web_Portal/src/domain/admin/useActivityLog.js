@@ -7,6 +7,7 @@ import { supabase } from "../../infrastructure/supabase/supabaseClient";
 export default function useActivityLog(clinicId) {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const refresh = useCallback(async () => {
     if (!clinicId) {
@@ -15,6 +16,7 @@ export default function useActivityLog(clinicId) {
       return;
     }
     setLoading(true);
+    setError(null);
     const { data, error } = await supabase
       .from("activity_log")
       .select("*")
@@ -24,6 +26,7 @@ export default function useActivityLog(clinicId) {
 
     if (error) {
       console.error("Failed to load activity log:", error);
+      setError("Unable to load this data. Check your connection and try again.");
       setList([]);
     } else {
       setList(data ?? []);
@@ -35,5 +38,5 @@ export default function useActivityLog(clinicId) {
     refresh();
   }, [refresh]);
 
-  return { list, loading, refresh };
+  return { list, loading, error, refresh };
 }

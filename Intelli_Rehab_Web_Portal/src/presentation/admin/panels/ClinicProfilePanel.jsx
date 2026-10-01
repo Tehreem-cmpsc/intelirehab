@@ -6,7 +6,7 @@ import useClinicProfile from "../../../domain/admin/useClinicProfile";
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^\+?\d{10,15}$/;
 
-export default function ClinicProfilePanel({ clinic }) {
+export default function ClinicProfilePanel({ clinic, onClinicUpdated }) {
   const { profile, saving, save } = useClinicProfile(clinic);
   const [form, setForm] = useState(clinic);
   const [saved, setSaved] = useState(false);
@@ -46,7 +46,8 @@ export default function ClinicProfilePanel({ clinic }) {
     if (Object.keys(validation).length > 0) return;
     setSaveError("");
     try {
-      await save(form);
+      const updated = await save(form);
+      onClinicUpdated?.(updated); // keep the header / shell in sync
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
     } catch (err) {

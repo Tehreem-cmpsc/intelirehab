@@ -10,12 +10,15 @@ import {
 } from "recharts";
 import { THEME } from "../../../infrastructure/physio/constants";
 import { Card, SectionHead, RomBar, Badge, PatientDetails } from "../components";
+import WearableStatus from "../components/WearableStatus";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import ExercisePlanUseCases from "../../../domain/physio/usecases/ExercisePlanUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
+import useToast from "../../useToast";
+import ErrorNotice from "../../ErrorNotice";
 
 const FREQUENCIES = ["Daily", "Every other day", "3× per week", "Weekly"];
 const emptyRow = () => ({ key: Math.random().toString(36).slice(2), exerciseId: "", sets: 3, reps: 10, romTarget: 70, frequency: "Daily" });
@@ -313,9 +316,11 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
   );
 }
 
-function PatientsPage({ patients, setPatients, selectedId, setSelectedId, currentPhysioId }) {
+function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) {
   const [showAssign, setShowAssign] = useState(false);
-  const [toast, setToast] = useState(null);
+  const { toastNode, showToast } = useToast();
+  const [loadError, setLoadError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [emg, setEmg] = useState([]);
   const [emgLoading, setEmgLoading] = useState(false);
   const [activePlan, setActivePlan] = useState(null);
@@ -330,14 +335,20 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
   useEffect(() => {
     ExerciseUseCases.getAllExercises()
       .then(setCatalogue)
-      .catch(() => setCatalogue([]));
-  }, []);
+      .catch(() => {
+        setCatalogue([]);
+        setLoadError("Couldn't load the exercise list, so assigning is unavailable.");
+      });
+  }, [reloadKey]);
 
   const loadActivePlan = (patientId) => {
     setPlanLoading(true);
     return ExercisePlanUseCases.getActivePlan(patientId)
       .then(setActivePlan)
-      .catch(() => setActivePlan(null))
+      .catch(() => {
+        setActivePlan(null);
+        setLoadError("Couldn't load this patient's exercise plan - it may exist but not be shown.");
+      })
       .finally(() => setPlanLoading(false));
   };
 
@@ -351,13 +362,16 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
       return;
     }
     let cancelled = false;
+    setLoadError(null);
     setEmgLoading(true);
     SessionUseCases.getLatestEmgForPatient(selectedId)
       .then((data) => {
         if (!cancelled) setEmg(data);
       })
       .catch(() => {
-        if (!cancelled) setEmg([]);
+        if (cancelled) return;
+        setEmg([]);
+        setLoadError("Couldn't load this patient's EMG readings.");
       })
       .finally(() => {
         if (!cancelled) setEmgLoading(false);
@@ -366,12 +380,8 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
     return () => {
       cancelled = true;
     };
-  }, [selectedId]);
+  }, [selectedId, reloadKey]);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
-  };
 
   const handleAssign = async ({ planName, exercises }) => {
     setAssignSaving(true);
@@ -402,26 +412,8 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
 
   return (
     <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            top: isMobile ? 16 : 24,
-            right: isMobile ? 16 : 32,
-            left: isMobile ? 16 : "auto",
-            background: THEME.navy,
-            color: THEME.white,
-            borderRadius: 10,
-            padding: "12px 20px",
-            zIndex: 200,
-            fontSize: 14,
-            fontWeight: 600,
-            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-          }}
-        >
-          ✓ {toast}
-        </div>
-      )}
+      {toastNode}
+      <ErrorNotice message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
       {showAssign && selected && (
         <AssignExerciseModal
           patient={selected}
@@ -557,10 +549,16 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
                     {p.injury}
                   </div>
                 </div>
+                <WearableStatus patient={p} compact />
                 <Badge status={p.status} />
               </div>
               <div style={{ marginTop: 8 }}>
                 <RomBar value={p.rom} height={4} />
+                {p.noRecentSessions && (
+                  <div style={{ fontSize: 11, color: THEME.slate400, marginTop: 4 }}>
+                    No sessions in the last 90 days
+                  </div>
+                )}
               </div>
             </div>
             ))
@@ -608,14 +606,7 @@ function PatientsPage({ patients, setPatients, selectedId, setSelectedId, curren
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 6 }}>
                       <Badge status={selected.status} />
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: selected.wearable ? THEME.green : THEME.slate400,
-                        }}
-                      >
-                        {selected.wearable ? "● Wearable connected" : "○ No wearable"}
-                      </span>
+                      <WearableStatus patient={selected} />
                       <span style={{ fontSize: 12, color: THEME.slate400 }}>
                         🔥 {selected.streak} day streak
                       </span>

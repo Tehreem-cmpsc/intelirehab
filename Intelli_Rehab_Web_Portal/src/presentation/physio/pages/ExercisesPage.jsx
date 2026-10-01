@@ -5,10 +5,13 @@ import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
+import ErrorNotice from "../../ErrorNotice";
 
 function ExercisesPage() {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");
   const levels = ExerciseUseCases.getDifficultyLevels();
@@ -16,12 +19,16 @@ function ExercisesPage() {
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
+    setError(null);
     ExerciseUseCases.getAllExercises()
       .then((data) => {
         if (mounted) setExercises(data);
       })
       .catch(() => {
-        if (mounted) setExercises([]);
+        if (!mounted) return;
+        setExercises([]);
+        setError("Couldn't load the exercise database.");
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -29,7 +36,7 @@ function ExercisesPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filtered = ExerciseUseCases.filterExercises(exercises, filter, search);
 
@@ -79,6 +86,17 @@ function ExercisesPage() {
           </div>
         }
       />
+      <ErrorNotice message={error} onRetry={() => setReloadKey((k) => k + 1)} />
+      {!loading && !error && exercises.length === 0 && (
+        <Card style={{ padding: "32px 24px", textAlign: "center", marginBottom: 16 }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: THEME.slate800, marginBottom: 6 }}>
+            No exercises in the database yet
+          </div>
+          <div style={{ fontSize: 13, color: THEME.slate400 }}>
+            Ask your administrator to load the exercise dataset (supabase_seed_exercises.sql).
+          </div>
+        </Card>
+      )}
       <div
         style={{
           display: "grid",

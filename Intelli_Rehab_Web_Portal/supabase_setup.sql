@@ -10,6 +10,19 @@
 -- below are about to disappear, so those logins would otherwise
 -- be orphaned (an Auth user with no matching clinic/physio row).
 
+-- Safety guard: this script DROPS clinics + physiotherapists. Refuse to run
+-- if either already holds data (i.e. anywhere that is live). Delete this block
+-- only if you really mean to wipe a development database.
+do $$
+begin
+  if to_regclass('public.clinics') is not null and exists (select 1 from public.clinics) then
+    raise exception 'supabase_setup.sql would delete existing clinics - aborting.';
+  end if;
+  if to_regclass('public.physiotherapists') is not null and exists (select 1 from public.physiotherapists) then
+    raise exception 'supabase_setup.sql would delete existing physiotherapists - aborting.';
+  end if;
+end $$;
+
 create extension if not exists pgcrypto;
 
 -- --- 1. Drop old tables (and everything attached to them) ----

@@ -80,6 +80,7 @@ const toPatient = (row, sessionsForPatient) => {
       macAddress: device.mac_address,
       pairedAt: device.created_at,
     },
+    noRecentSessions: sessionsDesc.length === 0,
     baseline: baselineAnalysis && {
       flexion: baselineAnalysis.joint_angle,
       range: baselineAnalysis.rom,
@@ -119,6 +120,18 @@ const PatientUseCases = {
   async approvePatient(id) {
     const { data, error } = await supabase.from("patients").update({ approved: true }).eq("id", id).select("id");
     if (error) throw new Error(error.message || "Unable to approve patient.");
+    if (!data?.length) throw new Error("This patient is no longer in your clinic.");
+  },
+
+  // Saved on patients.warning, which the mobile app reads — so the patient
+  // actually receives it, and it survives a refresh. Pass null to clear.
+  async setWarning(id, message) {
+    const { data, error } = await supabase
+      .from("patients")
+      .update({ warning: message })
+      .eq("id", id)
+      .select("id");
+    if (error) throw new Error(error.message || "Unable to save the warning.");
     if (!data?.length) throw new Error("This patient is no longer in your clinic.");
   },
 

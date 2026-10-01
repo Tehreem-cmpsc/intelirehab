@@ -3,14 +3,16 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import StatusPill from "../components/StatusPill";
 import usePatients from "../../../domain/admin/usePatients";
+import ErrorNotice from "../../ErrorNotice";
 
 const STATUS_TONE = { active: "success", recovered: "muted", "at-risk": "alert" };
 
 export default function PatientsPanel({ clinic }) {
-  const { list, loading } = usePatients(clinic?.id);
+  const { list, loading, error, refresh } = usePatients(clinic?.id);
   return (
     <div>
       <SectionHeading eyebrow="CLINIC-WIDE" title="Patients in recovery" />
+      <ErrorNotice message={error} onRetry={refresh} />
       <p className="text-[13.5px] text-[var(--muted)] -mt-4 mb-6 max-w-lg">
         A read-only view across every physiotherapist at your clinic. Protocols and session
         detail are managed by each patient's assigned physiotherapist.

@@ -10,15 +10,8 @@ import {
   injuryTypeLabel,
   causeLabel,
   painLabel,
+  chosenPhysioLabel,
 } from "../../../domain/physio/utils/patientLabels";
-
-// Who the patient picked during onboarding. Physios can only read their own
-// physiotherapists row under RLS, so a colleague is shown generically.
-export function chosenPhysioLabel(patient, currentPhysioId) {
-  const id = patient.profile.physioId;
-  if (!id) return "Not chosen yet";
-  return id === currentPhysioId ? "You" : "Another physio at your clinic";
-}
 
 // Everything the patient entered in the mobile app's onboarding, grouped
 // the way the app asks for it.

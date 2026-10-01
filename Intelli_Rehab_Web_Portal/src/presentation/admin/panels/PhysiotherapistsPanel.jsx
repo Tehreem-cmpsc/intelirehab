@@ -5,13 +5,16 @@ import StatusPill from "../components/StatusPill";
 import AddPhysiotherapistModal from "../components/AddPhysiotherapistModal";
 import usePhysiotherapists from "../../../domain/admin/usePhysiotherapists";
 import usePatients from "../../../domain/admin/usePatients";
+import ErrorNotice from "../../ErrorNotice";
+import useToast from "../../useToast";
+import useConfirm from "../../useConfirm";
 import useIsMobile from "../../useIsMobile";
 
 const STATUS_TONE = { Active: "success", Pending: "muted", Rejected: "alert" };
 const PATIENT_STATUS_TONE = { active: "success", recovered: "muted", "at-risk": "alert" };
 
 export default function PhysiotherapistsPanel({ clinic }) {
-  const { list, loading, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist } =
+  const { list, loading, error, refresh, addPhysiotherapist, removePhysiotherapist, approvePhysiotherapist } =
     usePhysiotherapists(clinic?.id);
   const { list: patients } = usePatients(clinic?.id);
   const [query, setQuery] = useState("");
@@ -21,7 +24,10 @@ export default function PhysiotherapistsPanel({ clinic }) {
   const [removingId, setRemovingId] = useState(null);
   const [approvingId, setApprovingId] = useState(null);
   const [statusMessage, setStatusMessage] = useState("");
+  const [credentials, setCredentials] = useState(null);
   const isMobile = useIsMobile();
+  const { toastNode, showToast } = useToast();
+  const { confirm, confirmNode } = useConfirm();
   const columns = "minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 80px 100px 44px";
 
   const filtered = list.filter((p) =>
@@ -32,19 +38,31 @@ export default function PhysiotherapistsPanel({ clinic }) {
     const created = await addPhysiotherapist(form);
     setShowAdd(false);
     setJustAdded(created.id);
-    setStatusMessage(
-      `${created.name} has been added. Share their password with them directly — they'll still need your approval before they can log in.`
-    );
+    // The temporary password is only ever shown here, once, and stays until
+    // the admin dismisses it - it can't be retrieved again later.
+    setCredentials({ name: created.name, code: created.physioId, password: created.temporaryPassword });
+    setStatusMessage(`${created.name} has been added. They still need your approval before they can log in.`);
     setTimeout(() => setJustAdded(null), 2500);
     setTimeout(() => setStatusMessage(""), 4200);
   };
 
   const handleRemove = async (id) => {
-    if (!window.confirm("Remove this physiotherapist from the clinic roster?")) return;
+    const pt = list.find((p) => p.id === id);
+    const ok = await confirm({
+      title: `Remove ${pt?.name ?? "this physiotherapist"}?`,
+      message:
+        "This deletes their login as well as their roster entry. Patients assigned to them become unassigned.",
+      confirmLabel: "Remove",
+      destructive: true,
+    });
+    if (!ok) return;
     setRemovingId(id);
     try {
       await removePhysiotherapist(id);
       if (expanded === id) setExpanded(null);
+      showToast(`${pt?.name ?? "Physiotherapist"} was removed.`);
+    } catch (err) {
+      showToast(err.message || "Unable to remove physiotherapist.", { error: true });
     } finally {
       setRemovingId(null);
     }
@@ -57,7 +75,7 @@ export default function PhysiotherapistsPanel({ clinic }) {
       setStatusMessage(`${pt.name} has been approved and can now log in.`);
       setTimeout(() => setStatusMessage(""), 3600);
     } catch (err) {
-      window.alert(err.message || "Unable to approve physiotherapist.");
+      showToast(err.message || "Unable to approve physiotherapist.", { error: true });
     } finally {
       setApprovingId(null);
     }
@@ -92,12 +110,33 @@ export default function PhysiotherapistsPanel({ clinic }) {
           className="cp-input cp-focus w-full rounded-lg pl-9 pr-3 py-2.5 text-[13.5px]"
         />
       </div>
+      {toastNode}
+      {confirmNode}
+      {credentials && (
+        <div className="mb-4 rounded-2xl border border-[var(--border)] bg-[var(--primary-tint)] px-4 py-3 text-[13px] text-[var(--ink)]">
+          <div className="font-semibold mb-1">Login details for {credentials.name} - shown once</div>
+          <div>
+            ID: <span className="cp-mono">{credentials.code}</span> | Temporary password:{" "}
+            <span className="cp-mono select-all">{credentials.password}</span>
+          </div>
+          <div className="text-[var(--muted)] mt-1">
+            Give these to them directly. They will be asked to choose their own password at first login.
+          </div>
+          <button
+            onClick={() => setCredentials(null)}
+            className="mt-2 text-[13px] font-semibold underline bg-transparent border-none cursor-pointer p-0 text-[var(--ink)]"
+          >
+            Shared - dismiss
+          </button>
+        </div>
+      )}
       {statusMessage && (
         <div className="mb-4 rounded-2xl border border-[var(--success)] bg-[var(--success-tint)] px-4 py-3 text-[13px] text-[var(--success)]">
           {statusMessage}
         </div>
       )}
 
+      <ErrorNotice message={error} onRetry={refresh} />
       <div className="cp-card rounded-2xl overflow-hidden text-[var(--ink)]">
         {loading ? (
           <div className="px-5 py-8 text-center text-[var(--muted)]">

@@ -1,0 +1,28 @@
+name: Web portal CI
+
+on:
+  push:
+    paths: ["Intelli_Rehab_Web_Portal/**", ".github/workflows/web-ci.yml"]
+  pull_request:
+    paths: ["Intelli_Rehab_Web_Portal/**", ".github/workflows/web-ci.yml"]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Intelli_Rehab_Web_Portal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Intelli_Rehab_Web_Portal/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder

@@ -26,6 +26,7 @@ export default function useDashboardStats(clinicId) {
         patients: null,
         sessionsToday: null,
         avgRom: null,
+        error: error ? "Couldn't load clinic stats." : null,
       });
     })();
   }, [clinicId]);
