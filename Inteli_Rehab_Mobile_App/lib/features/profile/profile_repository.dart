@@ -1,7 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/supabase_client.dart';
-import '../home/wearable_connection_controller.dart';
 import '../onboarding/onboarding_repository.dart';
 import 'profile_models.dart';
 
@@ -55,7 +54,7 @@ class ProfileRepository {
               id: deviceRow['id'] as String,
               serial: deviceRow['serial_no'] as String? ?? '',
               firmware: deviceRow['firmware_version'] as String?,
-              batteryPercent: simulatedWearableBattery(deviceRow['serial_no'] as String? ?? deviceRow['id'] as String),
+              batteryPercent: null,
             ),
     );
   }
@@ -82,6 +81,10 @@ class ProfileRepository {
           'p_weight_kg': weightKg,
         }));
   }
+
+  /// Permanently deletes the patient's record and login (server-side
+  /// delete_my_account(), scoped to the caller). The caller signs out after.
+  Future<void> deleteMyAccount() => _call(() => _db.rpc('delete_my_account'));
 
   /// [Forget wearable]. wearable_devices has a full "own device" RLS
   /// policy (see supabase_full_schema_snapshot.sql), so a plain delete is

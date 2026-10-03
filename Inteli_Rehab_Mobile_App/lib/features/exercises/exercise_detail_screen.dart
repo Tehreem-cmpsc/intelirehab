@@ -7,6 +7,7 @@ import '../home/bluetooth_rationale.dart';
 import '../home/wearable_connection_controller.dart';
 import 'active_session_screen.dart';
 import 'exercises_models.dart';
+import 'widgets/exercise_media.dart';
 
 /// STATE 2 — pre-start. [Start Exercise] is pinned in the thumb zone
 /// (Rule 21) and disabled with a reason beneath when the wearable isn't
@@ -17,6 +18,7 @@ class ExerciseDetailScreen extends StatelessWidget {
   final String patientId;
   final WearableConnectionController connection;
   final VoidCallback onViewProgress;
+  final String armSide;
 
   const ExerciseDetailScreen({
     super.key,
@@ -24,6 +26,7 @@ class ExerciseDetailScreen extends StatelessWidget {
     required this.patientId,
     required this.connection,
     required this.onViewProgress,
+    this.armSide = 'left',
   });
 
   /// Phone battery at or below this is "critically low" for Rule 31. The
@@ -54,6 +57,7 @@ class ExerciseDetailScreen extends StatelessWidget {
         patientId: patientId,
         connection: connection,
         onViewProgress: onViewProgress,
+        armSide: armSide,
       ),
     ));
   }
@@ -99,7 +103,9 @@ class ExerciseDetailScreen extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 22),
+          const SizedBox(height: 18),
+          ExerciseMedia(mediaUrl: exercise.mediaUrl, mediaType: exercise.mediaType, name: exercise.name),
+          const SizedBox(height: 18),
           Row(
             children: [
               Expanded(child: StatTile(icon: Icons.layers_outlined, value: '${exercise.sets}', label: 'Sets')),

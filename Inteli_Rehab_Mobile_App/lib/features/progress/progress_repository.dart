@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/supabase_client.dart';
+import '../../core/util/dates.dart';
 import 'progress_models.dart';
 
 /// Everything the Progress screen shows (UC-11) — real sessions,
@@ -10,6 +11,11 @@ import 'progress_models.dart';
 /// throughout, same as HomeRepository — it isn't an exercise session.
 class ProgressRepository {
   static const _baselineMarker = 'baseline_calibration';
+
+  /// Newest sessions shown in history/summary, and the most alert rows ever
+  /// requested in one query (see [_alertCounts]).
+  static const _maxSessions = 200;
+  static const _alertBatch = 50;
 
   SupabaseClient get _db => supabase;
 
@@ -23,7 +29,8 @@ class ProgressRepository {
           .from('sessions')
           .select('*, exercises(name), movement_analysis(posture_status)')
           .eq('patient_id', patientId)
-          .order('performed_at', ascending: false),
+          .order('performed_at', ascending: false)
+          .limit(_maxSessions), // unbounded, PostgREST silently truncates at ~1000 anyway
       _db
           .from('patient_exercise_plans')
           .select('exercise_id, rom_target')
@@ -53,7 +60,7 @@ class ProgressRepository {
       for (final s in sessionRows)
         SessionHistoryEntry(
           id: s['id'] as String,
-          performedAt: DateTime.parse(s['performed_at'] as String),
+          performedAt: parseTimestamp(s['performed_at'] as String),
           exerciseName: (s['exercises'] as Map?)?['name'] as String? ?? 'Exercise',
           durationSeconds: (s['duration_seconds'] as num?)?.toInt(),
           romAchieved: (s['rom'] as num?)?.toInt() ?? 0,
@@ -75,7 +82,7 @@ class ProgressRepository {
           name: (b['badges'] as Map?)?['name'] as String? ?? 'Badge',
           description: (b['badges'] as Map?)?['description'] as String?,
           iconUrl: (b['badges'] as Map?)?['icon_url'] as String?,
-          earnedAt: DateTime.parse(b['earned_at'] as String),
+          earnedAt: parseTimestamp(b['earned_at'] as String),
         ),
     ];
 
@@ -92,9 +99,16 @@ class ProgressRepository {
 
   Future<Map<String, (int, int)>> _alertCounts(List<String> sessionIds) async {
     if (sessionIds.isEmpty) return {};
-    final rows = await _db.from('alerts').select('session_id, alert_type').inFilter('session_id', sessionIds);
+    // Batched: one IN (...) list of every session id outgrows the URL limit
+    // for a long-term patient and fails the whole screen.
+    final rows = <dynamic>[];
+    for (var i = 0; i < sessionIds.length; i += _alertBatch) {
+      final end = i + _alertBatch > sessionIds.length ? sessionIds.length : i + _alertBatch;
+      final batch = sessionIds.sublist(i, end);
+      rows.addAll(await _db.from('alerts').select('session_id, alert_type').inFilter('session_id', batch) as List);
+    }
     final out = <String, (int, int)>{};
-    for (final r in rows as List) {
+    for (final r in rows) {
       final id = r['session_id'] as String;
       final unsafe = r['alert_type'] == 'unsafe_movement';
       final prev = out[id] ?? (0, 0);
@@ -113,17 +127,11 @@ class ProgressRepository {
       return const ProgressSummary(recoveryPercent: 0, sessionsCompleted: 0, adherencePercent: 0);
     }
     final recovery = history.first.romAchieved;
-    final activeDays = history.map((h) => DateTime(h.performedAt.year, h.performedAt.month, h.performedAt.day)).toSet();
+    final activeDays = history.map((h) => dayOf(h.performedAt)).toSet();
     final first = history.map((h) => h.performedAt).reduce((a, b) => a.isBefore(b) ? a : b);
-    final firstDay = DateTime(first.year, first.month, first.day);
-    final today = DateTime.now().let((n) => DateTime(n.year, n.month, n.day));
-    final totalDays = today.difference(firstDay).inDays + 1;
+    final totalDays = calendarDaysBetween(first, DateTime.now()) + 1;
     final adherence = ((activeDays.length / (totalDays < 1 ? 1 : totalDays)) * 100).round().clamp(0, 100);
 
     return ProgressSummary(recoveryPercent: recovery, sessionsCompleted: history.length, adherencePercent: adherence);
   }
-}
-
-extension _Let<T> on T {
-  R let<R>(R Function(T) f) => f(this);
 }

@@ -112,6 +112,19 @@ class _AuthGateState extends State<AuthGate> {
     }
     if (row == null) return const _NoPatientRecord();
 
+    // Calibration is compulsory: whoever has no saved baseline (never reached
+    // the step, quit part-way, or skipped it in an older version) is sent back
+    // to it - approved or not - before anything else.
+    final patientId = row['id'] as String;
+    if (!await _repo.hasBaseline(patientId)) {
+      final data = await _repo.hydrate(row);
+      if (row['clinic_id'] == null) {
+        return OnboardingFlow(initialData: data, initialStep: OnboardingFlow.firstPostAccountStep);
+      }
+      // Calibrating needs the band, so pair it first if that never happened.
+      return OnboardingFlow(initialData: data, initialStep: data.wearable == null ? 4 : 5);
+    }
+
     if (row['approved'] == true) {
       final profile = PatientProfile.fromMap(row);
       final device = await _auth.fetchPairedDevice(profile.id);
@@ -122,9 +135,10 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
+    // Here the baseline exists (checked above), so only the band can still be missing.
     final data = await _repo.hydrate(row);
-    if (row['clinic_id'] == null) {
-      return OnboardingFlow(initialData: data, initialStep: OnboardingFlow.firstPostAccountStep);
+    if (data.wearable == null) {
+      return OnboardingFlow(initialData: data, initialStep: 4);
     }
     return WaitingForPhysioScreen(data: data);
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/load_guard.dart';
+import '../../core/legal/legal_text.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/widgets/ui_kit.dart';
@@ -80,6 +81,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
       _reload();
     } catch (e) {
       if (mounted) _toast(friendlyError(e, fallback: "Couldn't forget the wearable."));
+    }
+  }
+
+  /// Account deletion (required by Google Play / GDPR): permanent, so it asks
+  /// the patient to type DELETE rather than just tap through a dialog.
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        var typed = '';
+        return StatefulBuilder(
+          builder: (context, setLocal) => AlertDialog(
+            title: const Text('Delete your account?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'This permanently deletes your account, your sessions and your progress. '
+                  'It cannot be undone, and your physiotherapist will no longer see your data.',
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Type DELETE to confirm'),
+                  onChanged: (v) => setLocal(() => typed = v.trim()),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+              FilledButton(
+                onPressed: typed == 'DELETE' ? () => Navigator.of(context).pop(true) : null,
+                style: FilledButton.styleFrom(backgroundColor: context.colors.alert),
+                child: const Text('Delete account'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await _repo.deleteMyAccount().guarded();
+      widget.connection.forget();
+      widget.onSignOut(); // the login is gone; this clears the local session
+    } catch (e) {
+      if (mounted) _toast(friendlyError(e, fallback: "Couldn't delete your account. Try again."));
     }
   }
 
@@ -174,7 +223,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _Row(icon: Icons.watch_outlined, label: 'Device', value: d.device!.displayName),
                     _Row(icon: Icons.qr_code_2, label: 'Serial', value: d.device!.serial),
                     _Row(icon: Icons.system_update_alt, label: 'Firmware', value: d.device!.firmware ?? '—'),
-                    _Row(icon: Icons.battery_std, label: 'Battery', value: '${d.device!.batteryPercent}%'),
+                    if (d.device!.batteryPercent != null)
+                      _Row(icon: Icons.battery_std, label: 'Battery', value: '${d.device!.batteryPercent}%'),
                     _Row(
                       icon: Icons.link_off,
                       label: 'Forget wearable',
@@ -188,6 +238,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _Row(icon: Icons.mail_outline, label: 'Email', value: d.email),
                   _Row(icon: Icons.lock_outline, label: 'Change password', onTap: _changePassword),
                   _Row(icon: Icons.logout, label: 'Log out', destructive: true, onTap: _logOut),
+                  _Row(icon: Icons.delete_forever_outlined, label: 'Delete account', destructive: true, onTap: _deleteAccount),
                 ]),
                 const _Footnote(
                     "Your email is your sign-in, so changing it needs a verified step — contact your clinic."),
@@ -197,12 +248,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _Row(
                     icon: Icons.description_outlined,
                     label: 'Terms & Conditions',
-                    onTap: () => _openLegal('Terms & Conditions', _termsText),
+                    onTap: () => _openLegal('Terms & Conditions', termsText),
                   ),
                   _Row(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Privacy notice',
-                    onTap: () => _openLegal('Privacy notice', _privacyText),
+                    onTap: () => _openLegal('Privacy notice', privacyText),
                   ),
                   const _Row(icon: Icons.info_outline, label: 'App version', value: _appVersion),
                 ]),
@@ -214,9 +265,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _openLegal(String title, String body) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => _LegalPage(title: title, body: body)));
-  }
+  void _openLegal(String title, String body) => LegalPage.open(context, title, body);
 }
 
 // Kept in step with pubspec.yaml's `version:` by hand — no
@@ -378,52 +427,3 @@ class _Footnote extends StatelessWidget {
     );
   }
 }
-
-class _LegalPage extends StatelessWidget {
-  final String title;
-  final String body;
-  const _LegalPage({required this.title, required this.body});
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Text(body, style: TextStyle(fontSize: 14.5, color: c.ink, height: 1.6)),
-        ),
-      ),
-    );
-  }
-}
-
-// Placeholder copy — replace with the clinic's reviewed legal text before
-// release. Kept short and generic rather than inventing specific data
-// handling or retention claims.
-const _termsText = '''
-These Terms & Conditions govern your use of the Inteli Rehab app. By using '''
-    '''the app you agree to follow your prescribed rehabilitation plan as '''
-    '''directed by your physiotherapist, and to use the wearable device and '''
-    '''app as intended for home-based rehabilitation tracking.
-
-This app supports, but does not replace, guidance from your clinic. Always '''
-    '''follow your physiotherapist's instructions and contact your clinic '''
-    '''with any concerns about your treatment.
-
-This is placeholder text pending review by the clinic's legal team.
-''';
-
-const _privacyText = '''
-This Privacy Notice describes how Inteli Rehab handles your information. '''
-    '''We collect the personal, injury and session data you and your '''
-    '''wearable device provide in order to support your rehabilitation and '''
-    '''share your progress with your clinic and physiotherapist.
-
-Your data is only shared with the clinic and physiotherapist you choose. '''
-    '''You can review the personal details you've provided at any time from '''
-    '''this Profile screen.
-
-This is placeholder text pending review by the clinic's legal team.
-''';

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../auth/auth_service.dart';
+import '../../app.dart' show AuthGate;
 import 'confirm_email_screen.dart';
 import 'onboarding_data.dart';
 import 'onboarding_repository.dart';
@@ -28,7 +31,7 @@ const _steps = [
   _StepMeta(
       'CLINIC & PHYSIOTHERAPIST', 'Choose your care team', 'Pick the clinic and physiotherapist you’ll work with.'),
   _StepMeta('WEARABLE SETUP', 'Pair your Inteli Band', 'The band measures your movement during exercises.'),
-  _StepMeta('CALIBRATION', 'Record your baseline', 'A quick measurement of how your arm moves today.'),
+  _StepMeta('CALIBRATION', 'Calibrate your band', 'A guided calibration that records how your arm moves today.'),
 ];
 
 /// Total including the final "wait for physiotherapist" screen.
@@ -73,15 +76,22 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   @override
   void dispose() {
-    if (widget.initialData == null) _data.dispose();
+    // Always free the Bluetooth link (even when the data object outlives the
+    // flow, as when resuming) so Home can connect to the band afterwards.
+    if (widget.initialData == null) {
+      _data.dispose();
+    } else {
+      unawaited(_data.releaseBand());
+    }
     super.dispose();
   }
 
   bool get _canContinue =>
       !_busy &&
       switch (_index) {
-        4 => _data.wearable != null, // the band is compulsory
-        5 => _data.baseline != null || _data.calibrationSkipped,
+        4 => _data.wearable != null && _data.bandLinked, // the band is compulsory AND must be linked now
+        // Calibration is compulsory: the whole sequence, muscle check included.
+        5 => _data.baseline != null && (_data.musclesCalibrated || _data.baselineSaved),
         _ => true,
       };
 
@@ -124,9 +134,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     if (!mounted || !advance) return;
 
     if (_index == _steps.length - 1) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => WaitingForPhysioScreen(data: _data)),
-      );
+      // Someone sent back here to finish calibrating may already be approved:
+      // let AuthGate route them (it re-checks the baseline too), not the waiting screen.
+      var approved = false;
+      try {
+        approved = (await AuthService().fetchMyPatientRow())?['approved'] == true;
+      } catch (_) {
+        // Offline: the waiting screen's own status check will sort it out.
+      }
+      if (!mounted) return;
+      if (approved) {
+        Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthGate()), (_) => false);
+      } else {
+        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => WaitingForPhysioScreen(data: _data)));
+      }
       return;
     }
     _goTo(_index + 1);

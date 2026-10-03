@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <style>
+    html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; touch-action: none; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
+</head>
+<body>
+  <script>
+    // Anything that goes wrong before/while the scene starts is reported to
+    // the app (which then shows the 2D twin and says why on long-press).
+    function reportTwinError(m) {
+      try { window.Twin && window.Twin.postMessage(JSON.stringify({ type: "error", detail: String(m) })); } catch (e) {}
+    }
+    window.addEventListener("error", function (e) {
+      reportTwinError((e.message || "script error") + (e.filename ? " @" + e.filename.split("/").pop() + ":" + e.lineno : ""));
+    });
+    window.addEventListener("unhandledrejection", function (e) { reportTwinError("promise: " + (e.reason && e.reason.message || e.reason)); });
+    try {
+      var c = document.createElement("canvas");
+      if (!(c.getContext("webgl2") || c.getContext("webgl"))) reportTwinError("WebGL is not available in this WebView");
+    } catch (e) { reportTwinError("WebGL check failed: " + e); }
+  </script>
+  <script src="three_bundle.js"></script>
+  <script src="twin.js"></script>
+</body>
+</html>

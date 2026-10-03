@@ -1,0 +1,11 @@
+{
+  "name": "twin-bundle",
+  "private": true,
+  "description": "Build-time only: bundles Three.js + GLTFLoader into assets/twin/three_bundle.js for the digital-twin WebView. Not shipped in the app.",
+  "type": "module",
+  "scripts": {
+    "build": "esbuild entry.js --bundle --minify --format=iife --target=es2019 --legal-comments=none --outfile=../../assets/twin/three_bundle.js"
+  },
+  "dependencies": { "three": "0.170.0" },
+  "devDependencies": { "esbuild": "^0.25.0" }
+}

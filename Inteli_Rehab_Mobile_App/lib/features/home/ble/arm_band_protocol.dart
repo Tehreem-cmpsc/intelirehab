@@ -16,7 +16,7 @@ class ArmBandProtocol {
 
   static final serviceUuid = Guid('a1b2c3d0-0001-4000-8000-00805f9b34fb');
 
-  /// NOTIFY — the 16-byte sensor packet, ~31 Hz while connected.
+  /// NOTIFY — the 8-byte sensor packet, ~31 Hz while connected.
   static final dataCharUuid = Guid('a1b2c3d0-0002-4000-8000-00805f9b34fb');
 
   /// WRITE — single-byte calibration commands (see [Command]).
@@ -46,32 +46,28 @@ enum ArmBandCommand {
 /// One sample off the band's data characteristic — firmware's
 /// `SensorPacket` struct, decoded. elbowDeg is the real joint angle from
 /// the two IMUs' relative orientation (Madgwick fusion done on-device);
-/// the three EMG percentages are %MVC, meaningful once a max-voluntary-
+/// emg1Pct is %MVC, meaningful once a max-voluntary-
 /// contraction calibration ([ArmBandCommand.startMvcCalibration]) has run.
 class ArmBandSample {
   final double elbowDeg;
   final double emg1Pct;
-  final double emg2Pct;
-  final double emg3Pct;
 
   const ArmBandSample({
     required this.elbowDeg,
     required this.emg1Pct,
-    required this.emg2Pct,
-    required this.emg3Pct,
   });
 
-  /// Parses firmware's `__attribute__((packed)) SensorPacket`: 4
-  /// little-endian float32s, no padding — 16 bytes total. Returns null for
-  /// anything else (a malformed notify should never crash the session).
+  /// Parses firmware's `__attribute__((packed)) SensorPacket`: 2
+  /// little-endian float32s (elbow, emg1), no padding — 8 bytes. A band not
+  /// yet reflashed still sends the old 16-byte packet whose last two floats
+  /// (emg2/emg3) are ignored here, so both work. Returns null for any other
+  /// length (a malformed notify should never crash the session).
   static ArmBandSample? tryParse(List<int> bytes) {
-    if (bytes.length != 16) return null;
+    if (bytes.length != 8 && bytes.length != 16) return null;
     final data = ByteData.sublistView(Uint8List.fromList(bytes));
     return ArmBandSample(
       elbowDeg: data.getFloat32(0, Endian.little),
       emg1Pct: data.getFloat32(4, Endian.little),
-      emg2Pct: data.getFloat32(8, Endian.little),
-      emg3Pct: data.getFloat32(12, Endian.little),
     );
   }
 }

@@ -46,16 +46,73 @@ class _LoginScreenState extends State<LoginScreen> {
       // right screen — resume onboarding, waiting, or home.
       if (mounted) Navigator.of(context).popUntil((r) => r.isFirst);
     } on AuthException catch (e) {
+      if (!mounted) return;
       final message = e.message.toLowerCase();
       setState(() => _errorMessage = message.contains('not confirmed')
           ? 'Please confirm your email first — check your inbox for the link.'
           : message.contains('invalid')
               ? 'Incorrect email or password.'
-              : e.message);
+              : e.statusCode == '429' || message.contains('rate limit') || message.contains('too many')
+                  ? 'Too many attempts. Wait a few minutes and try again.'
+                  : e.message);
     } catch (_) {
+      if (!mounted) return;
       setState(() => _errorMessage = "Couldn't reach Inteli Rehab. Check your connection and try again.");
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController(text: _emailController.text.trim());
+        return AlertDialog(
+          title: const Text('Reset your password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Enter your account email and we'll send you a link to choose a new password."),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline, size: 20)),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+              child: const Text('Send link'),
+            ),
+          ],
+        );
+      },
+    );
+    if (email == null || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    if (!email.contains('@')) {
+      messenger.showSnackBar(const SnackBar(content: Text('Enter a valid email address.')));
+      return;
+    }
+    try {
+      await _authService.requestPasswordReset(email);
+      // Same answer whether or not the address has an account.
+      messenger.showSnackBar(const SnackBar(
+        content: Text('If that email has an account, a reset link is on its way. Check your inbox.'),
+      ));
+    } on AuthException catch (e) {
+      final limited = e.statusCode == '429' || e.message.toLowerCase().contains('rate limit');
+      messenger.showSnackBar(SnackBar(
+        content: Text(limited ? 'Too many attempts. Wait a few minutes and try again.' : "Couldn't send the email. Try again."),
+      ));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text("Couldn't reach Inteli Rehab. Check your connection.")));
     }
   }
 
@@ -102,6 +159,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.lock_outline, size: 20),
                     ),
                     validator: (v) => (v == null || v.isEmpty) ? 'Enter your password' : null,
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _submitting ? null : _forgotPassword,
+                      child: const Text('Forgot password?'),
+                    ),
                   ),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),

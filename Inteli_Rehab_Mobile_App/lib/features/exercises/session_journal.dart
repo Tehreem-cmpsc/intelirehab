@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:supabase_flutter/supabase_flutter.dart' show PostgrestException;
+
 import '../../core/platform/device_services.dart';
 import 'exercises_models.dart';
 import 'exercises_repository.dart';
@@ -22,9 +24,21 @@ class UnfinishedSession {
 ///  * pending: finished sessions that couldn't reach Supabase yet. Cloud
 ///    sync is offline-first (Rule 26): the patient is never blocked, and
 ///    [syncPending] uploads them later. Uploads are idempotent (client ids),
-///    so a retry after a partial failure never duplicates rows.
+///    so a retry after a partial failure never duplicates rows;
+///  * failed: sessions the server permanently refuses (or that can't be
+///    read). They're set aside - never retried forever, never blocking the
+///    sessions behind them, and never deleted - so nothing is silently lost.
+///
+/// The journal is patient data, so it is never overwritten after a read it
+/// couldn't complete: a transient I/O error propagates to the caller instead
+/// of looking like "empty", and a corrupt file is renamed aside (not
+/// replaced) so its contents can still be recovered.
 class SessionJournal {
   static const _fileName = 'session_journal.json';
+
+  /// Postgres/PostgREST codes meaning "this row will never be accepted":
+  /// foreign-key, not-null, check, bad-text-representation, RLS denial.
+  static const _permanentCodes = {'23503', '23502', '23514', '22P02', '42501'};
 
   // Serialises reads/writes so two quick saves can't interleave.
   static Future<void> _lock = Future.value();
@@ -43,13 +57,20 @@ class SessionJournal {
 
   static Future<File> _file() async => File('${(await DeviceServices.filesDir()).path}/$_fileName');
 
+  /// Missing file -> empty. Corrupt file -> set aside, then empty. Anything
+  /// else (an I/O error) propagates, so callers never write over data they
+  /// failed to read.
   static Future<Map<String, dynamic>> _read() async {
+    final f = await _file();
+    if (!await f.exists()) return {};
+    final text = await f.readAsString();
     try {
-      final f = await _file();
-      if (!await f.exists()) return {};
-      return Map<String, dynamic>.from(jsonDecode(await f.readAsString()) as Map);
+      return Map<String, dynamic>.from(jsonDecode(text) as Map);
     } catch (_) {
-      return {}; // A corrupt journal must never block the app.
+      try {
+        await f.rename('${f.path}.corrupt-${DateTime.now().millisecondsSinceEpoch}');
+      } catch (_) {}
+      return {};
     }
   }
 
@@ -66,15 +87,19 @@ class SessionJournal {
         await _write(data);
       });
 
+  /// Best-effort: failing to clear only means the patient is asked about an
+  /// already-saved session on the next launch.
   static Future<void> clearInProgress() => _locked(() async {
-        final data = await _read();
-        if (data.remove('inProgress') != null) await _write(data);
+        try {
+          final data = await _read();
+          if (data.remove('inProgress') != null) await _write(data);
+        } catch (_) {}
       });
 
   static Future<UnfinishedSession?> readInProgress(String patientId) => _locked(() async {
-        final raw = (await _read())['inProgress'];
-        if (raw is! Map || raw['patientId'] != patientId) return null;
         try {
+          final raw = (await _read())['inProgress'];
+          if (raw is! Map || raw['patientId'] != patientId) return null;
           return UnfinishedSession(
             patientId: patientId,
             result: SessionResult.fromJson(Map<String, dynamic>.from(raw['result'] as Map)),
@@ -95,11 +120,54 @@ class SessionJournal {
       });
 
   static Future<int> pendingCount(String patientId) => _locked(() async {
-        final pending = ((await _read())['pending'] as List?) ?? const [];
-        return pending.where((p) => (p as Map)['patientId'] == patientId).length;
+        try {
+          final pending = ((await _read())['pending'] as List?) ?? const [];
+          return pending.where((p) => (p as Map)['patientId'] == patientId).length;
+        } catch (_) {
+          return 0;
+        }
       });
 
+  /// Sessions set aside because they can never upload (see class doc).
+  static Future<int> failedCount(String patientId) => _locked(() async {
+        try {
+          final failed = ((await _read())['failed'] as List?) ?? const [];
+          return failed.where((p) => (p as Map)['patientId'] == patientId).length;
+        } catch (_) {
+          return 0;
+        }
+      });
+
+  static bool _isPermanent(Object e) => e is PostgrestException && _permanentCodes.contains(e.code);
+
+  /// Moves one queued entry from `pending` to `failed`, keeping the data.
+  static Future<void> _setAside(Map<String, dynamic> entry, String reason) => _locked(() async {
+        final data = await _read();
+        final pending = List<Map<String, dynamic>>.from((data['pending'] as List?) ?? const []);
+        final id = (entry['result'] as Map?)?['id'];
+        pending.removeWhere((p) => (p['result'] as Map?)?['id'] == id);
+        final failed = List<Map<String, dynamic>>.from((data['failed'] as List?) ?? const []);
+        failed.add({...entry, 'reason': reason, 'failedAt': DateTime.now().toIso8601String()});
+        data['pending'] = pending;
+        data['failed'] = failed;
+        await _write(data);
+      });
+
+  /// A session finished offline (or before the band's id could be looked up)
+  /// is queued without a device id; look it up now so it isn't uploaded
+  /// without one for good. Best-effort.
+  static Future<String?> _lookUpDeviceId(ExercisesRepository repo, String patientId) async {
+    try {
+      return await repo.pairedDeviceId(patientId).timeout(const Duration(seconds: 5));
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Uploads whatever is queued for [patientId]. Returns how many made it.
+  /// A transient failure (offline, timeout) stops and keeps the rest for
+  /// next time; a permanent one sets that session aside and carries on, so
+  /// one bad entry can't block everything behind it.
   static Future<int> syncPending(String patientId, ExercisesRepository repo) async {
     final queued = await _locked(() async {
       final pending = ((await _read())['pending'] as List?) ?? const [];
@@ -110,12 +178,24 @@ class SessionJournal {
 
     var synced = 0;
     for (final entry in queued) {
-      final result = SessionResult.fromJson(Map<String, dynamic>.from(entry['result'] as Map));
+      final SessionResult result;
+      try {
+        result = SessionResult.fromJson(Map<String, dynamic>.from(entry['result'] as Map));
+      } catch (_) {
+        await _setAside(entry, 'unreadable');
+        continue;
+      }
+
+      final deviceId = (entry['deviceId'] as String?) ?? await _lookUpDeviceId(repo, patientId);
       try {
         await repo
-            .saveSession(patientId: patientId, deviceId: entry['deviceId'] as String?, result: result)
+            .saveSession(patientId: patientId, deviceId: deviceId, result: result)
             .timeout(const Duration(seconds: 15));
-      } catch (_) {
+      } catch (e) {
+        if (_isPermanent(e)) {
+          await _setAside(entry, 'rejected: ${e is PostgrestException ? e.code : e}');
+          continue;
+        }
         break; // Still offline — keep the rest for next time.
       }
       synced += 1;

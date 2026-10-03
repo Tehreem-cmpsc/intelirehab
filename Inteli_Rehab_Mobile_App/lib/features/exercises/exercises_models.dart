@@ -7,6 +7,10 @@ class AssignedExercise {
   final String? target; // joint/muscle targeted
   final String difficulty;
   final String? description;
+
+  /// Illustration/video of the movement (exercises.media_url / media_type); see ExerciseMedia.
+  final String? mediaUrl;
+  final String mediaType;
   final int sets;
   final int repsTarget;
   final int? romTarget;
@@ -18,6 +22,8 @@ class AssignedExercise {
     required this.target,
     required this.difficulty,
     required this.description,
+    this.mediaUrl,
+    this.mediaType = 'image',
     required this.sets,
     required this.repsTarget,
     required this.romTarget,
@@ -30,6 +36,8 @@ class AssignedExercise {
         'target': target,
         'difficulty': difficulty,
         'description': description,
+        'mediaUrl': mediaUrl,
+        'mediaType': mediaType,
         'sets': sets,
         'repsTarget': repsTarget,
         'romTarget': romTarget,
@@ -42,6 +50,8 @@ class AssignedExercise {
         target: j['target'] as String?,
         difficulty: j['difficulty'] as String? ?? 'Beginner',
         description: j['description'] as String?,
+        mediaUrl: j['mediaUrl'] as String?,
+        mediaType: j['mediaType'] as String? ?? 'image',
         sets: (j['sets'] as num).toInt(),
         repsTarget: (j['repsTarget'] as num).toInt(),
         romTarget: (j['romTarget'] as num?)?.toInt(),

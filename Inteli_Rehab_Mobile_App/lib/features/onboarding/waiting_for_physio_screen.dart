@@ -18,12 +18,31 @@ class WaitingForPhysioScreen extends StatefulWidget {
   State<WaitingForPhysioScreen> createState() => _WaitingForPhysioScreenState();
 }
 
-class _WaitingForPhysioScreenState extends State<WaitingForPhysioScreen> {
+class _WaitingForPhysioScreenState extends State<WaitingForPhysioScreen> with WidgetsBindingObserver {
   bool _checking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Coming back to the app is the likely moment approval has happened, so
+  /// check quietly instead of making the patient tap "check status".
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_checking) _checkStatus(silent: true);
+  }
 
   OnboardingData get data => widget.data;
 
-  Future<void> _checkStatus() async {
+  Future<void> _checkStatus({bool silent = false}) async {
     setState(() => _checking = true);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -34,10 +53,13 @@ class _WaitingForPhysioScreenState extends State<WaitingForPhysioScreen> {
         navigator.pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const AuthGate()), (_) => false);
         return;
       }
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Still waiting for approval — we’ll let you know.')));
+      if (!silent) {
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(const SnackBar(content: Text('Still waiting for approval — we’ll let you know.')));
+      }
     } catch (_) {
+      if (silent) return;
       messenger
         ..hideCurrentSnackBar()
         ..showSnackBar(const SnackBar(content: Text("Couldn't check right now. Try again in a moment.")));
@@ -156,14 +178,6 @@ class _WaitingForPhysioScreenState extends State<WaitingForPhysioScreen> {
                         '${data.baseline != null ? ' and baseline' : ''}, then set up your first exercise plan. '
                         "We'll notify you as soon as it's ready.",
                   ),
-                  if (data.wearable == null || data.baseline == null) ...[
-                    const SizedBox(height: 10),
-                    const InfoBanner(
-                      icon: Icons.watch_outlined,
-                      tone: BannerTone.warning,
-                      text: 'While you wait, you can pair your band and record your baseline from Settings.',
-                    ),
-                  ],
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: _checking ? null : _checkStatus,

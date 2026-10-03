@@ -23,11 +23,16 @@ class HomeScreen extends StatefulWidget {
   final WearableConnectionController connection;
   final VoidCallback onGoToExercises;
 
+  /// Fires when the tab is shown again, the app returns to the foreground or a
+  /// session finishes: the dashboard reloads quietly, keeping what's on screen.
+  final Listenable? refreshSignal;
+
   const HomeScreen({
     super.key,
     required this.profile,
     required this.connection,
     required this.onGoToExercises,
+    this.refreshSignal,
   });
 
   @override
@@ -36,8 +41,44 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final _repo = HomeRepository();
-  late Future<HomeSnapshot> _snapshot = _load();
+  late Future<HomeSnapshot> _snapshot = _track(_load());
   int _pendingUploads = 0;
+
+  HomeSnapshot? _last; // what's on screen, kept while a quiet reload runs
+  DateTime? _loadedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.refreshSignal?.addListener(_quietReload);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_quietReload);
+    super.dispose();
+  }
+
+  /// Remembers the latest good snapshot. A quiet reload that fails keeps
+  /// showing it instead of swapping a working dashboard for an error screen.
+  Future<HomeSnapshot> _track(Future<HomeSnapshot> load, {bool quiet = false}) => load.then(
+        (s) {
+          _last = s;
+          _loadedAt = DateTime.now();
+          return s;
+        },
+        onError: (Object e, StackTrace st) {
+          if (quiet && _last != null) return _last!;
+          throw e;
+        },
+      );
+
+  void _quietReload() {
+    if (!mounted) return;
+    final at = _loadedAt;
+    if (at != null && DateTime.now().difference(at) < const Duration(seconds: 5)) return; // just loaded
+    setState(() => _snapshot = _track(_load(), quiet: true));
+  }
 
   /// Uploads anything saved offline first (Rule 26), so the dashboard
   /// reflects it; a failed sync never blocks the dashboard itself.
@@ -52,7 +93,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return _repo.load(widget.profile.id).guarded();
   }
 
-  void _reload() => setState(() => _snapshot = _load());
+  void _reload() => setState(() => _snapshot = _track(_load()));
 
   String get _firstName {
     final parts = widget.profile.name.trim().split(RegExp(r'\s+'));
@@ -90,6 +131,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       body: FutureBuilder<HomeSnapshot>(
         future: _snapshot,
+        initialData: _last,
         builder: (context, snap) {
           return RefreshIndicator(
             onRefresh: () async {

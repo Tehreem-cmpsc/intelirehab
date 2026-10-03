@@ -20,7 +20,10 @@ class BandRequiredGate extends StatelessWidget {
   const BandRequiredGate({super.key, required this.connection, required this.onSignOut});
 
   Future<void> _connect(BuildContext context) async {
-    if (!await BluetoothRationale.ensure(context)) return;
+    // The Bluetooth permission step only exists on phones; elsewhere go
+    // straight to reconnect(), which reports that the platform is unsupported.
+    final onPhone = Platform.isAndroid || Platform.isIOS;
+    if (onPhone && !await BluetoothRationale.ensure(context)) return;
     if (Platform.isAndroid && await FlutterBluePlus.adapterState.first == BluetoothAdapterState.off) {
       try {
         await FlutterBluePlus.turnOn(); // system "turn on Bluetooth?" dialog
@@ -57,7 +60,7 @@ class BandRequiredGate extends StatelessWidget {
                         color: busy ? c.primary : c.alert, size: 84),
                     const SizedBox(height: 24),
                     Text(
-                      busy ? 'Connecting to your band…' : 'Connect your Inteli Band',
+                      busy ? (connection.stage ?? 'Connecting to your band…') : 'Connect your Inteli Band',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: c.ink),
                     ),
@@ -67,6 +70,8 @@ class BandRequiredGate extends StatelessWidget {
                           'Your band is required to use Inteli Rehab. Switch it on, keep it within arm’s reach '
                               'and make sure Bluetooth is on.',
                       textAlign: TextAlign.center,
+                      maxLines: 8,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 14.5, color: c.muted, height: 1.45),
                     ),
                     const SizedBox(height: 28),

@@ -6,6 +6,7 @@ import '../../core/widgets/ui_kit.dart';
 import '../home/wearable_connection_controller.dart';
 import 'exercise_detail_screen.dart';
 import 'exercises_models.dart';
+import 'widgets/exercise_media.dart';
 import 'exercises_repository.dart';
 
 /// STATE 1 — the always-visible active plan (covers UC-6). No day-of-week
@@ -15,11 +16,13 @@ class PlanListScreen extends StatefulWidget {
   final String patientId;
   final WearableConnectionController connection;
   final VoidCallback onViewProgress;
+  final String armSide;
   const PlanListScreen({
     super.key,
     required this.patientId,
     required this.connection,
     required this.onViewProgress,
+    this.armSide = 'left',
   });
 
   @override
@@ -81,6 +84,7 @@ class _PlanListScreenState extends State<PlanListScreen> {
                           patientId: widget.patientId,
                           connection: widget.connection,
                           onViewProgress: widget.onViewProgress,
+                          armSide: widget.armSide,
                         ),
                       ));
                       _reload();
@@ -171,7 +175,7 @@ class _ExerciseCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 12, 16),
       child: Row(
         children: [
-          const IconBadge(Icons.accessibility_new, size: 48),
+          ExerciseThumb(mediaUrl: exercise.mediaUrl, mediaType: exercise.mediaType, name: exercise.name, size: 56),
           const SizedBox(width: 14),
           Expanded(
             child: Column(

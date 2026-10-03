@@ -11,8 +11,17 @@ import 'exercises_models.dart';
 class SessionSummaryScreen extends StatelessWidget {
   final SessionResult result;
   final bool queued;
+
+  /// Neither the server nor the phone's own storage accepted the session.
+  final bool saveFailed;
   final VoidCallback onViewProgress;
-  const SessionSummaryScreen({super.key, required this.result, this.queued = false, required this.onViewProgress});
+  const SessionSummaryScreen({
+    super.key,
+    required this.result,
+    this.queued = false,
+    this.saveFailed = false,
+    required this.onViewProgress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -29,14 +38,19 @@ class SessionSummaryScreen extends StatelessWidget {
             liveRegion: true,
             child: Column(
               children: [
-                IconBadge(Icons.check_rounded, color: c.success, size: 72),
+                IconBadge(saveFailed ? Icons.warning_amber_rounded : Icons.check_rounded,
+                    color: saveFailed ? c.alert : c.success, size: 72),
                 const SizedBox(height: 14),
-                Text('Session saved', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.ink)),
+                Text(saveFailed ? 'Session not saved' : 'Session saved',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.ink)),
                 const SizedBox(height: 4),
                 Text(
-                  queued
-                      ? "Saved on this phone — it'll upload automatically when you're back online."
-                      : 'Nice work on ${result.exercise.name}.',
+                  saveFailed
+                      ? "We couldn't store this session - your phone may be low on space. Free some space and tell your "
+                          'physiotherapist.'
+                      : queued
+                          ? "Saved on this phone — it'll upload automatically when you're back online."
+                          : 'Nice work on ${result.exercise.name}.',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 13.5, color: c.muted, height: 1.4),
                 ),

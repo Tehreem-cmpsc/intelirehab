@@ -13,7 +13,10 @@ import 'widgets/rom_trend_chart.dart';
 /// achievements. Recovery data first, badges second (Rule 8).
 class ProgressScreen extends StatefulWidget {
   final String patientId;
-  const ProgressScreen({super.key, required this.patientId});
+
+  /// See HomeScreen.refreshSignal.
+  final Listenable? refreshSignal;
+  const ProgressScreen({super.key, required this.patientId, this.refreshSignal});
 
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
@@ -21,10 +24,45 @@ class ProgressScreen extends StatefulWidget {
 
 class _ProgressScreenState extends State<ProgressScreen> {
   final _repo = ProgressRepository();
-  late Future<ProgressData> _future = _load();
+  late Future<ProgressData> _future = _track(_load());
+
+  ProgressData? _last;
+  DateTime? _loadedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.refreshSignal?.addListener(_quietReload);
+  }
+
+  @override
+  void dispose() {
+    widget.refreshSignal?.removeListener(_quietReload);
+    super.dispose();
+  }
 
   Future<ProgressData> _load() => _repo.load(widget.patientId).guarded();
-  void _reload() => setState(() => _future = _load());
+
+  Future<ProgressData> _track(Future<ProgressData> load, {bool quiet = false}) => load.then(
+        (d) {
+          _last = d;
+          _loadedAt = DateTime.now();
+          return d;
+        },
+        onError: (Object e, StackTrace st) {
+          if (quiet && _last != null) return _last!;
+          throw e;
+        },
+      );
+
+  void _reload() => setState(() => _future = _track(_load()));
+
+  void _quietReload() {
+    if (!mounted) return;
+    final at = _loadedAt;
+    if (at != null && DateTime.now().difference(at) < const Duration(seconds: 5)) return;
+    setState(() => _future = _track(_load(), quiet: true));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +71,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       appBar: AppBar(title: const Text('Progress')),
       body: FutureBuilder<ProgressData>(
         future: _future,
+        initialData: _last,
         builder: (context, snap) {
           if (snap.hasError) {
             return MessageState(

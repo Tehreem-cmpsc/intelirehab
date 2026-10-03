@@ -8,6 +8,7 @@ import 'exercises_models.dart';
 import 'processing/ai_engine.dart';
 import 'processing/emg_processor.dart';
 import 'processing/sensor_fusion.dart';
+import 'session_controller.dart';
 
 /// Drives the Active Session screen — the Application Layer's session
 /// orchestrator (SDD §3.1.4). It ticks the clock and calls down into the
@@ -18,14 +19,15 @@ import 'processing/sensor_fusion.dart';
 /// rep timing, pause/resume, the fatigue-pause and unsafe-ack policies —
 /// stays the same either way.
 ///
-/// There's no real sensor/BLE pipeline wired up yet (same reality as
-/// onboarding's CalibrationStep and WearableSetupStep — everything there is
-/// simulated too), so what feeds the processing layer here is a timer, not
-/// a device. What it produces is real enough to save as a real session
+/// This is the TIMER-DRIVEN stand-in, kept for tests and demos: the app's
+/// real sessions run on [LiveSession], fed by the band's sensor stream.
+/// What feeds the processing layer here is a timer, not a device. What it produces is real enough to save as a real session
 /// (ExercisesRepository.saveSession) and to exercise every UI state the
 /// spec calls for.
-class SessionSimulator extends ChangeNotifier {
+class SessionSimulator extends ChangeNotifier implements SessionController {
+  @override
   final int repsTarget;
+  @override
   final int romTargetPercent;
   final math.Random _random;
 
@@ -59,34 +61,44 @@ class SessionSimulator extends ChangeNotifier {
   final _stopwatch = Stopwatch();
 
   bool _running = false;
+  @override
   bool get isRunning => _running;
 
   bool _awaitingUnsafeAck = false;
+  @override
   bool get awaitingUnsafeAck => _awaitingUnsafeAck;
 
   bool _fatiguePauseOffered = false;
+  @override
   bool get fatiguePauseOffered => _fatiguePauseOffered;
 
   Duration _repElapsed = Duration.zero;
   SafetyTier _repTier = SafetyTier.normal;
 
+  @override
   int repsCompleted = 0;
+  @override
   int liveAngle = 0; // this session's rough joint-angle/ROM% readout — see Home's same approximation
   int peakAngle = 0;
+  @override
   MuscleActivation activation = MuscleActivation.resting;
   // The activation reading at the same tick as the current peakAngle — the
   // two are reported together on Home (Rule 1: no metric with no source).
   MuscleActivation peakActivation = MuscleActivation.resting;
+  @override
   SafetyTier currentTier = SafetyTier.normal;
   SafetyTier worstTier = SafetyTier.normal;
   double fatigueScore = 0; // 0..1
+  @override
   FatigueLevel get fatigueLevel => EmgProcessor.levelOf(fatigueScore);
   FatigueLevel peakFatigue = FatigueLevel.normal;
 
   final List<SessionAlert> alerts = [];
 
+  @override
   Duration get elapsed => _stopwatch.elapsed;
 
+  @override
   void start() {
     if (_running) return;
     _running = true;
@@ -94,6 +106,7 @@ class SessionSimulator extends ChangeNotifier {
     _timer = Timer.periodic(_tick, (_) => _onTick());
   }
 
+  @override
   void pause() {
     _running = false;
     _stopwatch.stop();
@@ -104,6 +117,7 @@ class SessionSimulator extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   void resume() {
     if (repsCompleted >= repsTarget) return;
     _running = true;
@@ -113,6 +127,7 @@ class SessionSimulator extends ChangeNotifier {
   }
 
   /// The patient acknowledged an "unsafe" banner — resumes rep counting.
+  @override
   void acknowledgeUnsafe() {
     _awaitingUnsafeAck = false;
     resume();
@@ -121,6 +136,7 @@ class SessionSimulator extends ChangeNotifier {
   /// The patient chose [Resume] on the fatigue-pause dialog (Rule 19 —
   /// offered, not silently forced). Fatigue eases back so it doesn't
   /// immediately re-trigger.
+  @override
   void acknowledgeFatiguePause() {
     _fatiguePauseOffered = false;
     fatigueScore = 0.55;
@@ -179,6 +195,7 @@ class SessionSimulator extends ChangeNotifier {
     }
   }
 
+  @override
   SessionResult buildResult(AssignedExercise exercise) {
     return SessionResult(
       id: sessionId,

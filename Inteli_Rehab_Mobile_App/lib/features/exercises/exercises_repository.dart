@@ -15,13 +15,25 @@ class ExercisesRepository {
 
   ExercisesRepository({OnboardingRepository? onboarding}) : _onboarding = onboarding ?? OnboardingRepository();
 
+  static const _planColumns = 'id, exercise_id, sets, reps, rom_target, exercises(name, target, difficulty, description';
+
+  /// The active plan rows. The illustration columns (exercises.media_url / media_type) arrive with
+  /// a database migration; until it has been run the plan must still load, just without pictures.
+  Future<List<dynamic>> _planRows(String patientId) async {
+    Future<List<dynamic>> query(String columns) =>
+        _db.from('patient_exercise_plans').select(columns).eq('patient_id', patientId).eq('active', true);
+    try {
+      return await query('$_planColumns, media_url, media_type)');
+    } on PostgrestException catch (e) {
+      final missingColumn = e.code == '42703' || e.message.contains('media_url') || e.message.contains('media_type');
+      if (!missingColumn) rethrow;
+      return query('$_planColumns)');
+    }
+  }
+
   Future<PlanSummary> loadPlan(String patientId) async {
     final results = await Future.wait<dynamic>([
-      _db
-          .from('patient_exercise_plans')
-          .select('id, exercise_id, sets, reps, rom_target, exercises(name, target, difficulty, description)')
-          .eq('patient_id', patientId)
-          .eq('active', true),
+      _planRows(patientId),
       _db
           .from('rehabilitation_plans')
           .select('plan_name')
@@ -46,6 +58,8 @@ class ExercisesRepository {
           target: (r['exercises'] as Map?)?['target'] as String?,
           difficulty: (r['exercises'] as Map?)?['difficulty'] as String? ?? 'Beginner',
           description: (r['exercises'] as Map?)?['description'] as String?,
+          mediaUrl: (r['exercises'] as Map?)?['media_url'] as String?,
+          mediaType: (r['exercises'] as Map?)?['media_type'] as String? ?? 'image',
           sets: (r['sets'] as num?)?.toInt() ?? 3,
           repsTarget: (r['reps'] as num?)?.toInt() ?? 10,
           romTarget: (r['rom_target'] as num?)?.toInt(),

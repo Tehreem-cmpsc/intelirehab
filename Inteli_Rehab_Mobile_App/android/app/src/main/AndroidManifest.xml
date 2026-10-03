@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Talking to Supabase. (Flutter only adds this to debug/profile builds
+         by itself - without it a release build has no network at all.) -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Arm band BLE connection (Communication Layer, SDD §3.1.2). -->
     <!-- Android 12+ (API 31+): usesPermissionFlags="neverForLocation" tells the
          OS/Play Store we scan by service UUID, not to derive location, so we
@@ -12,13 +15,15 @@
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
     <application
-        android:label="inteli_rehab_mobile_app"
+        android:label="Inteli Rehab"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
-        android:usesCleartextTraffic="true">
-        <!-- model_viewer_plus (Home dashboard's 3D arm model) renders via an
-             embedded WebView; its bundled JS/glb are local assets, but the
-             WebView still needs this to load them without a TLS error. -->
+        android:allowBackup="false"
+        android:networkSecurityConfig="@xml/network_security_config">
+        <!-- allowBackup=false: the signed-in session lives in app storage and
+             must not end up in cloud/device backups. Cleartext HTTP is allowed
+             to localhost only (see res/xml/network_security_config.xml), which
+             is what model_viewer_plus' local asset server needs. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

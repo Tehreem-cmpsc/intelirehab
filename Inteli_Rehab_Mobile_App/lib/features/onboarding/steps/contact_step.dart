@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/gestures.dart';
+
+import '../../../core/legal/legal_text.dart';
 import '../../../core/theme/app_theme.dart';
 import '../onboarding_data.dart';
 import '../widgets/form_widgets.dart';
@@ -27,6 +30,17 @@ class ContactStep extends StatefulWidget {
 class _ContactStepState extends State<ContactStep> {
   bool _obscure = true;
   String _confirm = '';
+
+  // Tapping the links opens the text without toggling the checkbox.
+  late final _termsTap = TapGestureRecognizer()..onTap = () => LegalPage.open(context, 'Terms of Use', termsText);
+  late final _privacyTap = TapGestureRecognizer()..onTap = () => LegalPage.open(context, 'Privacy Policy', privacyText);
+
+  @override
+  void dispose() {
+    _termsTap.dispose();
+    _privacyTap.dispose();
+    super.dispose();
+  }
 
   OnboardingData get data => widget.data;
 
@@ -126,10 +140,16 @@ class _ContactStepState extends State<ContactStep> {
                         TextSpan(children: [
                           const TextSpan(text: 'I agree to the '),
                           TextSpan(
-                              text: 'Terms of Use', style: TextStyle(color: c.primary, fontWeight: FontWeight.w600)),
+                              text: 'Terms of Use',
+                              recognizer: _termsTap,
+                              style: TextStyle(
+                                  color: c.primary, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
                           const TextSpan(text: ' and '),
                           TextSpan(
-                              text: 'Privacy Policy', style: TextStyle(color: c.primary, fontWeight: FontWeight.w600)),
+                              text: 'Privacy Policy',
+                              recognizer: _privacyTap,
+                              style: TextStyle(
+                                  color: c.primary, fontWeight: FontWeight.w600, decoration: TextDecoration.underline)),
                           const TextSpan(text: ', and to sharing my rehab data with the clinic I choose.'),
                         ]),
                         style: TextStyle(fontSize: 13, color: c.ink, height: 1.4),

@@ -1,4 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_blue_plus/flutter_blue_plus.dart' show BluetoothConnectionState;
+
+import '../home/ble/arm_band_ble_service.dart';
 
 /// Everything the patient enters across the onboarding flow.
 ///
@@ -40,9 +45,50 @@ class OnboardingData extends ChangeNotifier {
   // Wearable
   WearableDevice? wearable;
 
+  /// The one live BLE link, shared by the pairing and calibration steps.
+  /// (Each step used to build its own and pairing disconnected the band when
+  /// it was left, so calibration never had a band to talk to.) Created on
+  /// first use; released by [releaseBand] when onboarding ends.
+  ArmBandBleService? _band;
+  StreamSubscription<BluetoothConnectionState>? _bandSub;
+
+  ArmBandBleService get band {
+    final existing = _band;
+    if (existing != null) return existing;
+    final created = ArmBandBleService();
+    // A drop (out of range, powered off) must re-evaluate "Continue" etc.
+    _bandSub = created.connectionState.listen((_) => notifyListeners());
+    return _band = created;
+  }
+
+  /// Lets a test stand in a simulated band for the real Bluetooth one.
+  @visibleForTesting
+  set band(ArmBandBleService service) => _band = service;
+
+  /// True only while a real BLE link to the band is up right now. Being
+  /// paired in the database (a resumed onboarding) doesn't count.
+  bool get bandLinked => _band?.isConnected ?? false;
+
+  /// Drops the link and frees the Bluetooth resources. Home's own
+  /// controller reconnects to the paired band afterwards.
+  Future<void> releaseBand() async {
+    await _bandSub?.cancel();
+    _bandSub = null;
+    final band = _band;
+    _band = null;
+    band?.dispose();
+  }
+
   // Calibration
   BaselineReading? baseline;
-  bool calibrationSkipped = false;
+  /// Whether the muscle (MVC) step was confirmed by a test squeeze.
+  bool musclesCalibrated = false;
+
+  @override
+  void dispose() {
+    unawaited(releaseBand());
+    super.dispose();
+  }
 
   void update(VoidCallback change) {
     change();

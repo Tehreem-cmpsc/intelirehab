@@ -40,8 +40,13 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   int _index = 0;
+
+  /// Bumped whenever Home/Progress should refresh themselves: switching to
+  /// either tab, or the app coming back to the foreground. They sit in an
+  /// IndexedStack, so without this they only ever loaded once.
+  final _refresh = ValueNotifier<int>(0);
   late final _connection = WearableConnectionController(
     patientId: widget.profile.id,
     initiallyPaired: widget.wearablePaired,
@@ -51,6 +56,7 @@ class _HomeShellState extends State<HomeShell> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _checkUnfinishedSession();
     });
@@ -58,12 +64,24 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refresh.dispose();
     _connection.dispose();
     super.dispose();
   }
 
-  void _goToExercises() => setState(() => _index = 1);
-  void _goToProgress() => setState(() => _index = 2);
+  void _select(int i) {
+    setState(() => _index = i);
+    if (i == 0 || i == 2) _refresh.value++;
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refresh.value++;
+  }
+
+  void _goToExercises() => _select(1);
+  void _goToProgress() => _select(2);
 
   Future<void> _checkUnfinishedSession() async {
     final unfinished = await SessionJournal.readInProgress(widget.profile.id);
@@ -105,9 +123,19 @@ class _HomeShellState extends State<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      HomeScreen(profile: widget.profile, connection: _connection, onGoToExercises: _goToExercises),
-      PlanListScreen(patientId: widget.profile.id, connection: _connection, onViewProgress: _goToProgress),
-      ProgressScreen(patientId: widget.profile.id),
+      HomeScreen(
+        profile: widget.profile,
+        connection: _connection,
+        onGoToExercises: _goToExercises,
+        refreshSignal: _refresh,
+      ),
+      PlanListScreen(
+        patientId: widget.profile.id,
+        connection: _connection,
+        onViewProgress: _goToProgress,
+        armSide: widget.profile.armSide,
+      ),
+      ProgressScreen(patientId: widget.profile.id, refreshSignal: _refresh),
       ProfileScreen(
         name: widget.profile.name,
         connection: _connection,
@@ -118,7 +146,7 @@ class _HomeShellState extends State<HomeShell> {
     return PopScope(
       canPop: _index == 0,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _index = 0);
+        if (!didPop) _select(0);
       },
       child: Scaffold(
         // The band is compulsory: BandRequiredGate covers everything (nav
@@ -136,7 +164,7 @@ class _HomeShellState extends State<HomeShell> {
         ),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,
-          onDestinationSelected: (i) => setState(() => _index = i),
+          onDestinationSelected: _select,
           destinations: const [
             NavigationDestination(
                 icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),

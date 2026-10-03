@@ -16,6 +16,10 @@ class AuthService {
 
   Future<void> signOut() => supabase.auth.signOut();
 
+  /// Emails a reset link. The link opens the Inteli Rehab web page where the
+  /// new password is chosen (the portal handles that for any account).
+  Future<void> requestPasswordReset(String email) => supabase.auth.resetPasswordForEmail(email);
+
   /// The signed-in user's patients row, or null if registration hasn't
   /// completed yet (e.g. email confirmation delayed it).
   Future<Map<String, dynamic>?> fetchMyPatientRow() async {

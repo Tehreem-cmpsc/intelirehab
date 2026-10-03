@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/supabase_client.dart';
+import '../../core/util/dates.dart';
 import 'home_models.dart';
 
 /// Everything the Home screen shows, straight from Supabase — no
@@ -41,21 +43,40 @@ class HomeRepository {
           .select('performed_at, rom, reps, exercise_id, exercises(name), movement_analysis(*)')
           .eq('patient_id', patientId)
           .order('performed_at', ascending: false)
-          .limit(60),
-      _db.from('wearable_devices').select('serial_no').eq('patient_id', patientId).eq('status', 'paired').maybeSingle(),
+          .limit(200), // streaks need a long enough window; 60 capped them at 60 days
+      // newest first + limit(1): two rows marked paired (a race, manual SQL)
+      // must not make maybeSingle() throw and blank the whole dashboard.
+      _db
+          .from('wearable_devices')
+          .select('serial_no')
+          .eq('patient_id', patientId)
+          .eq('status', 'paired')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle(),
+      // The baseline on its own: looked up inside the latest sessions it
+      // eventually scrolled out of the window.
+      _db
+          .from('sessions')
+          .select('performed_at, movement_analysis!inner(posture_status, joint_angle, rom)')
+          .eq('patient_id', patientId)
+          .eq('movement_analysis.posture_status', _baselineMarker)
+          .order('performed_at', ascending: false)
+          .limit(1),
     ]);
 
     final planRows = results[0] as List;
     final planRow = results[1] as Map?;
     final sessionRows = results[2] as List;
     final deviceRow = results[3] as Map?;
+    final baselineRows = results[4] as List;
 
     final realSessions = sessionRows.where((s) => !_isBaseline(s)).toList()
       ..sort((a, b) => (b['performed_at'] as String).compareTo(a['performed_at'] as String));
 
-    final todayStart = DateTime.now().let((n) => DateTime(n.year, n.month, n.day));
+    final todayStart = dayOf(DateTime.now());
     final doneExerciseIdsToday = realSessions
-        .where((s) => DateTime.parse(s['performed_at'] as String).isAfter(todayStart))
+        .where((s) => parseTimestamp(s['performed_at'] as String).isAfter(todayStart))
         .map((s) => s['exercise_id'] as String?)
         .whereType<String>()
         .toSet();
@@ -79,7 +100,7 @@ class HomeRepository {
       final s = realSessions.first;
       final analysis = ((s['movement_analysis'] as List?) ?? const []).cast<Map>().firstOrNull;
       lastSession = LastSessionSnapshot(
-        performedAt: DateTime.parse(s['performed_at'] as String),
+        performedAt: parseTimestamp(s['performed_at'] as String),
         exerciseName: (s['exercises'] as Map?)?['name'] as String? ?? 'Exercise',
         rom: (s['rom'] as num?)?.toInt() ?? 0,
         romTarget: _matchingRomTarget(s['exercise_id'] as String?, planRows),
@@ -89,19 +110,19 @@ class HomeRepository {
       );
     }
 
-    final sessionDates = realSessions.map((s) => DateTime.parse(s['performed_at'] as String)).toList();
-    final sessionsThisWeek = sessionDates.where((d) => !d.isBefore(_startOfWeek(DateTime.now()))).length;
-    final bestPriorWeek = _bestWeeklyCount(sessionDates, excludingWeekOf: DateTime.now());
+    final sessionDates = realSessions.map((s) => parseTimestamp(s['performed_at'] as String)).toList();
+    final sessionsThisWeek = sessionDates.where((d) => !d.isBefore(startOfWeek(DateTime.now()))).length;
+    final bestPriorWeek = bestWeeklyCount(sessionDates, excludingWeekOf: DateTime.now());
 
     return HomeSnapshot(
       plan: plan,
       lastSession: lastSession,
-      baseline: _extractBaseline(sessionRows),
+      baseline: _extractBaseline(baselineRows),
       wearablePaired: deviceRow != null,
       deviceSerial: deviceRow?['serial_no'] as String?,
-      motivation: _motivation(sessionsThisWeek, bestPriorWeek, sessionDates),
+      motivation: motivation(sessionsThisWeek, bestPriorWeek, sessionDates),
       sessionsThisWeek: sessionsThisWeek,
-      currentStreak: _currentStreak(sessionDates),
+      currentStreak: currentStreak(sessionDates),
     );
   }
 
@@ -110,18 +131,16 @@ class HomeRepository {
 
   /// The onboarding calibration reading — same source as
   /// OnboardingRepository.hydrate's baseline lookup, degrees not %.
-  static BaselineReading? _extractBaseline(List sessionRows) {
-    final baselineRows = sessionRows.where(_isBaseline).toList()
-      ..sort((a, b) => (b['performed_at'] as String).compareTo(a['performed_at'] as String));
+  static BaselineReading? _extractBaseline(List baselineRows) {
     if (baselineRows.isEmpty) return null;
-    final row = baselineRows.first;
+    final row = baselineRows.first as Map;
     final analysis = (row['movement_analysis'] as List?)
         ?.cast<Map>()
         .firstWhere((m) => m['posture_status'] == _baselineMarker, orElse: () => const {});
     final flexion = (analysis?['joint_angle'] as num?)?.toDouble();
     final range = (analysis?['rom'] as num?)?.toDouble();
     if (flexion == null || range == null) return null;
-    return BaselineReading(flexion: flexion, range: range, recordedAt: DateTime.parse(row['performed_at'] as String));
+    return BaselineReading(flexion: flexion, range: range, recordedAt: parseTimestamp(row['performed_at'] as String));
   }
 
   static int? _matchingRomTarget(String? exerciseId, List planRows) {
@@ -132,17 +151,12 @@ class HomeRepository {
     return null;
   }
 
-  static DateTime _startOfWeek(DateTime date) {
-    final d = DateTime(date.year, date.month, date.day);
-    // Monday-anchored, matching the web portal's computeStreak/startOfWeek.
-    return d.subtract(Duration(days: (d.weekday - 1)));
-  }
-
-  static int _bestWeeklyCount(List<DateTime> dates, {required DateTime excludingWeekOf}) {
-    final currentWeekStart = _startOfWeek(excludingWeekOf);
+  @visibleForTesting
+  static int bestWeeklyCount(List<DateTime> dates, {required DateTime excludingWeekOf}) {
+    final currentWeekStart = startOfWeek(excludingWeekOf);
     final counts = <DateTime, int>{};
     for (final d in dates) {
-      final week = _startOfWeek(d);
+      final week = startOfWeek(d);
       if (week == currentWeekStart) continue;
       counts[week] = (counts[week] ?? 0) + 1;
     }
@@ -152,32 +166,17 @@ class HomeRepository {
 
   /// Data-grounded, never a stock quote and never guilt about a missed day
   /// (see the mobile app's motivational-copy rule).
-  static String _motivation(int thisWeek, int bestPriorWeek, List<DateTime> allDates) {
+  @visibleForTesting
+  static String motivation(int thisWeek, int bestPriorWeek, List<DateTime> allDates) {
     if (allDates.isEmpty) return 'Complete your first session to get started.';
     if (thisWeek > 0 && thisWeek > bestPriorWeek) {
-      return '$thisWeek session${thisWeek == 1 ? '' : 's'} this week — your best streak yet.';
+      return '$thisWeek session${thisWeek == 1 ? '' : 's'} this week — your best week yet.';
     }
-    final streak = _currentStreak(allDates);
+    final streak = currentStreak(allDates);
     if (streak >= 2) return '$streak-day streak — keep it going.';
     if (thisWeek > 0) return '$thisWeek session${thisWeek == 1 ? '' : 's'} logged this week.';
     return 'Ready when you are — your plan is waiting.';
   }
-
-  static int _currentStreak(List<DateTime> dates) {
-    final days = dates.map((d) => DateTime(d.year, d.month, d.day)).toSet();
-    var cursor = DateTime.now().let((n) => DateTime(n.year, n.month, n.day));
-    if (!days.contains(cursor)) cursor = cursor.subtract(const Duration(days: 1));
-    var streak = 0;
-    while (days.contains(cursor)) {
-      streak += 1;
-      cursor = cursor.subtract(const Duration(days: 1));
-    }
-    return streak;
-  }
-}
-
-extension _Let<T> on T {
-  R let<R>(R Function(T) f) => f(this);
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

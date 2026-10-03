@@ -7,7 +7,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../home/ble/arm_band_ble_service.dart';
 import '../../home/ble/arm_band_protocol.dart';
 import '../../home/bluetooth_rationale.dart';
-import '../../home/wearable_connection_controller.dart' show simulatedWearableBattery;
 import '../onboarding_data.dart';
 import '../widgets/form_widgets.dart';
 
@@ -29,20 +28,49 @@ class WearableSetupStep extends StatefulWidget {
 class _WearableSetupStepState extends State<WearableSetupStep> with SingleTickerProviderStateMixin {
   late final AnimationController _radar =
       AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
-  final _ble = ArmBandBleService();
+  ArmBandBleService get _ble => data.band; // shared with calibration; not disposed here
   StreamSubscription<List<ArmBandScanResult>>? _scanSub;
   List<ArmBandScanResult> _found = [];
   String? _connectingId;
   String? _errorMessage;
-  late _BleState _state = widget.data.wearable != null ? _BleState.connected : _BleState.idle;
+  // A band already paired in the database (resumed onboarding) is NOT
+  // necessarily linked right now - only the live BLE link counts.
+  late _BleState _state = widget.data.wearable == null
+      ? _BleState.idle
+      : (widget.data.bandLinked ? _BleState.connected : _BleState.connecting);
 
   OnboardingData get data => widget.data;
+
+  @override
+  void initState() {
+    super.initState();
+    if (data.wearable != null && !data.bandLinked) _relink();
+  }
+
+  /// Re-establishes the link to the band that's already recorded, e.g. after
+  /// the patient closed the app mid-onboarding and signed back in.
+  Future<void> _relink() async {
+    _connectingId = data.wearable!.id;
+    try {
+      await _ble.connect(data.wearable!.id);
+      if (!mounted) return;
+      data.update(() {}); // bandLinked changed
+      setState(() => _state = _BleState.connected);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _state = _BleState.error;
+        _errorMessage = e is ArmBandException
+            ? e.message
+            : "Couldn't reconnect to your band. Switch it on and keep it nearby, then try again.";
+      });
+    }
+  }
 
   @override
   void dispose() {
     _scanSub?.cancel();
     _radar.dispose();
-    _ble.dispose();
     super.dispose();
   }
 
@@ -102,7 +130,7 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         found.id,
         ArmBandProtocol.advertisedName,
         found.signalBars,
-        simulatedWearableBattery(found.id),
+        null, // the band doesn't report a battery level yet
         macAddress: Platform.isAndroid ? found.id : null, // Android's remoteId IS the MAC; iOS's isn't
       );
       data.update(() {
@@ -123,6 +151,7 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
     data.update(() {
       data.wearable = null;
       data.baseline = null;
+      data.musclesCalibrated = false;
     });
     setState(() => _state = _BleState.idle);
   }
@@ -136,6 +165,7 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
         child: switch (_state) {
           _BleState.idle => _idle(context),
           _BleState.scanning => _scanning(context),
+          _BleState.connecting when _found.isEmpty => _relinking(context),
           _BleState.found || _BleState.connecting => _found_(context),
           _BleState.connected => _connected(context),
           _BleState.error => _error(context),
@@ -288,6 +318,21 @@ class _WearableSetupStepState extends State<WearableSetupStep> with SingleTicker
           icon: Icons.lightbulb_outline,
           text: 'Not sure which is yours? The code on the back of your band matches the last 4 characters.',
         ),
+      ],
+    );
+  }
+
+  Widget _relinking(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        const SizedBox.square(dimension: 36, child: CircularProgressIndicator(strokeWidth: 3)),
+        const SizedBox(height: 18),
+        Text('Reconnecting to your band…', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
+        Text('Make sure it is switched on and nearby.',
+            style: TextStyle(fontSize: 13, color: c.muted), textAlign: TextAlign.center),
       ],
     );
   }

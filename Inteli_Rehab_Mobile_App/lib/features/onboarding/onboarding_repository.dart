@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/supabase_client.dart';
+import '../home/ble/arm_band_ble_service.dart';
 import 'onboarding_data.dart';
 
 /// A failure worth showing the patient as-is.
@@ -200,6 +201,18 @@ class OnboardingRepository {
     });
   }
 
+  /// Whether this patient has a saved calibration baseline (a session with
+  /// the baseline marker). The app's gate for calibration being compulsory.
+  Future<bool> hasBaseline(String patientId) => _call(() async {
+        final rows = await _db
+            .from('sessions')
+            .select('id, movement_analysis!inner(posture_status)')
+            .eq('patient_id', patientId)
+            .eq('movement_analysis.posture_status', baselineMarker)
+            .limit(1);
+        return (rows as List).isNotEmpty;
+      });
+
   // ------------------------------------------------------------
   // Resuming
   // ------------------------------------------------------------
@@ -256,8 +269,12 @@ class OnboardingRepository {
         .order('created_at', ascending: false)
         .limit(1)
         .maybeSingle();
-    if (device != null) {
-      final serial = (device['serial_no'] as String?) ?? '';
+    // A saved id that isn't a real Bluetooth address (the old simulated pairing's
+    // "IR-A1F3" style serials) can never reconnect - treat it as no band, so the
+    // patient pairs the real one instead of being stuck on a band that won't link.
+    final savedSerial = (device?['serial_no'] as String?) ?? '';
+    if (device != null && ArmBandBleService.isValidDeviceId(savedSerial)) {
+      final serial = savedSerial;
       data
         ..deviceRecordId = device['id'] as String
         ..wearable = WearableDevice(

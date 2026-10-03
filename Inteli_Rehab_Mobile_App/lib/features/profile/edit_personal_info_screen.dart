@@ -44,8 +44,11 @@ class _EditPersonalInfoScreenState extends State<EditPersonalInfoScreen> {
   final _form = GlobalKey<FormState>();
   late final _name = TextEditingController(text: widget.data.name);
   late final _phone = TextEditingController(text: widget.data.phone);
-  late final _height = TextEditingController(text: widget.data.heightCm?.round().toString() ?? '');
-  late final _weight = TextEditingController(text: widget.data.weightKg?.round().toString() ?? '');
+  // Shown as stored (170.5 stays 170.5): rounding here would silently change
+  // the value the next time ANY field is saved.
+  static String _measure(double? v) => v == null ? '' : (v == v.roundToDouble() ? v.round().toString() : v.toString());
+  late final _height = TextEditingController(text: _measure(widget.data.heightCm));
+  late final _weight = TextEditingController(text: _measure(widget.data.weightKg));
   late DateTime? _dob = widget.data.dateOfBirth;
   late String? _gender = widget.data.gender;
   bool _saving = false;

@@ -14,7 +14,17 @@ import '../../../core/theme/app_theme.dart';
 /// CDN — no different from any other asset-backed widget here (Rule 26).
 class ArmModelViewer extends StatelessWidget {
   final double height;
-  const ArmModelViewer({super.key, this.height = 220});
+
+  /// 'left' or 'right' shows that arm's model (assets/models/Arm_L / Arm_R);
+  /// null keeps the generic anatomy model.
+  final String? side;
+  const ArmModelViewer({super.key, this.height = 220, this.side});
+
+  String get _src => switch (side) {
+        'left' => 'assets/models/Arm_L.gltf',
+        'right' => 'assets/models/Arm_R.gltf',
+        _ => 'assets/models/arm_anatomy.glb',
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +38,7 @@ class ArmModelViewer extends StatelessWidget {
           height: height,
           child: ModelViewer(
             backgroundColor: c.surface,
-            src: 'assets/models/arm_anatomy.glb',
+            src: _src,
             alt: '3D anatomical model of an arm',
             autoRotate: true,
             autoRotateDelay: 1200,

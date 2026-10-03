@@ -1,4 +1,4 @@
-package com.example.inteli_rehab_mobile_app
+package com.inteli.rehab
 
 import android.content.Context
 import android.os.BatteryManager

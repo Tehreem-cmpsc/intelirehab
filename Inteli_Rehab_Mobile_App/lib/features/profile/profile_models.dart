@@ -34,7 +34,7 @@ class PairedDevice {
   final String id;
   final String serial;
   final String? firmware;
-  final int batteryPercent;
+  final int? batteryPercent; // null: the band doesn't report one yet
 
   const PairedDevice({
     required this.id,

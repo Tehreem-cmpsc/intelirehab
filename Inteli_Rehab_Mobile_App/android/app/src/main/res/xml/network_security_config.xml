@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTPS only, except to this phone itself: model_viewer_plus (the Home
+     dashboard's 3D arm) serves its page and model to the WebView from a
+     local server on 127.0.0.1 over plain HTTP. Nothing leaves the device. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>
