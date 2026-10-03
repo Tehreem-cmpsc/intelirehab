@@ -12,8 +12,6 @@ static const char *CMD_CHAR_UUID  = "a1b2c3d0-0003-4000-8000-00805f9b34fb"; // w
 struct __attribute__((packed)) SensorPacket {
     float elbowDeg;
     float emg1Pct;
-    float emg2Pct;
-    float emg3Pct;
 };
 
 static NimBLECharacteristic *dataChar = nullptr;
@@ -66,9 +64,9 @@ void BLEStreamer::begin(const char *deviceName) {
     advertising->start();
 }
 
-void BLEStreamer::sendData(float elbowDeg, float emg1Pct, float emg2Pct, float emg3Pct) {
+void BLEStreamer::sendData(float elbowDeg, float emg1Pct) {
     if (!bleConnected || dataChar == nullptr) return;
-    SensorPacket packet{elbowDeg, emg1Pct, emg2Pct, emg3Pct};
+    SensorPacket packet{elbowDeg, emg1Pct};
     dataChar->setValue((uint8_t *)&packet, sizeof(packet));
     dataChar->notify();
 }

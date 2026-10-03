@@ -11,10 +11,10 @@ class BLEStreamer {
 public:
     void begin(const char *deviceName);
 
-    // Sends one sample as a packed 16-byte payload: 4 little-endian floats
-    // in the order (elbowDeg, emg1Pct, emg2Pct, emg3Pct). Does nothing if no
+    // Sends one sample as a packed 8-byte payload: 2 little-endian floats
+    // in the order (elbowDeg, emg1Pct). Does nothing if no
     // central is currently connected.
-    void sendData(float elbowDeg, float emg1Pct, float emg2Pct, float emg3Pct);
+    void sendData(float elbowDeg, float emg1Pct);
 
     bool isConnected() const;
 

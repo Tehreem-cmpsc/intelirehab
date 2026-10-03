@@ -48,10 +48,14 @@ bool MPU6500::begin(TwoWire &wire) {
     _whoAmI = whoAmI;
 
     // Genuine MPU6500 silicon reports 0x70. A lot of boards sold as
-    // "MPU6500" are actually MPU9250/9255 (0x71/0x73) with the same
-    // register map for accel+gyro, or occasionally an MPU6050 (0x68).
-    // We accept all of these rather than failing a working sensor.
-    _connected = (whoAmI == 0x70 || whoAmI == 0x71 || whoAmI == 0x73 || whoAmI == 0x68);
+    // "MPU6500" are really MPU9250/9255 (0x71/0x73), an MPU6050 (0x68) or
+    // another look-alike with its own ID (e.g. 0x75, 0x12, 0x7C) that shares
+    // this register map for accel+gyro. Rather than reject every ID but a
+    // short list - which left a working sensor "found" but unconfigured - we
+    // reject only an ID that means nothing is answering (0x00 / 0xFF) and
+    // rely on the write-and-verify of every config register below to prove
+    // the chip really behaves like this one.
+    _connected = (whoAmI != 0x00 && whoAmI != 0xFF);
     if (!_connected) return false;
 
     // Deliberately using &= (not &&) across all four writes: we want every
@@ -77,6 +81,10 @@ bool MPU6500::begin(TwoWire &wire) {
 }
 
 bool MPU6500::read(float &ax, float &ay, float &az, float &gx, float &gy, float &gz) {
+    // An unconfigured sensor still answers I2C reads, but its scale factors
+    // are 0, so every value would come back as exactly 0.0 and look like a
+    // working sensor that simply isn't moving. Fail loudly instead.
+    if (!_connected) return false;
     uint8_t raw[14];
     if (!readRegisters(MPU6500_REG_ACCEL_XOUT_H, raw, 14)) return false;
 
