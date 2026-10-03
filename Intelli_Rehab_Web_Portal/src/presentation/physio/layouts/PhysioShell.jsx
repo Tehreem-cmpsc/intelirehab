@@ -9,7 +9,7 @@ const TITLES = {
   patients: "Patients",
   approvals: "Approvals",
   atrisk: "At Risk",
-  exercises: "Exercise database",
+  exercises: "Exercises",
 };
 
 // Physio app frame: sidebar + header + scrolling page. On narrow screens the

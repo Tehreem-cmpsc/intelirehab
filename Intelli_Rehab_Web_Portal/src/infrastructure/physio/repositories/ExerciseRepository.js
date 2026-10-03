@@ -8,16 +8,28 @@ import { Exercise } from "../../../domain/physio/entities";
 // same live catalogue instead of two different lists.
 class ExerciseRepository {
   async getAll() {
-    const { data, error } = await supabase
-      .from("exercises")
-      .select("id, name, target, difficulty, description")
-      .order("name");
+    const base = "id, name, target, difficulty, description";
+    let { data, error } = await supabase.from("exercises").select(`${base}, media_url, media_type`).order("name");
+    // The illustration columns come from supabase_exercise_media.sql. Until that has been run
+    // the catalogue must still load, just without pictures, so retry without them.
+    if (error && (error.code === "42703" || /media_(url|type)/.test(error.message ?? ""))) {
+      ({ data, error } = await supabase.from("exercises").select(base).order("name"));
+    }
     if (error) {
       console.error("Error fetching exercises:", error);
       throw error;
     }
     return (data ?? []).map(
-      (r) => new Exercise({ id: r.id, name: r.name, target: r.target ?? "", difficulty: r.difficulty, desc: r.description ?? "" })
+      (r) =>
+        new Exercise({
+          id: r.id,
+          name: r.name,
+          target: r.target ?? "",
+          difficulty: r.difficulty,
+          desc: r.description ?? "",
+          mediaUrl: r.media_url ?? null,
+          mediaType: r.media_type === "video" ? "video" : "image",
+        })
     );
   }
 

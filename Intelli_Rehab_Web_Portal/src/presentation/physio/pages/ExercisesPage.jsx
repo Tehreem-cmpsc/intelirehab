@@ -6,6 +6,56 @@ import VisualizationService from "../../../infrastructure/physio/services/Visual
 import { pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
 import ErrorNotice from "../../ErrorNotice";
+import { resolveMediaUrl } from "../../../domain/physio/utils/exerciseMedia";
+
+// Short looping illustration (or video) of the movement, shown above the details.
+// Falls back to a quiet placeholder if there is none or it fails to load.
+function ExerciseMedia({ exercise }) {
+  const [failed, setFailed] = useState(false);
+  const src = resolveMediaUrl(exercise.mediaUrl, import.meta.env.BASE_URL);
+  const box = {
+    height: 168,
+    borderRadius: 12,
+    marginBottom: 14,
+    background: THEME.tealLight,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  };
+  if (!src || failed) {
+    return (
+      <div style={{ ...box, color: THEME.slate400, fontSize: 12 }} aria-hidden="true">
+        No illustration yet
+      </div>
+    );
+  }
+  return (
+    <div style={box}>
+      {exercise.mediaType === "video" ? (
+        <video
+          src={src}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label={`${exercise.name} demonstration`}
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      ) : (
+        <img
+          src={src}
+          alt={`Animated illustration of ${exercise.name}`}
+          loading="lazy"
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      )}
+    </div>
+  );
+}
 
 function ExercisesPage() {
   const [exercises, setExercises] = useState([]);
@@ -28,7 +78,7 @@ function ExercisesPage() {
       .catch(() => {
         if (!mounted) return;
         setExercises([]);
-        setError("Couldn't load the exercise database.");
+        setError("Couldn't load the exercises.");
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -43,7 +93,7 @@ function ExercisesPage() {
   return (
     <div style={{ padding: pagePadding(isMobile) }}>
       <SectionHead
-        title="Exercise database"
+        title="Exercises"
         sub={loading ? "Loading…" : `${exercises.length} clinic-approved exercises`}
         action={
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
@@ -106,6 +156,7 @@ function ExercisesPage() {
       >
         {filtered.map((ex) => (
           <Card key={ex.id} style={{ padding: isMobile ? "18px 16px" : "20px 22px" }}>
+            <ExerciseMedia exercise={ex} />
             <div
               style={{
                 display: "flex",

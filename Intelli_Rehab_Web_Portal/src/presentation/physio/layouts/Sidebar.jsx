@@ -19,7 +19,7 @@ const NAV = [
   { key: "patients", icon: Users, label: "Patients" },
   { key: "approvals", icon: ShieldCheck, label: "Approvals" },
   { key: "atrisk", icon: AlertTriangle, label: "At Risk" },
-  { key: "exercises", icon: Dumbbell, label: "Exercise DB" },
+  { key: "exercises", icon: Dumbbell, label: "Exercises" },
 ];
 
 // `mobile`: render as an off-canvas drawer (controlled by `open` /
