@@ -1,0 +1,799 @@
+@startuml Intelli_Rehab_Class_Diagram
+' ---------------------------------------------------------------------------
+' Inteli Rehab - class diagram, written from the source:
+'   firmware/lib/ArmEMG_IMU/            (C++, ESP32-S3)
+'   Inteli_Rehab_Mobile_App/lib/        (Dart / Flutter)
+'   Intelli_Rehab_Web_Portal/src/       (JavaScript / React)
+'
+' Scope: the logic, data and service classes, with their real names and
+' public members. Pure UI widgets (cards, painters, small private widgets) are
+' left out; only the screens that drive the flows are shown.
+' The two BaselineReading classes are separate types in the code (onboarding
+' vs home), so they appear separately here.
+' ---------------------------------------------------------------------------
+hide empty members
+skinparam linetype ortho
+skinparam shadowing false
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #F5F8F7
+  BorderColor #0D6E76
+  ArrowColor #073C41
+}
+skinparam package {
+  BorderColor #0D6E76
+  FontColor #073C41
+}
+skinparam note {
+  BackgroundColor #FFF6E5
+  BorderColor #E7A24C
+}
+
+' ===========================================================================
+package "Band firmware (C++ / ESP32-S3)" {
+  class "ArmEMG_IMU.ino" as Sketch <<sketch>> {
+    -imuUpper : MPU6500   (I2C 0x68)
+    -imuForearm : MPU6500   (I2C 0x69)
+    -fusionUpper : MadgwickAHRS
+    -fusionForearm : MadgwickAHRS
+    -emg1 : EMGProcessor
+    -qZero : quaternion
+    +setup()
+    +loop()  500 Hz
+    -handleCommand(c)  g | z | m | i
+    -getRelativeQuat()
+    -quatAngleDeg()
+    -updateStatusLed()
+    -scanI2cBus()
+    -printStatusLine()
+  }
+  class MPU6500 {
+    -address : uint8_t
+    -connected : bool
+    -whoAmI : uint8_t
+    -accelScale, gyroScale : float
+    -gyroBias : float[3]
+    +begin(wire) : bool
+    +read(ax, ay, az, gx, gy, gz) : bool
+    +calibrateGyroBias(samples)
+    +isConnected() : bool
+    +lastWhoAmI() : uint8_t
+    +readRegister(reg) : uint8_t
+    -writeAndVerify(reg, value)
+  }
+  class MadgwickAHRS {
+    +beta : float
+    -q0, q1, q2, q3 : float
+    +reset()
+    +updateIMU(gx, gy, gz, ax, ay, az, dt)
+    +getQuaternion(w, x, y, z)
+  }
+  class "EMGProcessor" as FwEmg {
+    -pin : uint8_t
+    -baseline, envelope, mvcMax : float
+    -mvcCalActive : bool
+    +begin()
+    +update()
+    +getRaw() : int
+    +getEnvelope() : float
+    +getPercentMVC() : float
+    +startMVCCalibration(durationMs)
+    +isCalibratingMVC() : bool
+  }
+  class BLEStreamer {
+    +begin(deviceName)
+    +sendData(elbowDeg, emg1Pct)   8-byte packet
+    +isConnected() : bool
+    +hasCommand() : bool
+    +readCommand() : char
+  }
+  class SensorPacket <<packed struct>> {
+    +elbowDeg : float
+    +emg1Pct : float
+  }
+}
+
+' ===========================================================================
+package "Mobile app (Flutter / Dart)" {
+
+  package "core" {
+    class PatientProfile {
+      +id : String
+      +name : String
+      +injury : String?
+      +status : String
+      +approved : bool
+      +warning : String?
+      +armSide : String
+      +{static} fromMap(map)
+    }
+    class DeviceServices <<static>> {
+      +{static} phoneBattery() : int?
+      +{static} filesDir() : Directory
+    }
+    class ThemeController {
+      +value : ThemeMode
+    }
+  }
+
+  package "auth / navigation" {
+    class AuthService {
+      +onAuthStateChange : Stream<AuthState>
+      +signIn(email, password)
+      +signOut()
+      +requestPasswordReset(email)
+      +fetchMyPatientRow() : Map?
+      +fetchPairedDevice(patientId) : Map?
+    }
+    class AuthGate <<screen>> {
+      -resolve() : Widget
+    }
+    class HomeShell <<screen>> {
+      +profile : PatientProfile
+      +wearablePaired : bool
+      +deviceSerial : String?
+      -checkUnfinishedSession()
+    }
+    class BandRequiredGate <<screen>> {
+      +connection : WearableConnectionController
+      +onSignOut
+    }
+  }
+
+  package "ble (arm band link)" {
+    class ArmBandBleService {
+      +samples : Stream<ArmBandSample>
+      +connectionState : Stream<BluetoothConnectionState>
+      +onProgress : void Function(String)?
+      +isConnected : bool
+      +{static} isValidDeviceId(id) : bool
+      +requestPermissions() : bool
+      +scan() : Stream<List<ArmBandScanResult>>
+      +findStrongest() : ArmBandScanResult
+      +connect(deviceId)
+      +sendCommand(command)
+      +disconnect()
+      +dispose()
+    }
+    class ArmBandProtocol <<constants>> {
+      +{static} advertisedName : "ArmEMG-IMU"
+      +{static} serviceUuid
+      +{static} dataCharUuid
+      +{static} cmdCharUuid
+    }
+    enum ArmBandCommand {
+      recalibrateGyro  'g'
+      setZeroPose  'z'
+      startMvcCalibration  'm'
+      +bytes : List<int>
+    }
+    class ArmBandSample {
+      +elbowDeg : double
+      +emg1Pct : double
+      +{static} tryParse(bytes) : ArmBandSample?
+    }
+    class ArmBandScanResult {
+      +id : String
+      +name : String
+      +rssi : int
+      +signalBars : int
+    }
+    class ReconnectBackoff {
+      +{static} delays : List<Duration>
+      +next() : Duration?
+      +reset()
+      +stop()
+    }
+    abstract class ArmBandException <<sealed>> {
+      +message : String
+    }
+    class ArmBandPermissionDenied
+    class ArmBandBluetoothOff
+    class ArmBandUnsupportedPlatform
+    class ArmBandStepTimeout
+    class ArmBandNotFound
+    class ArmBandProtocolMismatch
+    class ArmBandSuperseded
+  }
+
+  package "home" {
+    enum WearableConnState {
+      connected
+      calibrating
+      disconnected
+      searching
+    }
+    class WearableConnectionController {
+      +patientId : String
+      +state : WearableConnState
+      +batteryPercent : int?
+      +lastError : String?
+      +stage : String?
+      +isConnected : bool
+      +liveSamples : Stream<ArmBandSample>
+      +sendBandCommand(command)
+      +reconnect()
+      +cancelSearch()
+      +forget()
+      -syncPresence()  heartbeat every 15 s
+    }
+    class HomeRepository {
+      +load(patientId) : HomeSnapshot
+      +{static} bestWeeklyCount(dates, excludingWeekOf)
+      +{static} motivation(thisWeek, bestPrior, allDates)
+    }
+    class HomeSnapshot {
+      +plan : TodaysPlan?
+      +lastSession : LastSessionSnapshot?
+      +baseline : BaselineReading?
+      +wearablePaired : bool
+      +deviceSerial : String?
+      +motivation : String
+      +sessionsThisWeek : int
+      +currentStreak : int
+    }
+    class TodaysPlan {
+      +planName : String
+      +remaining : int
+    }
+    class ExerciseAssignment {
+      +exerciseId, exerciseName
+      +romTarget : int?
+      +doneToday : bool
+    }
+    class LastSessionSnapshot {
+      +performedAt, exerciseName
+      +rom, reps : int
+      +jointAngle : int?
+      +muscleActivation : String?
+    }
+    class "BaselineReading" as HomeBaseline {
+      +flexion : double
+      +range : double
+      +recordedAt : DateTime
+    }
+    class HomeScreen <<screen>>
+  }
+
+  package "onboarding (sign-up and calibration)" {
+    class OnboardingFlow <<screen>> {
+      +initialData : OnboardingData?
+      +initialStep : int
+      -saveCurrentStep()
+    }
+    class OnboardingData {
+      +patientId : String?
+      +deviceRecordId : String?
+      +fullName, email, phone, ...
+      +affectedSide, affectedJoint, ...
+      +clinic : Clinic?
+      +physio : Physiotherapist?
+      +wearable : WearableDevice?
+      +baseline : BaselineReading?
+      +baselineSaved : bool
+      +musclesCalibrated : bool
+      +band : ArmBandBleService
+      +bandLinked : bool
+      +releaseBand()
+    }
+    class CalibrationStep <<screen>> {
+      +{static} reps : 3
+      -phase : intro, sensors, neutral, movement,
+      muscle, check, muscleRetry, done
+    }
+    class WearableSetupStep <<screen>>
+    class BaselineRecorder {
+      +reps : int
+      +repsDetected : int
+      +complete : bool
+      +addNeutral(angle)
+      +addMovement(angle)
+      +result() : BaselineReading?
+    }
+    class "BaselineReading" as OnbBaseline {
+      +neutral : int
+      +flexion : int
+      +extension : int
+      +range : int
+    }
+    class Clinic {
+      +id, name, address : String
+    }
+    class Physiotherapist {
+      +id, clinicId, fullName : String
+      +specialization : String?
+      +yearsExperience : int?
+    }
+    class WearableDevice {
+      +id : String   (BLE id)
+      +name : String
+      +signal : int
+      +firmware, macAddress : String?
+    }
+    class OnboardingRepository {
+      +{static} baselineMarker : "baseline_calibration"
+      +createAccount(data) : SignUpResult
+      +completeRegistrationFromMetadata()
+      +listClinics()
+      +listPhysiotherapists(clinicId)
+      +chooseClinicAndPhysio(clinic, physio)
+      +saveWearable(patientId, device) : String
+      +reportWearablePresence(connected)
+      +saveBaseline(patientId, deviceRecordId, baseline, reps)
+      +hasBaseline(patientId) : bool
+      +hydrate(patientRow) : OnboardingData
+    }
+    class OnboardingException {
+      +message : String
+    }
+    enum SignUpResult {
+      registered
+      needsEmailConfirmation
+    }
+    class WaitingForPhysioScreen <<screen>>
+  }
+
+  package "exercises (plan and live session)" {
+    interface SessionController <<Listenable>> {
+      +repsTarget, romTargetPercent : int
+      +isRunning, awaitingUnsafeAck : bool
+      +repsCompleted, liveAngle : int
+      +activation : MuscleActivation
+      +currentTier : SafetyTier
+      +fatigueLevel : FatigueLevel
+      +elapsed : Duration
+      +start()
+      +pause()
+      +resume()
+      +acknowledgeUnsafe()
+      +acknowledgeFatiguePause()
+      +buildResult(exercise) : SessionResult
+    }
+    class LiveSession {
+      +sessionId, analysisId : String
+      +fullRangeDegrees : double
+      +alerts : List<SessionAlert>
+      +onSample(sample, now)
+      +{static} activationOf(emgPct)
+    }
+    class SessionSimulator {
+      +peakAngle : int
+      +fatigueScore : double
+      +alerts : List<SessionAlert>
+    }
+    class RepAssessor {
+      +{static} unsafeSpeedDegPerSec : 300
+      +{static} fastSpeedDegPerSec : 150
+      +{static} shortReach : 0.8
+      +assess(metrics, now) : RepAssessment
+    }
+    class RepMetrics {
+      +peakDegrees, targetDegrees : double
+      +peakSpeedDegPerSec : double
+      +duration : Duration
+      +reach : double
+    }
+    class RepAssessment {
+      +tier : SafetyTier
+      +alert : SessionAlert?
+    }
+    class FatigueEstimator {
+      +score : double
+      +addRep(meanEmgPct, peakSpeedDegPerSec)
+      +easeBack()
+    }
+    class AiEngine <<stand-in model>> {
+      +assessRep(random) : RepAssessment
+    }
+    class SensorFusion <<simulator only>> {
+      +angleAtPhase(phase, targetAngle)
+    }
+    class EmgProcessor <<simulator only>> {
+      +activationAtPhase(phase)
+      +{static} levelOf(score) : FatigueLevel
+    }
+    class AssignedExercise {
+      +assignmentId, exerciseId, name : String
+      +target, description : String?
+      +difficulty : String
+      +mediaUrl : String?
+      +mediaType : String
+      +sets, repsTarget : int
+      +romTarget : int?
+    }
+    class PlanSummary {
+      +planName : String
+      +physioName : String?
+    }
+    class SessionResult {
+      +id, analysisId : String
+      +startedAt : DateTime
+      +repsCompleted, romAchieved : int
+      +peakJointAngle, achievedRangeDegrees : int
+      +peakActivation : MuscleActivation
+      +duration : Duration
+      +peakFatigue : FatigueLevel
+      +worstTier : SafetyTier
+    }
+    class SessionAlert {
+      +id, message : String
+      +tier : SafetyTier
+      +at : DateTime
+    }
+    enum SafetyTier {
+      normal
+      needsCorrection
+      unsafe
+    }
+    enum MuscleActivation {
+      resting
+      light
+      moderate
+      high
+    }
+    enum FatigueLevel {
+      normal
+      mild
+      moderate
+      critical
+    }
+    class ExercisesRepository {
+      +loadPlan(patientId) : PlanSummary
+      +pairedDeviceId(patientId) : String?
+      +saveSession(patientId, deviceId, result)
+    }
+    class SessionJournal <<static>> {
+      +{static} saveInProgress(patientId, result)
+      +{static} readInProgress(patientId) : UnfinishedSession?
+      +{static} clearInProgress()
+      +{static} enqueue(patientId, deviceId, result)
+      +{static} syncPending(patientId, repo) : int
+      +{static} pendingCount(patientId) : int
+    }
+    class UnfinishedSession {
+      +patientId : String
+    }
+    class PlanListScreen <<screen>>
+    class ExerciseDetailScreen <<screen>>
+    class ActiveSessionScreen <<screen>> {
+      +exercise : AssignedExercise
+      +armSide : String
+    }
+    class ExerciseMedia <<widget>> {
+      +mediaUrl, mediaType, name
+      +{static} providerFor(mediaUrl, mediaType)
+    }
+  }
+
+  package "twin (live 3D arm)" {
+    interface TwinController {
+      +setElbow(degrees)
+      +setTier(tier)
+      +setEmg(biceps, triceps)
+      +setSide(side)
+    }
+    class TwinBridge {
+      +minInterval : Duration
+      +isReady, hasFailed : bool
+      +onReady, onError
+      +handleMessage(json)
+    }
+    class TwinAssetServer <<singleton>> {
+      +pageUri(query) : Uri
+      +{static} assetKeyFor(path) : String?
+      +close()
+    }
+    class LiveTwinView <<widget>> {
+      +samples : Stream<ArmBandSample>?
+      +tier : SafetyTier
+      +side : String
+    }
+  }
+
+  package "profile and progress" {
+    class ProfileRepository {
+      +load() : ProfileData
+      +saveProfile(...)
+      +changePassword(current, new)
+      +forgetDevice(deviceId)
+      +deleteMyAccount()
+    }
+    class ProgressRepository {
+      +load(patientId) : ProgressData
+    }
+    class ProfileData
+    class PairedDevice
+    class ProgressData
+  }
+}
+
+' ===========================================================================
+package "Web portal (React / JavaScript)" {
+  package "presentation" {
+    class App <<AppRoutes>> {
+      -route : landing | login | app
+    }
+    class PortalShell <<clinic admin>>
+    class AdminPanels <<admin panels>> {
+      OverviewPanel
+      PhysiotherapistsPanel
+      PatientsPanel
+      ClinicProfilePanel
+    }
+    class PhysioShell <<physiotherapist>>
+    class DashboardPage
+    class PatientsPage
+    class ApprovalsPage
+    class AtRiskPage
+    class ExercisesPage
+    class Hooks <<hooks>> {
+      useAuth()
+      usePatients()
+      usePhysiotherapists()
+      useClinicProfile()
+      useDashboardStats()
+      useActivityLog()
+    }
+  }
+  package "domain" {
+    class Patient <<entity>> {
+      +id, name, regId, injury : ...
+      +rom, trend, streak : number
+      +status : active | recovered | at-risk
+      +approved : bool
+      +warning
+      +sessions, emg, romWeekly : []
+      +baseline : flexion, range, recordedAt
+      +wearableLive : bool
+      +wearableLastSeen
+      +with(changes) : Patient
+      +isAtRisk() : bool
+      +isPendingApproval() : bool
+      +getStatusLabel()
+    }
+    class Exercise <<entity>> {
+      +id, name, target, difficulty, desc
+      +mediaUrl, mediaType
+      +isDifficulty(level)
+      +matches(query)
+    }
+    class PatientUseCases <<object>> {
+      +getAllPatients()
+      +approvePatient(id)
+      +setWarning(id, message)
+      +removePatient(id)
+    }
+    class SessionUseCases <<object>> {
+      +getAllSessions()
+      +getLatestEmgForPatient(patientId)
+    }
+    class ExerciseUseCases {
+      +getAllExercises()
+      +filterExercises(exercises, difficulty, query)
+      +getDifficultyLevels()
+    }
+    class ExercisePlanUseCases <<object>> {
+      +getActivePlan(patientId)
+      +assignSession(patientId, physioId, planName, exercises)
+    }
+    class WearablePresenceUseCases <<object>> {
+      +getPresence()
+      +subscribe(onChange)
+    }
+    class "sessionAnalytics" as Analytics <<functions>> {
+      formatSessionForUi()
+      computeStreak()
+      computeWeeklyRom()
+      computeWeekdayActivity()
+    }
+  }
+  package "infrastructure" {
+    class ExerciseRepository {
+      +getAll() : Exercise[]
+      +filter(exercises, difficulty, query)
+    }
+    class VisualizationService {
+      +getRomColor(value)
+      +getStatusMeta(status)
+      +getDifficultyColor(level)
+      +getInitials(name)
+    }
+    class "supabaseClient" as WebSupabase <<client>>
+  }
+}
+
+package "Supabase backend" {
+  class "Postgres + RLS" as DB <<database>>
+  class "Auth" as SbAuth <<service>>
+  class "Realtime" as SbRealtime <<service>>
+  class "Edge Functions" as Edge {
+    physio-auth
+    manage-physiotherapist
+  }
+  class "RPC functions" as Rpc {
+    register_patient_self
+    choose_clinic_and_physio
+    get_wearable_presence
+    assign session, ...
+  }
+}
+
+' ============================= relationships ==============================
+' ---- firmware ----
+Sketch *-- "2" MPU6500
+Sketch *-- "2" MadgwickAHRS
+Sketch *-- FwEmg
+Sketch --> BLEStreamer : bleStreamer
+BLEStreamer ..> SensorPacket : sends
+BLEStreamer ..> ArmBandBleService : BLE notify and write
+
+' ---- mobile: link and controller ----
+ArmBandBleService ..> ArmBandProtocol
+ArmBandBleService ..> ArmBandSample : decodes
+ArmBandBleService ..> ArmBandScanResult
+ArmBandBleService ..> ArmBandCommand : writes
+ArmBandBleService ..> ArmBandException : throws
+ArmBandException <|-- ArmBandPermissionDenied
+ArmBandException <|-- ArmBandBluetoothOff
+ArmBandException <|-- ArmBandUnsupportedPlatform
+ArmBandException <|-- ArmBandStepTimeout
+ArmBandException <|-- ArmBandNotFound
+ArmBandException <|-- ArmBandProtocolMismatch
+ArmBandException <|-- ArmBandSuperseded
+WearableConnectionController *-- ArmBandBleService
+WearableConnectionController *-- ReconnectBackoff
+WearableConnectionController --> OnboardingRepository : saveWearable, reportWearablePresence
+WearableConnectionController --> WearableConnState
+HomeShell *-- WearableConnectionController : owns
+BandRequiredGate --> WearableConnectionController
+HomeScreen --> WearableConnectionController
+HomeScreen --> HomeRepository
+HomeRepository ..> HomeSnapshot
+HomeSnapshot o-- TodaysPlan
+HomeSnapshot o-- LastSessionSnapshot
+HomeSnapshot o-- HomeBaseline
+TodaysPlan o-- "*" ExerciseAssignment
+
+' ---- mobile: routing ----
+AuthGate --> AuthService
+AuthGate --> OnboardingRepository : hasBaseline, hydrate
+AuthGate ..> PatientProfile
+AuthGate ..> HomeShell : approved + calibrated
+AuthGate ..> OnboardingFlow : not calibrated
+AuthGate ..> WaitingForPhysioScreen : awaiting approval
+HomeShell *-- HomeScreen
+HomeShell *-- PlanListScreen
+HomeShell --> SessionJournal : recover / sync
+HomeShell ..> PatientProfile
+
+' ---- mobile: onboarding and calibration ----
+OnboardingFlow *-- OnboardingData
+OnboardingFlow --> OnboardingRepository
+OnboardingFlow *-- CalibrationStep
+OnboardingFlow *-- WearableSetupStep
+OnboardingData *-- ArmBandBleService : band
+OnboardingData o-- Clinic
+OnboardingData o-- Physiotherapist
+OnboardingData o-- WearableDevice
+OnboardingData o-- OnbBaseline
+CalibrationStep --> OnboardingData
+CalibrationStep *-- BaselineRecorder
+CalibrationStep ..> ArmBandCommand : g, z, m
+BaselineRecorder ..> OnbBaseline : result()
+OnboardingRepository ..> OnboardingException
+OnboardingRepository ..> SignUpResult
+
+' ---- mobile: exercises and session ----
+PlanListScreen --> ExercisesRepository
+PlanListScreen ..> ExerciseDetailScreen
+ExerciseDetailScreen ..> ActiveSessionScreen
+ExerciseDetailScreen *-- ExerciseMedia
+ExercisesRepository --> OnboardingRepository : care-team names
+ExercisesRepository ..> PlanSummary
+PlanSummary o-- "*" AssignedExercise
+ActiveSessionScreen --> SessionController
+ActiveSessionScreen --> WearableConnectionController
+ActiveSessionScreen --> ExercisesRepository : saveSession
+ActiveSessionScreen --> SessionJournal
+ActiveSessionScreen *-- LiveTwinView
+SessionController <|.. LiveSession
+SessionController <|.. SessionSimulator
+LiveSession o-- RepAssessor
+LiveSession o-- FatigueEstimator
+LiveSession ..> ArmBandSample : consumes stream
+LiveSession ..> RepMetrics
+RepAssessor ..> RepMetrics
+RepAssessor ..> RepAssessment
+RepAssessment o-- SessionAlert
+SessionSimulator o-- SensorFusion
+SessionSimulator o-- EmgProcessor
+SessionSimulator o-- AiEngine
+AiEngine ..> RepAssessment
+SessionController ..> SessionResult : buildResult()
+SessionResult o-- AssignedExercise
+SessionResult o-- "*" SessionAlert
+SessionResult ..> MuscleActivation
+SessionResult ..> FatigueLevel
+SessionResult ..> SafetyTier
+SessionAlert ..> SafetyTier
+SessionJournal ..> SessionResult
+SessionJournal ..> UnfinishedSession
+SessionJournal ..> ExercisesRepository : syncPending()
+
+' ---- mobile: twin ----
+TwinController <|.. TwinBridge
+LiveTwinView *-- TwinBridge
+LiveTwinView --> TwinAssetServer
+LiveTwinView ..> ArmBandSample
+
+' ---- mobile: profile and progress ----
+ProfileRepository ..> ProfileData
+ProfileData o-- PairedDevice
+ProgressRepository ..> ProgressData
+
+' ---- mobile to backend ----
+AuthService ..> SbAuth
+OnboardingRepository ..> DB
+OnboardingRepository ..> Rpc
+ExercisesRepository ..> DB
+HomeRepository ..> DB
+ProfileRepository ..> DB
+ProgressRepository ..> DB
+
+' ---- web portal ----
+App --> PatientUseCases
+App --> WearablePresenceUseCases
+App *-- PortalShell
+App *-- PhysioShell
+App *-- AdminPanels : admin tabs
+App *-- DashboardPage : physio pages
+App *-- PatientsPage
+App *-- ApprovalsPage
+App *-- AtRiskPage
+App *-- ExercisesPage
+DashboardPage --> PatientUseCases
+ApprovalsPage --> PatientUseCases
+AtRiskPage --> PatientUseCases
+AtRiskPage --> SessionUseCases
+PatientsPage --> ExercisePlanUseCases
+PatientsPage --> ExerciseUseCases
+PatientsPage --> SessionUseCases
+ExercisesPage --> ExerciseUseCases
+AdminPanels --> Hooks : panel data
+App --> Hooks : useAuth, usePhysiotherapists
+PatientUseCases ..> Patient : builds
+PatientUseCases --> SessionUseCases
+PatientUseCases ..> Analytics
+ExercisePlanUseCases ..> Analytics
+ExerciseUseCases --> ExerciseRepository
+ExerciseRepository ..> Exercise : builds
+DashboardPage ..> VisualizationService
+PatientsPage ..> VisualizationService
+ApprovalsPage ..> VisualizationService
+AtRiskPage ..> VisualizationService
+ExercisesPage ..> VisualizationService
+PatientUseCases ..> WebSupabase
+SessionUseCases ..> WebSupabase
+ExercisePlanUseCases ..> WebSupabase
+WearablePresenceUseCases ..> WebSupabase
+ExerciseRepository ..> WebSupabase
+Hooks ..> WebSupabase
+Hooks ..> Edge : sign-in, manage physios
+WebSupabase ..> DB
+WebSupabase ..> SbAuth
+WearablePresenceUseCases ..> SbRealtime : channel on wearable_devices
+WearablePresenceUseCases ..> Rpc : get_wearable_presence
+
+note bottom of AiEngine
+  AiEngine is a random stand-in used only by SessionSimulator.
+  Live sessions use the rule-based RepAssessor; the trained
+  model (AI pipeline) is not built yet.
+end note
+
+note right of OnboardingRepository
+  The calibration baseline is stored as a session with no
+  exercise plus a movement_analysis row marked
+  posture_status = 'baseline_calibration'.
+end note
+@enduml
