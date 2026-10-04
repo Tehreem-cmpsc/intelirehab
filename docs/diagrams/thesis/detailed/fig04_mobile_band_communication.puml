@@ -1,0 +1,121 @@
+@startuml fig04_mobile_band_communication
+title Figure 4: Mobile app - communication with the armband
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam roundCorner 0
+skinparam dpi 200
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #222222
+  ArrowColor #222222
+  FontColor #000000
+  StereotypeFontColor #444444
+  AttributeFontSize 11
+}
+skinparam package {
+  BackgroundColor #F2F2F2
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam title {
+  FontSize 15
+}
+
+class ArmBandBleService {
+  + samples : Stream<ArmBandSample>
+  + connectionState : Stream
+  + onProgress : Function
+  + isConnected : bool
+  + {static} isValidDeviceId(id) : bool
+  + requestPermissions() : bool
+  + scan() : Stream<List<ArmBandScanResult>>
+  + findStrongest() : ArmBandScanResult
+  + connect(deviceId)
+  + sendCommand(command)
+  + disconnect()
+  + dispose()
+}
+class ArmBandProtocol <<constants>> {
+  + {static} advertisedName : String
+  + {static} serviceUuid : Guid
+  + {static} dataCharUuid : Guid
+  + {static} cmdCharUuid : Guid
+}
+enum ArmBandCommand <<enumeration>> {
+  recalibrateGyro
+  setZeroPose
+  startMvcCalibration
+  + bytes : List<int>
+}
+class ArmBandSample {
+  + elbowDeg : double
+  + emg1Pct : double
+  + {static} tryParse(bytes) : ArmBandSample
+}
+class ArmBandScanResult {
+  + id : String
+  + name : String
+  + rssi : int
+  + signalBars : int
+}
+class ReconnectBackoff {
+  + {static} delays : List<Duration>
+  + next() : Duration
+  + reset()
+  + stop()
+}
+abstract class ArmBandException <<sealed>> {
+  + message : String
+}
+class "PermissionDenied, BluetoothOff,\nUnsupportedPlatform, StepTimeout,\nNotFound, ProtocolMismatch,\nSuperseded" as ExceptionKinds <<7 subclasses>>
+class WearableConnectionController {
+  + patientId : String
+  + state : WearableConnState
+  + batteryPercent : int
+  + lastError : String
+  + stage : String
+  + isConnected : bool
+  + liveSamples : Stream<ArmBandSample>
+  + sendBandCommand(command)
+  + reconnect()
+  + cancelSearch()
+  + forget()
+}
+enum WearableConnState <<enumeration>> {
+  connected
+  calibrating
+  disconnected
+  searching
+}
+class OnboardingRepository {
+  + saveWearable(patientId, device) : String
+  + reportWearablePresence(connected)
+}
+class BLEStreamer <<armband firmware>>
+
+WearableConnectionController "1" *-- "1" ArmBandBleService
+WearableConnectionController "1" *-- "1" ReconnectBackoff
+WearableConnectionController --> WearableConnState
+WearableConnectionController --> OnboardingRepository : records the band,\nreports presence
+ArmBandBleService ..> ArmBandProtocol : <<use>>
+ArmBandBleService ..> ArmBandSample : <<create>>
+ArmBandBleService ..> ArmBandScanResult : <<create>>
+ArmBandBleService ..> ArmBandCommand : <<use>>
+ArmBandBleService ..> ArmBandException : <<throws>>
+ArmBandException <|-- ExceptionKinds
+ArmBandBleService "1" .. "1" BLEStreamer : BLE GATT
+
+@enduml

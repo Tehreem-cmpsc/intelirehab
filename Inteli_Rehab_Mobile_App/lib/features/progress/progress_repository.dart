@@ -41,12 +41,20 @@ class ProgressRepository {
           .select('earned_at, badges(name, description, icon_url)')
           .eq('patient_id', patientId)
           .order('earned_at', ascending: false),
+      // The physiotherapist's message. Never lets a failure here hide the progress data.
+      _db
+          .from('patients')
+          .select('warning')
+          .eq('id', patientId)
+          .maybeSingle()
+          .then<dynamic>((row) => row, onError: (Object _) => null),
     ]);
 
     final sessionRows = (results[0] as List).where((s) => !_isBaseline(s)).toList()
       ..sort((a, b) => (b['performed_at'] as String).compareTo(a['performed_at'] as String));
     final planRows = results[1] as List;
     final badgeRows = results[2] as List;
+    final warningText = ((results[3] as Map?)?['warning'] as String?)?.trim();
 
     final romTargetByExercise = <String, int>{
       for (final r in planRows)
@@ -91,6 +99,7 @@ class ProgressRepository {
       romTrend: romTrend,
       badges: badges,
       history: history,
+      warning: (warningText == null || warningText.isEmpty) ? null : warningText,
     );
   }
 

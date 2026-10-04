@@ -5,6 +5,7 @@ import WearablePresenceUseCases from "./domain/physio/usecases/WearablePresenceU
 import { setPhysioThemeMode } from "./infrastructure/physio/constants";
 import useHashRoute, { navigate } from "./presentation/useHashRoute";
 import ErrorNotice from "./presentation/ErrorNotice";
+import PageLoader from "./presentation/PageLoader";
 
 // Each shell/page is its own chunk, so a physio never downloads the admin
 // portal (and vice versa) and the charting library only loads with the
@@ -15,6 +16,7 @@ const SetPasswordPage = lazy(() => import("./presentation/admin/pages/SetPasswor
 const PortalShell = lazy(() => import("./presentation/admin/pages/PortalShell"));
 const OverviewPanel = lazy(() => import("./presentation/admin/panels/OverviewPanel"));
 const PhysiotherapistsPanel = lazy(() => import("./presentation/admin/panels/PhysiotherapistsPanel"));
+const PatientsPanel = lazy(() => import("./presentation/admin/panels/PatientsPanel"));
 const ClinicProfilePanel = lazy(() => import("./presentation/admin/panels/ClinicProfilePanel"));
 const PhysioShell = lazy(() => import("./presentation/physio/layouts/PhysioShell"));
 const DashboardPage = lazy(() => import("./presentation/physio/pages/DashboardPage"));
@@ -24,16 +26,12 @@ const AtRiskPage = lazy(() => import("./presentation/physio/pages/AtRiskPage"));
 const ExercisesPage = lazy(() => import("./presentation/physio/pages/ExercisesPage"));
 
 const PHYSIO_PAGES = ["dashboard", "patients", "approvals", "atrisk", "exercises"];
-const ADMIN_TABS = ["overview", "physios", "profile"];
+const ADMIN_TABS = ["overview", "physios", "patients", "profile"];
 const REFRESH_MS = 60000;
 const PRESENCE_REFRESH_MS = 15000; // also how fast a silently-dead band expires on screen
 
 function FullScreenLoading() {
-  return (
-    <div className="cp-root" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100dvh" }}>
-      <div style={{ color: "var(--muted)" }}>Loading…</div>
-    </div>
-  );
+  return <PageLoader fullScreen />;
 }
 
 function AppRoutes() {
@@ -261,6 +259,7 @@ function AppRoutes() {
         setDarkMode={setDarkMode}
       >
         <ErrorNotice message={patientsError} onRetry={() => reloadPatients.current()} />
+        <Suspense fallback={<PageLoader />}>
         {physioPage === "dashboard" && (
           <DashboardPage
             patients={patientsLive}
@@ -282,6 +281,7 @@ function AppRoutes() {
         )}
         {physioPage === "atrisk" && <AtRiskPage patients={patientsLive} setPatients={setPatients} />}
         {physioPage === "exercises" && <ExercisesPage />}
+        </Suspense>
       </PhysioShell>
     );
   }
@@ -297,9 +297,12 @@ function AppRoutes() {
       dark={darkMode}
       setDark={setDarkMode}
     >
+      <Suspense fallback={<PageLoader />}>
       {activeTab === "overview" && <OverviewPanel user={auth.user} clinic={auth.clinic} />}
       {activeTab === "physios" && <PhysiotherapistsPanel clinic={auth.clinic} />}
-      {activeTab === "profile" && <ClinicProfilePanel clinic={auth.clinic} onClinicUpdated={auth.updateClinic} />}
+      {activeTab === "patients" && <PatientsPanel clinic={auth.clinic} />}
+      {activeTab === "profile" && <ClinicProfilePanel clinic={auth.clinic} onClinicUpdated={auth.updateClinic} user={auth.user} onSaveName={auth.updateAdminName} />}
+      </Suspense>
     </PortalShell>
   );
 }

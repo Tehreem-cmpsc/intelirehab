@@ -6,9 +6,12 @@ import 'package:flutter/foundation.dart';
 import '../../core/util/uuid.dart';
 import '../home/ble/arm_band_protocol.dart';
 import 'exercises_models.dart';
+import 'processing/ai_engine.dart' show RepAssessment;
+import 'processing/elbow_rep_checker.dart';
 import 'processing/emg_processor.dart';
 import 'processing/fatigue_estimator.dart';
 import 'processing/rep_assessor.dart';
+import 'processing/safety_monitor.dart';
 import 'session_controller.dart';
 
 /// Drives the Active Session screen from the REAL band: elbow angle and EMG
@@ -20,8 +23,14 @@ import 'session_controller.dart';
 ///    [_countFraction] of the target angle and returns to rest. Smaller
 ///    movements are ignored or, if a clear attempt, prompted ("move further")
 ///    without counting;
-///  * a per-rep safety call ([RepAssessor]) plus an immediate stop if the
-///    elbow goes past a safe range;
+///  * three states of feedback:
+///      green - the rep was fine;
+///      amber - needs correction: the trained model's check ([ElbowRepChecker]),
+///        reported a moment after the arm comes back down (it cannot stop a
+///        movement in progress). With no model loaded, the simple [RepAssessor]
+///        rules judge each rep instead;
+///      red - stop: [SafetyMonitor] watches every sample live (angle and speed
+///        limits held over a short window) and pauses the session at once;
 ///  * a running fatigue estimate ([FatigueEstimator]).
 ///
 /// The angle is relative to the band's zero pose, so the patient must have
@@ -36,6 +45,12 @@ class LiveSession extends ChangeNotifier implements SessionController {
   final double fullRangeDegrees;
 
   final RepAssessor _assessor;
+
+  /// The model's amber check after each rep. Null when the model is not available.
+  final ElbowRepChecker? _checker;
+
+  /// The red, live stop rules.
+  final SafetyMonitor _safety;
   final FatigueEstimator _fatigue = FatigueEstimator();
   final DateTime Function() _clock;
   StreamSubscription<ArmBandSample>? _sub;
@@ -50,8 +65,18 @@ class LiveSession extends ChangeNotifier implements SessionController {
   /// "move further" prompt instead of being silently ignored.
   static const _attemptFraction = 0.25;
 
-  /// Past this many degrees beyond full range, stop immediately.
+  /// Past this many degrees beyond full range is the (placeholder) red angle limit; see [SafetyLimits].
   static const _overFlexMarginDeg = 10.0;
+
+  /// The model looks at a rep from where the arm was last down to where it is down again.
+  static const _modelRestDeg = 8.0;
+  static const _leadInSeconds = 1.5;
+
+  /// After a rep the model waits this long for the arm to finish coming down, then judges what it has.
+  static const _pendingGrace = Duration(milliseconds: 600);
+
+  /// How much recent angle history is kept for the model.
+  static const _bufferSeconds = 20.0;
 
   static const _minRep = Duration(milliseconds: 500);
 
@@ -61,9 +86,13 @@ class LiveSession extends ChangeNotifier implements SessionController {
     required Stream<ArmBandSample> samples,
     this.fullRangeDegrees = 150,
     RepAssessor assessor = const RepAssessor(),
+    ElbowRepChecker? checker,
+    SafetyLimits? limits,
     DateTime Function()? clock,
   })  : romTargetPercent = romTargetPercent ?? 80,
         _assessor = assessor,
+        _checker = checker ?? ElbowRepChecker.cached,
+        _safety = SafetyMonitor(limits ?? SafetyLimits(maxAngleDeg: fullRangeDegrees + _overFlexMarginDeg)),
         _clock = clock ?? DateTime.now {
     _sub = samples.listen((s) => onSample(s, _clock()));
   }
@@ -104,6 +133,21 @@ class LiveSession extends ChangeNotifier implements SessionController {
   @override
   FatigueLevel get fatigueLevel => EmgProcessor.levelOf(_fatigue.score);
   final List<SessionAlert> alerts = [];
+
+  /// What to tell the patient for the current amber/red state (null while everything is fine).
+  @override
+  String? currentMessage;
+
+  /// A soft note about the last rep (e.g. it was slow); never a failure.
+  @override
+  String? repHint;
+
+  /// The last rep has been counted but the model has not judged it yet (well under a second).
+  @override
+  bool get hasPendingCheck => _pending != null;
+  _PendingCheck? _pending;
+  Timer? _pendingTimer;
+  final List<RepSample> _buf = [];
 
   @override
   Duration get elapsed => _stopwatch.elapsed;
@@ -176,6 +220,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
   }
 
   void _resetRep() {
+    _safety.reset();
     _atRest = true;
     _repFlagged = false;
     _lastAt = null;
@@ -185,8 +230,13 @@ class LiveSession extends ChangeNotifier implements SessionController {
   /// One reading from the band. Public so tests can drive it directly;
   /// in the app it's fed by the sample stream.
   void onSample(ArmBandSample s, DateTime now) {
-    if (!_running || !s.elbowDeg.isFinite) return;
+    if (!s.elbowDeg.isFinite) return;
     final angle = math.max(0.0, s.elbowDeg);
+    if (_checker != null) {
+      _buffer(angle, now);
+      _advancePending(angle, now); // carries on while paused, e.g. right after the last rep
+    }
+    if (!_running) return;
     final emg = s.emg1Pct.isFinite ? s.emg1Pct.clamp(0.0, 100.0) : 0.0;
 
     // Smoothed angular speed (deg/s) - the band's angle is already filtered
@@ -213,7 +263,9 @@ class LiveSession extends ChangeNotifier implements SessionController {
 
     final restDeg = math.max(_targetDegrees * _restFraction, 8.0);
     if (_atRest) {
+      _safety.reset();
       if (angle > restDeg) {
+        _finalizePending(); // a new rep is starting: judge the last one with what there is
         _atRest = false;
         _repStart = now;
         _repPeak = angle;
@@ -228,9 +280,16 @@ class LiveSession extends ChangeNotifier implements SessionController {
       _repEmgSum += emg;
       _repEmgCount++;
 
-      if (angle > fullRangeDegrees + _overFlexMarginDeg && !_repFlagged) {
+      final violation = _safety.update(angle: angle, speed: speed, now: now);
+      if (violation != null && !_repFlagged) {
         _repFlagged = true;
-        _raiseUnsafe(now, 'Your elbow went past a safe range - pause and reset your form.');
+        _safety.reset();
+        _raiseUnsafe(
+          now,
+          violation == SafetyViolation.angle
+              ? 'Your elbow went past a safe range - pause and reset your form.'
+              : 'Potentially unsafe movement - pause and reset your form.',
+        );
         return;
       }
       if (angle <= restDeg) {
@@ -267,16 +326,21 @@ class LiveSession extends ChangeNotifier implements SessionController {
     );
     if (fatigueLevel.index > peakFatigue.index) peakFatigue = fatigueLevel;
 
-    final assessment = _assessor.assess(
-      RepMetrics(
-        peakDegrees: _repPeak,
-        targetDegrees: target,
-        peakSpeedDegPerSec: _repMaxSpeed,
-        duration: duration,
-      ),
-      now,
-    );
+    // With the model loaded it judges the rep a moment later (_finalizePending); until then the
+    // rep stands as fine. Without it, the simple rules judge it straight away.
+    final assessment = _checker != null
+        ? const RepAssessment(tier: SafetyTier.normal, alert: null)
+        : _assessor.assess(
+            RepMetrics(
+              peakDegrees: _repPeak,
+              targetDegrees: target,
+              peakSpeedDegPerSec: _repMaxSpeed,
+              duration: duration,
+            ),
+            now,
+          );
     _record(assessment.tier, assessment.alert);
+    if (_checker != null) _startPending(now);
 
     if (assessment.tier == SafetyTier.unsafe) {
       _awaitingUnsafeAck = true;
@@ -291,6 +355,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
 
   void _record(SafetyTier tier, SessionAlert? alert) {
     currentTier = tier;
+    currentMessage = tier == SafetyTier.normal ? null : alert?.message;
     if (tier.index > worstTier.index) worstTier = tier;
     if (alert != null) alerts.add(alert);
   }
@@ -310,8 +375,75 @@ class LiveSession extends ChangeNotifier implements SessionController {
     return MuscleActivation.high;
   }
 
+  // ---- the model check (amber) -----------------------------------------------------------------
+
+  /// Keeps the recent angle history: the lead-in to a rep and its return are both needed.
+  void _buffer(double angle, DateTime now) {
+    final t = now.microsecondsSinceEpoch / 1e6;
+    _buf.add(RepSample(t, angle));
+    var drop = 0;
+    while (drop < _buf.length - 1 && t - _buf[drop].t > _bufferSeconds) {
+      drop++;
+    }
+    if (drop > 0) _buf.removeRange(0, drop);
+  }
+
+  void _startPending(DateTime endedAt) {
+    _pending = _PendingCheck(start: _repStart, endedAt: endedAt);
+    _pendingTimer?.cancel();
+    // If the band goes quiet, still judge the rep from what has been seen.
+    _pendingTimer = Timer(_pendingGrace * 2, _finalizePending);
+  }
+
+  void _advancePending(double angle, DateTime now) {
+    final p = _pending;
+    if (p == null) return;
+    final settled = angle <= _modelRestDeg && now.isAfter(p.endedAt);
+    if (settled || now.difference(p.endedAt) >= _pendingGrace) _finalizePending();
+  }
+
+  /// Judges the rep that just ended with the model: amber if it looked different from a healthy rep.
+  void _finalizePending() {
+    final p = _pending;
+    if (p == null) return;
+    _pending = null;
+    _pendingTimer?.cancel();
+    _pendingTimer = null;
+    final checker = _checker;
+    if (checker == null) return;
+
+    final startT = p.start.microsecondsSinceEpoch / 1e6;
+    final endT = p.endedAt.microsecondsSinceEpoch / 1e6;
+    var i = _buf.indexWhere((s) => s.t >= startT);
+    if (i < 0) return;
+    // Back to where the arm was last down, so the rep starts from rest as the model's training reps did.
+    while (i > 0 && _buf[i].angle > _modelRestDeg && startT - _buf[i - 1].t < _leadInSeconds) {
+      i--;
+    }
+    // On to where the arm is down again, or as far as there is.
+    var j = _buf.length - 1;
+    for (var k = i; k < _buf.length; k++) {
+      if (_buf[k].t >= endT && _buf[k].angle <= _modelRestDeg) {
+        j = k;
+        break;
+      }
+    }
+
+    final check = checker.check(_buf.sublist(i, j + 1));
+    if (check == null) return;
+    repHint = check.hint;
+    if (!check.ok) {
+      _record(
+        SafetyTier.needsCorrection,
+        SessionAlert(id: uuidV4(), tier: SafetyTier.needsCorrection, message: check.message!, at: _clock()),
+      );
+    }
+    notifyListeners();
+  }
+
   @override
   SessionResult buildResult(AssignedExercise exercise) {
+    _finalizePending(); // the last rep's verdict belongs in the result
     final peakRomPct = (_peakDeg / fullRangeDegrees * 100).round().clamp(0, 100);
     final range = _minDeg.isFinite ? math.max(0.0, _peakDeg - _minDeg) : 0.0;
     return SessionResult(
@@ -334,6 +466,14 @@ class LiveSession extends ChangeNotifier implements SessionController {
   @override
   void dispose() {
     _sub?.cancel();
+    _pendingTimer?.cancel();
     super.dispose();
   }
+}
+
+/// A counted rep waiting a moment for the arm to finish coming down before the model judges it.
+class _PendingCheck {
+  final DateTime start;
+  final DateTime endedAt;
+  const _PendingCheck({required this.start, required this.endedAt});
 }

@@ -7,6 +7,7 @@ import 'progress_models.dart';
 import 'progress_repository.dart';
 import 'session_history_screen.dart';
 import 'widgets/badge_tile.dart';
+import 'widgets/physio_warning_card.dart';
 import 'widgets/rom_trend_chart.dart';
 
 /// UC-11 View Progress: ROM trend, adherence, session-history entry point,
@@ -86,12 +87,23 @@ class _ProgressScreenState extends State<ProgressScreen> {
           if (!snap.hasData) return const Center(child: CircularProgressIndicator());
           final data = snap.data!;
           if (data.isEmpty) {
-            return MessageState(
+            final empty = MessageState(
               icon: Icons.insights_outlined,
               title: 'Complete your first session to see your progress here.',
               text: 'Your ROM trend, sessions and achievements will build up as you go.',
               actionLabel: 'Refresh',
               onAction: _reload,
+            );
+            // A physiotherapist's message matters even before the first session.
+            if (data.warning == null) return empty;
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: PhysioWarningCard(message: data.warning!),
+                ),
+                Expanded(child: empty),
+              ],
             );
           }
 
@@ -100,6 +112,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
               children: [
+                if (data.warning != null) ...[
+                  PhysioWarningCard(message: data.warning!),
+                  const SizedBox(height: 18),
+                ],
                 Row(
                   children: [
                     Expanded(

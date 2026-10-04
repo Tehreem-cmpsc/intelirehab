@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from "react";
-import { Building2, MapPin, Phone, Mail, Loader2, Save, Check } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, User, Loader2, Save, Check } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import useClinicProfile from "../../../domain/admin/useClinicProfile";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^\+?\d{10,15}$/;
 
-export default function ClinicProfilePanel({ clinic, onClinicUpdated }) {
+export default function ClinicProfilePanel({ clinic, onClinicUpdated, user, onSaveName }) {
   const { profile, saving, save } = useClinicProfile(clinic);
   const [form, setForm] = useState(clinic);
   const [saved, setSaved] = useState(false);
   const [errors, setErrors] = useState({});
   const [saveError, setSaveError] = useState("");
+  // The administrator's own name, used in the dashboard greeting. Empty until they set it.
+  const [adminName, setAdminName] = useState(user?.hasName ? user.name : "");
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -36,6 +38,9 @@ export default function ClinicProfilePanel({ clinic, onClinicUpdated }) {
     if (!email) next.email = "Contact email is required.";
     else if (!emailPattern.test(email)) next.email = "Enter a valid email address.";
 
+    const person = adminName.trim();
+    if (person && person.length < 3) next.adminName = "Enter your full name (at least 3 characters).";
+
     return next;
   };
 
@@ -47,6 +52,7 @@ export default function ClinicProfilePanel({ clinic, onClinicUpdated }) {
     setSaveError("");
     try {
       const updated = await save(form);
+      if (adminName.trim() !== (user?.hasName ? user.name : "")) await onSaveName?.(adminName);
       onClinicUpdated?.(updated); // keep the header / shell in sync
       setSaved(true);
       setTimeout(() => setSaved(false), 2200);
@@ -68,6 +74,23 @@ export default function ClinicProfilePanel({ clinic, onClinicUpdated }) {
     <div>
       <SectionHeading eyebrow="SETTINGS" title="Clinic profile" />
       <form onSubmit={submit} className="cp-card rounded-2xl p-6 max-w-lg space-y-4 text-[var(--ink)]">
+        <div>
+          <label className="block text-[13px] font-semibold mb-1.5 text-[var(--ink)]">Your name</label>
+          <div className="relative">
+            <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+            <input
+              value={adminName}
+              placeholder="Shown in your dashboard greeting"
+              onChange={(e) => {
+                setAdminName(e.target.value);
+                if (errors.adminName) setErrors({ ...errors, adminName: undefined });
+              }}
+              className="cp-input cp-focus w-full rounded-lg pl-9 pr-3 py-2.5 text-[14px]"
+              style={errors.adminName ? { borderColor: "var(--alert)" } : undefined}
+            />
+          </div>
+          {errors.adminName && <div className="text-[13px] text-[var(--alert)] mt-2">{errors.adminName}</div>}
+        </div>
         {fields.map((f) => {
           const Icon = f.icon;
           return (

@@ -73,12 +73,15 @@ export default function useAuth() {
 
     const clinic = clinics?.[0];
     if (clinic) {
+      const fullName = authUser.user_metadata?.full_name?.trim() || null;
       return {
         user: {
           id: authUser.id,
           email: authUser.email,
           authRole: "admin",
-          name: authUser.user_metadata?.full_name || authUser.email,
+          // hasName: false means `name` is only the email, which is not a name to greet someone by.
+          name: fullName || authUser.email,
+          hasName: Boolean(fullName),
           clinic_id: clinic.id,
         },
         clinic,
@@ -117,7 +120,7 @@ export default function useAuth() {
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (event === "PASSWORD_RECOVERY") {
           // Skip the normal resolve/approval flow entirely while they're
           // setting their password.
@@ -126,8 +129,12 @@ export default function useAuth() {
         }
         if (event === "SIGNED_IN" && session?.user) {
           if (loginInFlight.current || knownUserId.current === session.user.id) return;
-          const result = await resolveUser(session.user);
-          if (mounted) {
+          // Not awaited here: supabase-js runs this callback while it is still processing the
+          // auth change, so calling back into supabase (resolveUser queries, signOut) from inside
+          // it can deadlock. Deferring one tick lets it finish first.
+          setTimeout(async () => {
+            const result = await resolveUser(session.user);
+            if (!mounted) return;
             if (isUnapprovedPhysio(result.user)) {
               await supabase.auth.signOut();
               setUser(null);
@@ -137,7 +144,7 @@ export default function useAuth() {
               setUser(result.user);
               setClinic(result.clinic);
             }
-          }
+          }, 0);
         } else if (event === "SIGNED_OUT") {
           knownUserId.current = null;
           if (mounted) {
@@ -246,6 +253,15 @@ export default function useAuth() {
     if (error) throw new Error(error.message || "Unable to send password reset email.");
   }, []);
 
+  // The admin's own name lives in their Supabase login (user_metadata.full_name): the clinics
+  // table holds the clinic's details, not a person's.
+  const updateAdminName = useCallback(async (fullName) => {
+    const name = fullName.trim();
+    const { error } = await supabase.auth.updateUser({ data: { full_name: name } });
+    if (error) throw new Error(error.message || "Unable to save your name.");
+    setUser((prev) => (prev ? { ...prev, name: name || prev.email, hasName: Boolean(name) } : prev));
+  }, []);
+
   const logout = useCallback(async () => {
     knownUserId.current = null;
     setLoading(true);
@@ -293,5 +309,6 @@ export default function useAuth() {
     completeFirstLoginReset,
     requestPasswordReset,
     updateClinic: setClinic,
+    updateAdminName,
   };
 }

@@ -88,6 +88,13 @@ package "Mobile app (Flutter)" {
     +assess()
   }
   class FatigueEstimator
+  class ElbowRepChecker <<trained model, amber>> {
+    +check(samples)
+  }
+  class ElbowAutoencoder
+  class SafetyMonitor <<red stop>> {
+    +update(angle, speed, now)
+  }
   class SessionResult
   class AssignedExercise
   class ExercisesRepository {
@@ -155,6 +162,9 @@ SessionController <|.. LiveSession
 SessionController <|.. SessionSimulator
 LiveSession o-- RepAssessor
 LiveSession o-- FatigueEstimator
+LiveSession o-- ElbowRepChecker
+LiveSession o-- SafetyMonitor
+ElbowRepChecker *-- ElbowAutoencoder
 LiveSession ..> ArmBandSample
 SessionController ..> SessionResult
 SessionResult o-- AssignedExercise
@@ -182,7 +192,9 @@ WearablePresenceUseCases ..> Supabase
 ExerciseRepository ..> Supabase
 
 note bottom of RepAssessor
-  Rule-based safety check used by live sessions.
-  The trained AI model does not exist yet.
+  Simple rules, used only when the trained model
+  cannot be loaded. Normally ElbowRepChecker judges
+  each rep (amber) and SafetyMonitor stops unsafe
+  movement live (red).
 end note
 @enduml

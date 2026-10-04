@@ -2,6 +2,7 @@
   // Run / F5 in VS Code. The first entry is the default.
   "version": "0.2.0",
   "configurations": [
+    
     {
       // Designing screens: front-end only — sample data, no backend,
       // design preview menus, no field checks.

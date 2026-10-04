@@ -1,0 +1,111 @@
+@startuml fig03_band_firmware
+title Figure 3: Armband firmware classes
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam roundCorner 0
+skinparam dpi 200
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #222222
+  ArrowColor #222222
+  FontColor #000000
+  StereotypeFontColor #444444
+  AttributeFontSize 11
+}
+skinparam package {
+  BackgroundColor #F2F2F2
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam title {
+  FontSize 15
+}
+
+class ArmbandFirmware <<sketch ArmEMG_IMU.ino>> {
+  - loopPeriodMs : int = 2
+  - bleDecimate : int = 16
+  - qZero : Quaternion
+  + setup()
+  + loop()
+  - handleCommand(c : char)
+  - relativeElbowAngle() : float
+  - updateStatusLed()
+  - scanI2cBus()
+  - printStatusLine()
+}
+class MPU6500 {
+  - address : uint8_t
+  - connected : bool
+  - whoAmI : uint8_t
+  - accelScale : float
+  - gyroScale : float
+  - gyroBias : float[3]
+  + begin(wire) : bool
+  + read(ax, ay, az, gx, gy, gz) : bool
+  + calibrateGyroBias(samples)
+  + isConnected() : bool
+  + lastWhoAmI() : uint8_t
+}
+class MadgwickAHRS {
+  + beta : float
+  - q0, q1, q2, q3 : float
+  + reset()
+  + updateIMU(gx, gy, gz, ax, ay, az, dt)
+  + getQuaternion(w, x, y, z)
+}
+class EMGProcessor {
+  - pin : uint8_t
+  - baseline : float
+  - envelope : float
+  - mvcMax : float
+  + begin()
+  + update()
+  + getRaw() : int
+  + getEnvelope() : float
+  + getPercentMVC() : float
+  + startMVCCalibration(durationMs)
+  + isCalibratingMVC() : bool
+}
+class BLEStreamer {
+  + begin(deviceName)
+  + sendData(elbowDeg, emg1Pct)
+  + isConnected() : bool
+  + hasCommand() : bool
+  + readCommand() : char
+}
+class SensorPacket <<packed struct, 8 bytes>> {
+  + elbowDeg : float32
+  + emg1Pct : float32
+}
+class MobileApp <<external>>
+
+ArmbandFirmware "1" *-- "2" MPU6500 : upper arm 0x68,\nforearm 0x69
+ArmbandFirmware "1" *-- "2" MadgwickAHRS : one per IMU
+ArmbandFirmware "1" *-- "1" EMGProcessor
+ArmbandFirmware "1" *-- "1" BLEStreamer
+BLEStreamer ..> SensorPacket : <<create>>
+BLEStreamer .right.> MobileApp : notifies packets,\nreceives commands
+
+note bottom of ArmbandFirmware
+  Command bytes: g = recalibrate gyros,
+  z = set zero pose, m = start 5 s muscle
+  maximum window, i = print diagnostics
+  (serial only). The elbow angle is the
+  rotation between the two IMUs, relative to
+  the stored zero pose.
+end note
+
+@enduml

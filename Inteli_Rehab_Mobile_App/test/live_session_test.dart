@@ -141,33 +141,56 @@ void main() {
       expect(r.session.isRunning, isTrue);
     });
 
-    test('the elbow going well past full range stops immediately', () {
+    test('the elbow staying well past full range stops the session at once, mid-rep', () {
       final r = _Rig();
       r.rest();
-      for (final a in [20.0, 60.0, 120.0, 165.0]) {
+      // A calm bend (about 60 degrees a second), carried on past the limit and held there.
+      for (var a = 20.0; a <= 165; a += 2) {
         r.feed(a);
+      }
+      for (var i = 0; i < 5; i++) {
+        r.feed(166);
       }
       expect(r.session.awaitingUnsafeAck, isTrue);
       expect(r.session.isRunning, isFalse);
       expect(r.session.worstTier, SafetyTier.unsafe);
+      expect(r.session.currentMessage, contains('safe range'));
+    });
+
+    test('one noisy sample over the limit does not stop the session', () {
+      final r = _Rig();
+      r.rest();
+      for (var a = 20.0; a <= 120; a += 2) {
+        r.feed(a);
+      }
+      r.feed(175); // a glitch of a single sample...
+      for (var a = 122.0; a >= 40; a -= 2) {
+        r.feed(a); // ...then the arm carries on normally
+      }
+      expect(r.session.awaitingUnsafeAck, isFalse);
+      expect(r.session.isRunning, isTrue);
     });
   });
 
   group('final-rep and start-time fixes', () {
-    test('acknowledging an unsafe FINAL rep tells the screen, so it can finish the session', () {
+    test('a stop during the FINAL rep does not count it; after acknowledging, the rep can be redone', () {
       final r = _Rig(repsTarget: 1);
       r.rest();
-      r.rep(durationMs: 600); // unsafe, and it was the last rep
-      expect(r.session.repsCompleted, 1);
+      r.rep(durationMs: 600); // unsafe: stopped mid-rep, so it was never counted
       expect(r.session.awaitingUnsafeAck, isTrue);
+      expect(r.session.repsCompleted, 0);
 
       var notified = 0;
       r.session.addListener(() => notified++);
       r.session.acknowledgeUnsafe();
-
       expect(r.session.awaitingUnsafeAck, isFalse);
-      expect(r.session.isRunning, isFalse, reason: 'nothing left to run');
-      expect(notified, greaterThan(0), reason: 'without a notification the screen never re-checks and stays stuck');
+      expect(r.session.isRunning, isTrue, reason: 'the last rep is still to do');
+      expect(notified, greaterThan(0));
+
+      r.rest();
+      r.rep(); // a calm rep this time
+      expect(r.session.repsCompleted, 1);
+      expect(r.session.isRunning, isFalse, reason: 'that was the last one');
     });
 
     test('startedAt is when the patient started, not when the screen was built', () {

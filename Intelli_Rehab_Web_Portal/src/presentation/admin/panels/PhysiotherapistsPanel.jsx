@@ -31,7 +31,7 @@ export default function PhysiotherapistsPanel({ clinic }) {
   const columns = "minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr) 80px 100px 44px";
 
   const filtered = list.filter((p) =>
-    (p.name + p.specialization).toLowerCase().includes(query.toLowerCase())
+    `${p.name ?? ""} ${p.specialization ?? ""}`.toLowerCase().includes(query.toLowerCase())
   );
 
   const handleAdd = async (form) => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -341,15 +341,25 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
       });
   }, [reloadKey]);
 
+  // Only the newest request may update the screen: selecting patient A then B quickly must not let
+  // A's slower answer replace B's plan.
+  const latestPlanRequest = useRef(0);
   const loadActivePlan = (patientId) => {
+    const request = ++latestPlanRequest.current;
+    const current = () => request === latestPlanRequest.current;
     setPlanLoading(true);
     return ExercisePlanUseCases.getActivePlan(patientId)
-      .then(setActivePlan)
+      .then((plan) => {
+        if (current()) setActivePlan(plan);
+      })
       .catch(() => {
+        if (!current()) return;
         setActivePlan(null);
         setLoadError("Couldn't load this patient's exercise plan - it may exist but not be shown.");
       })
-      .finally(() => setPlanLoading(false));
+      .finally(() => {
+        if (current()) setPlanLoading(false);
+      });
   };
 
   // EMG and the active exercise plan are both per-patient — only needed
@@ -357,8 +367,10 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
   // instead of bulk-loaded with the patient list.
   useEffect(() => {
     if (!selectedId) {
+      latestPlanRequest.current += 1; // drop any plan still loading for the patient just closed
       setEmg([]);
       setActivePlan(null);
+      setPlanLoading(false);
       return;
     }
     let cancelled = false;

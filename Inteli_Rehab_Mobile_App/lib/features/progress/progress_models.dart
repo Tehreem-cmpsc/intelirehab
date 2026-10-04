@@ -62,11 +62,15 @@ class ProgressData {
   final List<EarnedBadge> badges;
   final List<SessionHistoryEntry> history;
 
+  /// The physiotherapist's current message to the patient (patients.warning), if they left one.
+  final String? warning;
+
   const ProgressData({
     required this.summary,
     required this.romTrend,
     required this.badges,
     required this.history,
+    this.warning,
   });
 
   bool get isEmpty => history.isEmpty;

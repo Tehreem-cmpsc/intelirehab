@@ -2,6 +2,7 @@ import { supabase } from "../../../infrastructure/supabase/supabaseClient";
 import { Patient } from "../entities";
 import SessionUseCases from "./SessionUseCases";
 import { formatSessionForUi, computeStreak, computeWeeklyRom } from "../utils/sessionAnalytics";
+import { assessRisk } from "../utils/riskAssessment";
 
 // The mobile app stores its onboarding calibration as a session whose
 // movement_analysis row carries this marker (OnboardingRepository.baselineMarker).
@@ -24,6 +25,13 @@ const toPatient = (row, sessionsForPatient) => {
     .sort((a, b) => b.performedAt - a.performedAt);
   const sessionsAsc = [...sessionsDesc].reverse();
 
+  // Nothing writes status = 'at-risk', so it is worked out from the sessions here. A status
+  // someone set by hand ('recovered', or 'at-risk') is kept.
+  const riskReasons = assessRisk(
+    [...exerciseSessions].sort((a, b) => new Date(b.performed_at) - new Date(a.performed_at))
+  );
+  const status = row.status === "recovered" ? row.status : riskReasons.length ? "at-risk" : row.status;
+
   const latestRom = sessionsDesc[0]?.rom ?? 0;
   const previousRom = sessionsDesc[1]?.rom;
   const trend = sessionsDesc.length >= 2 ? latestRom - previousRom : 0;
@@ -44,7 +52,8 @@ const toPatient = (row, sessionsForPatient) => {
     rom: latestRom,
     trend,
     streak: computeStreak(sessionsDesc),
-    status: row.status,
+    status,
+    riskReasons,
     // wearable_connected is kept in sync by a trigger
     // (supabase_patient_wearable_sync.sql); the device row is checked too
     // in case that trigger isn't installed.

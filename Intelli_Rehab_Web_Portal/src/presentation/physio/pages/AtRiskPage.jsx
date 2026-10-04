@@ -161,6 +161,11 @@ function AtRiskPage({ patients, setPatients }) {
                   <div style={{ fontSize: 13, color: THEME.slate500 }}>
                     {[p.injury, p.regId].filter(Boolean).join(" · ")}
                   </div>
+                  {p.riskReasons.length > 0 && (
+                    <div style={{ fontSize: 12.5, color: THEME.red, fontWeight: 600, marginTop: 4 }}>
+                      {p.riskReasons.join(" · ")}
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: THEME.red, whiteSpace: "nowrap" }}>
                   {p.rom}% ROM

@@ -383,6 +383,34 @@ package "Mobile app (Flutter / Dart)" {
       +addRep(meanEmgPct, peakSpeedDegPerSec)
       +easeBack()
     }
+    class ElbowRepChecker <<amber check>> {
+      +mode : gentle | balanced
+      +{static} cached
+      +{static} preload()
+      +check(samples) : RepCheck?
+      +{static} resample(samples, n)
+    }
+    class RepCheck {
+      +score, threshold : double
+      +message : String?
+      +hint : String?
+      +ok : bool
+    }
+    class ElbowAutoencoder <<trained model>> {
+      +thresholdGentle, thresholdBalanced
+      +tolerance : List<double>
+      +healthyDuration
+      +score(angle100, durationSeconds) : ElbowScore
+    }
+    class SafetyMonitor <<red stop>> {
+      +update(angle, speed, now) : SafetyViolation?
+      +reset()
+    }
+    class SafetyLimits {
+      +maxAngleDeg
+      +maxSpeedDegPerSec
+      +hold : Duration
+    }
     class AiEngine <<stand-in model>> {
       +assessRep(random) : RepAssessment
     }
@@ -701,6 +729,11 @@ SessionController <|.. LiveSession
 SessionController <|.. SessionSimulator
 LiveSession o-- RepAssessor
 LiveSession o-- FatigueEstimator
+LiveSession o-- ElbowRepChecker : amber, after each rep
+LiveSession o-- SafetyMonitor : red, every sample
+ElbowRepChecker *-- ElbowAutoencoder
+ElbowRepChecker ..> RepCheck
+SafetyMonitor o-- SafetyLimits
 LiveSession ..> ArmBandSample : consumes stream
 LiveSession ..> RepMetrics
 RepAssessor ..> RepMetrics
@@ -787,8 +820,9 @@ WearablePresenceUseCases ..> Rpc : get_wearable_presence
 
 note bottom of AiEngine
   AiEngine is a random stand-in used only by SessionSimulator.
-  Live sessions use the rule-based RepAssessor; the trained
-  model (AI pipeline) is not built yet.
+  Live sessions use the trained model (ElbowRepChecker, amber) and
+  the live SafetyMonitor (red). RepAssessor's simple rules are the
+  fallback when the model file cannot be loaded.
 end note
 
 note right of OnboardingRepository

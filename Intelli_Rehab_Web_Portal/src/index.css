@@ -151,3 +151,23 @@ input[type="range"]::-moz-range-thumb {
   50% { opacity: 0.4; }
 }
 
+
+/* Loading animation (PageLoader.jsx): the forearm bends 70deg and back; the arc, the biceps glow
+   and the elbow ring share its 2.6 s beat so they read as one movement. */
+.cp-load-forearm { transform-origin: 90px 70px; animation: cpLoadBend 2.6s ease-in-out infinite; }
+.cp-load-arc { animation: cpLoadArc 2.6s ease-in-out infinite; }
+.cp-load-muscle { transform-origin: 58px 60px; animation: cpLoadMuscle 2.6s ease-in-out infinite; }
+.cp-load-ring { transform-origin: 90px 70px; animation: cpLoadRing 2.6s ease-out infinite; }
+.cp-load-pulse { animation: cpLoadPulse 1.6s linear infinite; }
+@keyframes cpLoadBend { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-70deg); } }
+@keyframes cpLoadArc { 0%, 100% { stroke-dashoffset: 100; } 50% { stroke-dashoffset: 0; } }
+@keyframes cpLoadMuscle { 0%, 100% { opacity: 0.1; transform: scale(1); } 50% { opacity: 0.55; transform: scale(1.18); } }
+@keyframes cpLoadRing { 0% { opacity: 0.7; transform: scale(1); } 100% { opacity: 0; transform: scale(2); } }
+@keyframes cpLoadPulse { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -200; } }
+@media (prefers-reduced-motion: reduce) {
+  .cp-load-forearm { animation: none; transform: rotate(-35deg); }
+  .cp-load-arc { animation: none; stroke-dashoffset: 50; }
+  .cp-load-muscle { animation: none; opacity: 0.35; }
+  .cp-load-ring, .cp-load-pulse { animation: none; }
+  .cp-load-ring { opacity: 0.4; }
+}

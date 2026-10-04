@@ -8,6 +8,7 @@ export class Patient {
     trend,
     streak,
     status,
+    riskReasons,
     wearable,
     approved,
     warning,
@@ -30,6 +31,7 @@ export class Patient {
     this.trend = trend;
     this.streak = streak;
     this.status = status; // 'active', 'recovered', 'at-risk'
+    this.riskReasons = riskReasons || []; // why the portal flagged them (see riskAssessment.js)
     this.wearable = wearable;
     this.approved = approved;
     this.warning = warning;

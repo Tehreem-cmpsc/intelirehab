@@ -13,7 +13,21 @@ class SafetyBanner extends StatelessWidget {
   final SafetyTier tier;
   final VoidCallback onAcknowledgeUnsafe;
 
-  const SafetyBanner({super.key, required this.tier, required this.onAcknowledgeUnsafe});
+  /// What to say for an amber or red state (e.g. "Try to bend a little further."). When null the
+  /// banner uses its generic wording for the tier.
+  final String? message;
+
+  /// A soft, non-blaming note about the last rep (e.g. it was slow). Shown under the banner text;
+  /// it never changes the tier.
+  final String? hint;
+
+  const SafetyBanner({
+    super.key,
+    required this.tier,
+    required this.onAcknowledgeUnsafe,
+    this.message,
+    this.hint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +62,15 @@ class SafetyBanner extends StatelessWidget {
           Text(title,
               textAlign: TextAlign.center, style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: fg)),
           const SizedBox(height: 4),
-          Text(text, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: fg.withValues(alpha: 0.9))),
+          Text(
+            tier == SafetyTier.normal ? text : (message ?? text),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: fg.withValues(alpha: 0.9)),
+          ),
+          if (hint != null && tier != SafetyTier.unsafe) ...[
+            const SizedBox(height: 6),
+            Text(hint!, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: c.muted)),
+          ],
           if (tier == SafetyTier.unsafe) ...[
             const SizedBox(height: 14),
             FilledButton(

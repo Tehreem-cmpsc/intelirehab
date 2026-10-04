@@ -1,0 +1,107 @@
+@startuml fig08_mobile_data_sync
+title Figure 8: Mobile app - exercise plan, offline-first storage and upload
+hide circle
+hide empty members
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam roundCorner 0
+skinparam dpi 200
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam nodesep 45
+skinparam ranksep 55
+skinparam packageStyle rectangle
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #222222
+  ArrowColor #222222
+  FontColor #000000
+  StereotypeFontColor #444444
+  AttributeFontSize 11
+}
+skinparam package {
+  BackgroundColor #F2F2F2
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #777777
+  FontColor #222222
+}
+skinparam title {
+  FontSize 15
+}
+
+class PlanListScreen <<screen>>
+class ExerciseDetailScreen <<screen>>
+class ActiveSessionScreen <<screen>>
+class HomeShell <<screen>> {
+  - checkUnfinishedSession()
+}
+class ExercisesRepository {
+  + loadPlan(patientId) : PlanSummary
+  + pairedDeviceId(patientId) : String
+  + saveSession(patientId, deviceId, result)
+}
+class SessionJournal <<static, file in app storage>> {
+  + {static} saveInProgress(patientId, result)
+  + {static} readInProgress(patientId) : UnfinishedSession
+  + {static} clearInProgress()
+  + {static} enqueue(patientId, deviceId, result)
+  + {static} syncPending(patientId, repo) : int
+  + {static} pendingCount(patientId) : int
+  + {static} failedCount(patientId) : int
+}
+class UnfinishedSession {
+  + patientId : String
+  + result : SessionResult
+}
+class PlanSummary {
+  + planName : String
+  + physioName : String
+}
+class AssignedExercise {
+  + assignmentId : String
+  + exerciseId : String
+  + name : String
+  + mediaUrl : String
+  + mediaType : String
+  + sets : int
+  + repsTarget : int
+  + romTarget : int
+}
+class SessionResult {
+  + id : String
+  + analysisId : String
+}
+class ExerciseMedia <<widget>> {
+  + mediaUrl : String
+  + mediaType : String
+  + {static} providerFor(mediaUrl, mediaType)
+}
+class Supabase <<backend>>
+
+PlanListScreen --> ExercisesRepository
+PlanListScreen ..> ExerciseDetailScreen : <<navigate>>
+ExerciseDetailScreen ..> ActiveSessionScreen : <<navigate>>
+ExerciseDetailScreen *-- ExerciseMedia
+ActiveSessionScreen --> ExercisesRepository : saveSession
+ActiveSessionScreen --> SessionJournal : every rep, and on failure
+HomeShell --> SessionJournal : recover after a crash
+ExercisesRepository ..> PlanSummary : <<create>>
+PlanSummary "1" o-- "0..*" AssignedExercise
+SessionJournal ..> UnfinishedSession : <<create>>
+SessionJournal ..> SessionResult : <<stores>>
+SessionJournal ..> ExercisesRepository : syncPending
+ExercisesRepository ..> Supabase : upsert with client ids
+
+note bottom of SessionJournal
+  A session is written to disk after every rep. When the upload
+  fails it is queued and retried later; uploads use client-generated
+  ids, so a retry never creates duplicate rows. Rejected sessions
+  are set aside, not deleted.
+end note
+
+@enduml

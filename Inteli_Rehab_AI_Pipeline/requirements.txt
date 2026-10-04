@@ -1,0 +1,6 @@
+# Needed to run the scripts in src/elbow/ (export the model to the app, make test vectors).
+# Retraining (notebooks/train_elbow_model.ipynb) also needs: scikit-learn, matplotlib, h5py, scipy.
+numpy
+torch
+# Recording from the real band (src/record/record_reps.py):
+bleak

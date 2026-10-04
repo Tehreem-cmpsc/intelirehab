@@ -24,7 +24,7 @@ export default function OverviewPanel({ user, clinic }) {
 
   return (
     <div>
-      <SectionHeading eyebrow="OVERVIEW" title={`${greeting}, ${user?.name?.split(" ")[0]}`} />
+      <SectionHeading eyebrow="OVERVIEW" title={user?.hasName ? `${greeting}, ${user.name}` : greeting} />
       <ErrorNotice message={stats?.error || activityError} onRetry={activityError ? refreshActivity : undefined} />
       {!stats ? (
         <div className="text-[var(--muted)] text-sm flex items-center gap-2">

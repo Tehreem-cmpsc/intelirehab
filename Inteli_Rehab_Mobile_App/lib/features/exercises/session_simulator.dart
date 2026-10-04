@@ -91,6 +91,13 @@ class SessionSimulator extends ChangeNotifier implements SessionController {
   double fatigueScore = 0; // 0..1
   @override
   FatigueLevel get fatigueLevel => EmgProcessor.levelOf(fatigueScore);
+
+  @override
+  String? get currentMessage => currentTier == SafetyTier.normal || alerts.isEmpty ? null : alerts.last.message;
+  @override
+  String? get repHint => null;
+  @override
+  bool get hasPendingCheck => false;
   FatigueLevel peakFatigue = FatigueLevel.normal;
 
   final List<SessionAlert> alerts = [];

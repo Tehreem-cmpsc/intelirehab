@@ -21,6 +21,16 @@ abstract interface class SessionController implements Listenable {
   MuscleActivation get activation;
   SafetyTier get currentTier;
   FatigueLevel get fatigueLevel;
+
+  /// What to tell the patient for the current amber/red state (null while everything is fine).
+  String? get currentMessage;
+
+  /// A soft note about the last rep, e.g. that it was slow. Never a failure.
+  String? get repHint;
+
+  /// The last rep is counted but not yet judged (a fraction of a second). The screen waits for this
+  /// before finishing, so the final rep's verdict is not lost.
+  bool get hasPendingCheck;
   Duration get elapsed;
 
   void start();

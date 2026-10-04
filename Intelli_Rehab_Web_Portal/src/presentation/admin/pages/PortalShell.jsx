@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { LogOut, LayoutGrid, Users, Building2, ChevronLeft, ChevronRight, Sun, Moon, Menu, X } from "lucide-react";
+import { LogOut, LayoutGrid, Users, HeartPulse, Building2, ChevronLeft, ChevronRight, Sun, Moon, Menu, X } from "lucide-react";
 import Logo, { LogoIcon } from "../components/Logo";
 import useIsMobile from "../../useIsMobile";
 
 const NAV_ITEMS = [
   { id: "overview",  label: "Dashboard",          icon: LayoutGrid },
   { id: "physios",   label: "Physiotherapists",   icon: Users },
+  { id: "patients",  label: "Patients",           icon: HeartPulse },
   { id: "profile",   label: "Clinic Profile",     icon: Building2 },
 ];
 
@@ -172,7 +173,7 @@ export default function PortalShell({ user, clinic, activeTab, setActiveTab, onL
             {!collapsed && (
               <div style={{ overflow: "hidden" }}>
                 <div style={{ fontSize: "12px", fontWeight: 700, color: "rgba(255,255,255,0.95)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name}</div>
-                <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.72)", marginTop: "1px", whiteSpace: "nowrap" }}>{user?.role}</div>
+                <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.72)", marginTop: "1px", whiteSpace: "nowrap" }}>{user?.role ?? "Clinic administrator"}</div>
               </div>
             )}
           </div>

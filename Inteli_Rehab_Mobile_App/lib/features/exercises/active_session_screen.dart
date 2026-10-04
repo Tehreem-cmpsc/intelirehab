@@ -205,6 +205,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
     if (!_simulator.isRunning &&
         !_simulator.fatiguePauseOffered &&
         !_simulator.awaitingUnsafeAck &&
+        !_simulator.hasPendingCheck && // the last rep's verdict arrives a moment after it ends
         _simulator.repsCompleted >= _simulator.repsTarget) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
     }
@@ -377,7 +378,12 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
               // Largest, most prominent element (Rule 8); announced as it changes.
               Semantics(
                 liveRegion: true,
-                child: SafetyBanner(tier: _simulator.currentTier, onAcknowledgeUnsafe: _acknowledgeUnsafe),
+                child: SafetyBanner(
+                  tier: _simulator.currentTier,
+                  message: _simulator.currentMessage,
+                  hint: _simulator.repHint,
+                  onAcknowledgeUnsafe: _acknowledgeUnsafe,
+                ),
               ),
               const SizedBox(height: 16),
               AppCard(
