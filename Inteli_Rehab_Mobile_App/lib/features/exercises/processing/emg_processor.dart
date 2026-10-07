@@ -5,7 +5,7 @@ import '../exercises_models.dart';
 /// Intelligence & Processing Layer — EMG Processor (SDD §3.1.3).
 ///
 /// On real hardware this reads the biceps/triceps electrodes
-/// (firmware/lib/EMGProcessor.cpp does the on-device filtering) and turns
+/// (firmware/lib/ArmEMG_IMU/EMGProcessor.cpp does the on-device filtering) and turns
 /// muscle activity into two things the app shows: activation level (the
 /// Blue→Green→Orange→Red bar) and a running fatigue score. No EMG hardware
 /// is wired up yet, so both are derived from the rep's motion phase and

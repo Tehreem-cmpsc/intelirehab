@@ -31,6 +31,10 @@ class LiveTwinView extends StatefulWidget {
   final String side;
   final double fullRangeDegrees;
 
+  /// False while the view is kept alive but not on screen (e.g. the Home tab behind a session):
+  /// the 3D scene stops rendering until it is true again, so two twins never draw at once.
+  final bool active;
+
   const LiveTwinView({
     super.key,
     this.samples,
@@ -38,6 +42,7 @@ class LiveTwinView extends StatefulWidget {
     required this.tier,
     this.side = 'left',
     this.fullRangeDegrees = 150,
+    this.active = true,
   });
 
   @override
@@ -126,6 +131,7 @@ class _LiveTwinViewState extends State<LiveTwinView> with WidgetsBindingObserver
   void _onReady() {
     _timeout?.cancel();
     _note('model ready');
+    if (!widget.active) _setRendering(false);
     if (mounted) setState(() => _ready = true);
   }
 
@@ -143,6 +149,7 @@ class _LiveTwinViewState extends State<LiveTwinView> with WidgetsBindingObserver
     if (!identical(old.samples, widget.samples)) _listen();
     if (old.tier != widget.tier) _bridge.setTier(widget.tier);
     if (old.side != widget.side) _bridge.setSide(widget.side);
+    if (old.active != widget.active) _setRendering(widget.active);
     if (widget.samples == null) {
       // Simulated session: derive degrees from the percentage.
       _bridge.setElbow(widget.fallbackPercent * widget.fullRangeDegrees / 100);
@@ -152,9 +159,13 @@ class _LiveTwinViewState extends State<LiveTwinView> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_ready || _failed) return;
-    // No point rendering while the app is in the background.
-    final js = state == AppLifecycleState.resumed ? 'twin.resume()' : 'twin.pause()';
-    unawaited(_web?.runJavaScript(js).catchError((_) {}) ?? Future<void>.value());
+    // No point rendering while the app is in the background (or this view is not on screen).
+    _setRendering(state == AppLifecycleState.resumed && widget.active);
+  }
+
+  void _setRendering(bool on) {
+    if (!_ready || _failed) return;
+    unawaited(_web?.runJavaScript(on ? 'twin.resume()' : 'twin.pause()').catchError((_) {}) ?? Future<void>.value());
   }
 
   @override

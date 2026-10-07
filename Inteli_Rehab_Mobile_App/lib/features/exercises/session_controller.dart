@@ -6,8 +6,30 @@ import 'exercises_models.dart';
 /// Two implementations: [LiveSession] (the real band's sensor stream) and
 /// [SessionSimulator] (a timer-driven stand-in, kept for tests and demos).
 abstract interface class SessionController implements Listenable {
+  /// Reps in the whole session (every set). [repsPerSet] x [setsTarget].
   int get repsTarget;
   int get romTargetPercent;
+
+  int get setsTarget;
+  int get repsPerSet;
+
+  /// 1-based set the patient is in (the one just finished, while [isResting]).
+  int get currentSet;
+
+  /// Reps done in [currentSet].
+  int get repsInCurrentSet;
+
+  /// Between sets: paused, waiting out the rest. The screen shows the countdown and calls [endRest]
+  /// when it is over or skipped, then carries on the way it does after any other pause.
+  bool get isResting;
+  int get restSeconds;
+  void endRest();
+
+  /// The patient pressed "This hurts": the session pauses and the moment is saved with it.
+  void reportPain();
+
+  /// Fatigue is estimated from movement speed alone (no usable muscle signal), so it is a weaker guess.
+  bool get fatigueFromSpeedOnly;
 
   bool get isRunning;
   bool get awaitingUnsafeAck;

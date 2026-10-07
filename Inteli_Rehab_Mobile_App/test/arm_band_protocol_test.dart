@@ -1,4 +1,4 @@
-// Locks down ArmBandSample.tryParse against firmware/lib/BLEStreamer.cpp's
+// Locks down ArmBandSample.tryParse against firmware/lib/ArmEMG_IMU/BLEStreamer.cpp's
 // actual wire format — a byte-order or field-order mistake here would
 // silently corrupt every real reading with no error to surface it.
 import 'dart:typed_data';

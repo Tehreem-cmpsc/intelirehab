@@ -62,7 +62,7 @@ Future<void> _play(WidgetTester tester, double seconds, double Function(double t
 }
 
 /// EMG during the muscle step: squeezing hard for the 5 s window, relaxed after it.
-double _squeezeThenRelax(double t) => t < 5.0 ? 100 : 3;
+double _squeezeThenRelax(double t) => t < 3.0 ? 100 : 3;
 
 /// One slow bend: 0 -> [peak] -> 0 over [seconds].
 double _bend(double t, double seconds, double peak) {
@@ -81,43 +81,44 @@ void main() {
     expect(band.sent, [ArmBandCommand.recalibrateGyro], reason: 'sensors first');
     expect(find.text('Calibrating your sensors'), findsOneWidget);
 
-    await _play(tester, 3.3, (_) => 0, band); // arm still while the gyros settle
+    await _play(tester, 2.3, (_) => 0, band); // arm still while the gyros settle
     expect(band.sent.last, ArmBandCommand.setZeroPose, reason: 'then the zero pose');
     await _play(tester, 0.6, (_) => 0, band);
     expect(find.text('Hold still'), findsOneWidget);
 
-    await _play(tester, 5.3, (_) => 2, band); // hold at ~2 degrees
+    await _play(tester, 3.3, (_) => 2, band); // hold at ~2 degrees
     expect(find.textContaining('Move slowly'), findsOneWidget);
 
-    // Three bends to ~80 degrees. Nothing is asked of the muscle until they're done.
-    await _play(tester, 3 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
-    expect(band.sent.last, ArmBandCommand.startMvcCalibration, reason: 'muscle squeeze after the movements');
-    expect(find.text('Squeeze as hard as you can'), findsOneWidget);
-    expect(data.baseline, isNull, reason: 'not recorded until the muscle step passes too');
+    // One bend to ~80 degrees. Nothing is asked of the muscle until it is done.
+    await _play(tester, 1 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
 
-    await _play(tester, 5.8, (_) => 2, band, emg: _squeezeThenRelax); // the maximum squeeze, then relaxing
-    expect(find.text('Now squeeze about half as hard'), findsOneWidget);
-
-    await _play(tester, 1.0, (_) => 2, band, emg: (_) => 55); // the lighter test squeeze
+    if (CalibrationStep.includeMuscleStep) {
+      expect(band.sent.last, ArmBandCommand.startMvcCalibration, reason: 'muscle squeeze after the movements');
+      expect(find.text('Squeeze as hard as you can'), findsOneWidget);
+      expect(data.baseline, isNull, reason: 'not recorded until the muscle step passes too');
+      await _play(tester, 3.8, (_) => 2, band, emg: _squeezeThenRelax); // the maximum squeeze, then relaxing
+      expect(find.text('Now squeeze about half as hard'), findsOneWidget);
+      await _play(tester, 1.0, (_) => 2, band, emg: (_) => 55); // the lighter test squeeze
+    }
     expect(find.text('Calibration complete'), findsOneWidget);
 
     expect(band.sent, [
       ArmBandCommand.recalibrateGyro,
       ArmBandCommand.setZeroPose,
-      ArmBandCommand.startMvcCalibration,
+      if (CalibrationStep.includeMuscleStep) ArmBandCommand.startMvcCalibration,
     ]);
     final b = data.baseline!;
     expect(b.flexion, closeTo(82, 6), reason: 'furthest reach of the bends');
     expect(b.extension, closeTo(2, 3), reason: 'starting point');
     expect(b.range, closeTo(80, 8));
-    expect(data.musclesCalibrated, isTrue);
+    expect(data.musclesCalibrated, CalibrationStep.includeMuscleStep);
   });
 
   testWidgets('a band that reports no movement gets a hint, then the attempt ends', (tester) async {
     final (:data, :band) = await _start(tester);
     await tester.tap(find.text("I'm ready — start"));
     await tester.pump();
-    await _play(tester, 3.3 + 0.6 + 5.3, (_) => 0, band);
+    await _play(tester, 2.3 + 0.6 + 3.3, (_) => 0, band);
     expect(find.textContaining('Move slowly'), findsOneWidget);
 
     await _play(tester, 9, (_) => 0, band); // angle never changes
@@ -133,9 +134,9 @@ void main() {
     final (:data, :band) = await _start(tester);
     await tester.tap(find.text("I'm ready — start"));
     await tester.pump();
-    await _play(tester, 3.9 + 5.3, (_) => 2, band);
-    await _play(tester, 3 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
-    await _play(tester, 5.8, (_) => 2, band, emg: _squeezeThenRelax);
+    await _play(tester, 2.9 + 3.3, (_) => 2, band);
+    await _play(tester, 1 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
+    await _play(tester, 3.8, (_) => 2, band, emg: _squeezeThenRelax);
     expect(find.text('Now squeeze about half as hard'), findsOneWidget);
 
     for (var attempt = 1; attempt <= 3; attempt++) {
@@ -146,13 +147,13 @@ void main() {
       await tester.tap(find.text('Try the muscle step again'));
       await tester.pump();
       expect(band.sent.last, ArmBandCommand.startMvcCalibration, reason: 'each retry restarts the squeeze window');
-      await _play(tester, 5.8, (_) => 2, band, emg: _squeezeThenRelax);
+      await _play(tester, 3.8, (_) => 2, band, emg: _squeezeThenRelax);
     }
 
     await _play(tester, 1.0, (_) => 2, band, emg: (_) => 60); // finally it responds
     expect(find.text('Calibration complete'), findsOneWidget);
     expect(data.baseline, isNotNull);
-  });
+  }, skip: !CalibrationStep.includeMuscleStep); // the EMG step is switched off for now
 
   testWidgets('if the band cannot be reached, it says so and nothing is recorded', (tester) async {
     final (:data, :band) = await _start(tester);
@@ -168,15 +169,15 @@ void main() {
     final (:data, :band) = await _start(tester);
     await tester.tap(find.text("I'm ready — start"));
     await tester.pump();
-    await _play(tester, 3.9 + 5.3, (_) => 2, band);
-    await _play(tester, 3 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
+    await _play(tester, 2.9 + 3.3, (_) => 2, band);
+    await _play(tester, 1 * 2.2, (t) => 2 + _bend(t, 2.0, 80), band);
     await _play(tester, 5.7, (_) => 2, band, emg: (_) => 100); // still squeezing when the check starts
     await _play(tester, 0.5, (_) => 2, band, emg: (_) => 100);
     expect(data.baseline, isNull, reason: 'a muscle that never relaxes has not shown it responds');
     await _play(tester, 0.4, (_) => 2, band, emg: (_) => 3); // relaxes...
     await _play(tester, 0.5, (_) => 2, band, emg: (_) => 60); // ...then squeezes
     expect(find.text('Calibration complete'), findsOneWidget);
-  });
+  }, skip: !CalibrationStep.includeMuscleStep); // the EMG step is switched off for now
 
   testWidgets('redo clears the result, and a redo is saved again', (tester) async {
     final (:data, band: _) = await _start(

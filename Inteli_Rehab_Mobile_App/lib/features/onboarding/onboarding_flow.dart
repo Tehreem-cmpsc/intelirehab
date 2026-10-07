@@ -91,7 +91,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       switch (_index) {
         4 => _data.wearable != null && _data.bandLinked, // the band is compulsory AND must be linked now
         // Calibration is compulsory: the whole sequence, muscle check included.
-        5 => _data.baseline != null && (_data.musclesCalibrated || _data.baselineSaved),
+        5 => _data.baseline != null &&
+            (!CalibrationStep.includeMuscleStep || _data.musclesCalibrated || _data.baselineSaved),
         _ => true,
       };
 

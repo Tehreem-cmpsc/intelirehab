@@ -61,16 +61,34 @@
     renderer = new T.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setClearColor(0x000000, 0);
+    // Colour handling like Blender's viewport: sRGB output and a filmic tone curve, so skin keeps its
+    // highlights and shadows instead of looking flat and washed out.
+    if (T.SRGBColorSpace) renderer.outputColorSpace = T.SRGBColorSpace;
+    if (T.ACESFilmicToneMapping) {
+      renderer.toneMapping = T.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.05;
+    }
     document.body.appendChild(renderer.domElement);
 
     scene = new T.Scene();
     camera = new T.PerspectiveCamera(30, 1, 0.01, 50);
-    scene.add(new T.HemisphereLight(0xffffff, 0x8899aa, 1.1));
-    var sun = new T.DirectionalLight(0xffffff, 1.4);
-    // Lights ride on the camera so the arm is lit from the viewer's side
-    // whatever angle the camera ends up at.
-    sun.position.set(1, 2, 3);
-    camera.add(sun);
+    // Soft studio light from all around (image-based), the main reason the arm reads as a real object.
+    if (T.PMREMGenerator && T.RoomEnvironment) {
+      try {
+        var pmrem = new T.PMREMGenerator(renderer);
+        scene.environment = pmrem.fromScene(new T.RoomEnvironment(), 0.04).texture;
+        pmrem.dispose();
+      } catch (e) { /* the plain lights below still light the arm */ }
+    }
+    scene.add(new T.HemisphereLight(0xffffff, 0x8899aa, scene.environment ? 0.35 : 1.1));
+    // Lights ride on the camera so the arm is lit from the viewer's side whatever angle the camera
+    // ends up at: a warm key light above-front, and a cooler rim light behind to pick out the outline.
+    var key = new T.DirectionalLight(0xfff4e8, scene.environment ? 1.6 : 1.4);
+    key.position.set(1, 2, 3);
+    camera.add(key);
+    var rim = new T.DirectionalLight(0xdfe8ff, 0.8);
+    rim.position.set(-2, 1, -3);
+    camera.add(rim);
     scene.add(camera);
 
     window.addEventListener("resize", resize);
@@ -368,9 +386,9 @@
         .replace("#include <begin_vertex>", "#include <begin_vertex>\nvMuscle = aMuscle;\ntransformed += normalize(objectNormal) * (aMuscle.x * uBicep + aMuscle.y * uTricep) * uBulge;");
       shader.fragmentShader = shader.fragmentShader
         .replace("#include <common>", "#include <common>\nvarying vec2 vMuscle;\nuniform float uBicep;\nuniform float uTricep;\nuniform float uTricepOn;\nuniform vec3 uColorB;\nuniform vec3 uColorT;")
-        .replace("#include <color_fragment>", "#include <color_fragment>\nfloat mwB = clamp(vMuscle.x * (0.4 + 0.6 * uBicep), 0.0, 1.0);\nfloat mwT = clamp(vMuscle.y * uTricepOn * (0.4 + 0.6 * uTricep), 0.0, 1.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uColorB, mwB * 0.9);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uColorT, mwT * 0.9);")
+        .replace("#include <color_fragment>", "#include <color_fragment>\nfloat mwB = clamp(vMuscle.x * uBicep * 1.6, 0.0, 1.0);\nfloat mwT = clamp(vMuscle.y * uTricepOn * uTricep * 1.6, 0.0, 1.0);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uColorB, mwB * 0.75);\ndiffuseColor.rgb = mix(diffuseColor.rgb, uColorT, mwT * 0.75);")
         // A glow on top, so the colour reads whatever the lighting does to the skin.
-        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += uColorB * mwB * 0.5 + uColorT * mwT * 0.5;");
+        .replace("#include <emissivemap_fragment>", "#include <emissivemap_fragment>\ntotalEmissiveRadiance += uColorB * mwB * 0.35 + uColorT * mwT * 0.35;");
     };
     mat.needsUpdate = true;
   }
@@ -378,17 +396,37 @@
   // Fit the whole arm in view once; the camera orbits around its centre.
   function computeFraming() {
     var box = new T.Box3().setFromObject(armMesh || model);
+    // Include the whole arm at every bend it can make: the actual skinned surface, measured at several
+    // angles, so a full bend stays in view and the arm is centred on its whole range of movement.
+    if (forearm && restQuat && armMesh && armMesh.isSkinnedMesh) {
+      var a = new T.Vector3(cfg.axis === "x" ? 1 : 0, cfg.axis === "y" ? 1 : 0, cfg.axis === "z" ? 1 : 0);
+      var q = restQuat.clone();
+      var count = armMesh.geometry.getAttribute("position").count;
+      var v = new T.Vector3();
+      [0, 40, 80, 120, 150].forEach(function (deg) {
+        forearm.quaternion.copy(restQuat).multiply(q.setFromAxisAngle(a, cfg.sign * deg * Math.PI / 180));
+        model.updateMatrixWorld(true);
+        armMesh.skeleton.update();
+        for (var i = 0; i < count; i += 2) {
+          armMesh.getVertexPosition(i, v);
+          box.expandByPoint(v.applyMatrix4(armMesh.matrixWorld));
+        }
+      });
+      forearm.quaternion.copy(restQuat);
+      model.updateMatrixWorld(true);
+      armMesh.skeleton.update();
+    }
     var size = box.getSize(new T.Vector3());
     framing = {
       centre: box.getCenter(new T.Vector3()),
-      radius: Math.max(size.x, size.y, size.z) * 0.5,
+      radius: size.length() * 0.5, // the whole bounding sphere, so no part is cut off from any viewing angle
     };
   }
 
   function frameCamera() {
     if (!framing) return;
     var fov = camera.fov * Math.PI / 180;
-    var dist = framing.radius / Math.sin(fov / 2) * 1.7;
+    var dist = framing.radius / Math.sin(fov / 2) * 1.0; // the sphere fits exactly; the arm fills the view
     if (camera.aspect < 1) dist /= camera.aspect; // portrait: width is the limit
     var az = cfg.azimuthDeg * Math.PI / 180;
     camera.position.set(
@@ -414,8 +452,9 @@
 
   function applyTier() {
     if (!skinMat || !skinMat.emissive) return;
-    skinMat.emissive.set(cfg.tierColors[state.tier] || cfg.tierColors.normal);
-    skinMat.emissiveIntensity = state.tier === "normal" ? 0.12 : 0.35;
+    // Natural skin while the movement is fine; a tint only for amber/red.
+    skinMat.emissive.set(state.tier === "normal" ? "#000000" : cfg.tierColors[state.tier]);
+    skinMat.emissiveIntensity = state.tier === "normal" ? 0 : 0.35;
   }
 
   // Colour for an effort level, interpolated along cfg.muscleStops.

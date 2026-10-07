@@ -44,6 +44,10 @@ flutter:
     - assets/models/Arm_L.bin
     - assets/models/Arm_R.gltf
     - assets/models/Arm_R.bin
+    # The arm's skin textures, used by both Arm_L/Arm_R (taken from arm_anatomy.glb, same surface layout).
+    - assets/models/arm_skin_color.jpg
+    - assets/models/arm_skin_normal.png
+    - assets/models/arm_skin_orm.png
     # Digital-twin WebView page + bundled Three.js (see tool/twin_bundle/).
     - assets/twin/
     # One short looping illustration per exercise (exercises.media_url).

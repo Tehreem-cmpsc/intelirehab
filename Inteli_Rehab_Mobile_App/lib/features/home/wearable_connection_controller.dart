@@ -12,7 +12,7 @@ import 'ble/reconnect_backoff.dart';
 enum WearableConnState { connected, calibrating, disconnected, searching }
 
 /// Communication Layer (SDD §3.1.2) — the app-side half of BLE pairing and
-/// connection state, matched against firmware/lib/BLEStreamer.cpp's real
+/// connection state, matched against firmware/lib/ArmEMG_IMU/BLEStreamer.cpp's real
 /// GATT profile via [ArmBandBleService]. "Connected" means an actual BLE
 /// link is up, not just a database row — on app launch, a previously
 /// paired band is automatically searched for and reconnected to, and an

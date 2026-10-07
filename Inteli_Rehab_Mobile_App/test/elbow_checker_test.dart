@@ -151,13 +151,15 @@ void main() {
       }
     }
 
-    /// Feeds a rep only up to the moment it is counted (the arm crossing back below the rest line on
-    /// the way down), leaving the last part of the descent still to come.
-    void playUntilCounted(LiveSession s, List<RepSample> rep) {
+    /// Feeds a rep only up to the moment it ENDS (the arm crossing back below the rest line on the way
+    /// down), leaving the last part of the descent still to come. The rep itself is counted earlier, at
+    /// the top of its hill, but the session only stops - and the model only starts waiting for the
+    /// arm to settle - once the rep is over.
+    void playUntilEnded(LiveSession s, List<RepSample> rep) {
       final before = s.repsCompleted;
       for (final r in rep) {
         feed(s, r.angle);
-        if (s.repsCompleted > before) return;
+        if (s.repsCompleted > before && s.hasPendingCheck) return;
       }
     }
 
@@ -188,7 +190,7 @@ void main() {
     test('the verdict on the final rep still arrives, and the screen is told to wait for it', () {
       final s = session(reps: 1);
       final rep = _rep(peak: 60, seconds: 2.2, restSeconds: 0);
-      playUntilCounted(s, rep); // counted as the arm crosses back below the rest line, not yet judged
+      playUntilEnded(s, rep); // the rep has ended as the arm crosses back below the rest line, not yet judged
       expect(s.repsCompleted, 1);
       expect(s.isRunning, isFalse, reason: 'all reps done');
       expect(s.hasPendingCheck, isTrue, reason: 'the model waits for the arm to finish coming down');
@@ -204,7 +206,7 @@ void main() {
 
     test('ending the session right after a rep still includes that rep\'s verdict', () {
       final s = session();
-      playUntilCounted(s, _rep(peak: 60, seconds: 2.2, restSeconds: 0));
+      playUntilEnded(s, _rep(peak: 60, seconds: 2.2, restSeconds: 0));
       expect(s.hasPendingCheck, isTrue);
       final result = s.buildResult(_exercise); // e.g. "End session" pressed immediately
       expect(result.worstTier, SafetyTier.needsCorrection);

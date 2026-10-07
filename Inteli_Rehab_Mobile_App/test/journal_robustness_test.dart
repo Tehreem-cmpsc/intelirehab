@@ -5,6 +5,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:inteli_rehab_mobile_app/core/platform/device_services.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/exercises_models.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/exercises_repository.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/session_journal.dart';
@@ -61,16 +62,19 @@ class _Repo extends ExercisesRepository {
   }
 }
 
-File get _journalFile => File('${Directory.systemTemp.path}/session_journal.json');
+// This file's own storage folder: test files run in parallel and must not share one journal.
+final _dir = Directory.systemTemp.createTempSync('journal_robustness_');
+File get _journalFile => File('${_dir.path}/session_journal.json');
 
 Future<void> _clean() async {
   if (await _journalFile.exists()) await _journalFile.delete();
-  for (final f in Directory.systemTemp.listSync().whereType<File>()) {
+  for (final f in _dir.listSync().whereType<File>()) {
     if (f.path.contains('session_journal.json.corrupt-')) await f.delete();
   }
 }
 
 void main() {
+  setUpAll(() => DeviceServices.overrideFilesDir(_dir));
   setUp(_clean);
   tearDown(_clean);
 
@@ -79,7 +83,7 @@ void main() {
 
     expect(await SessionJournal.pendingCount('p1'), 0);
 
-    final kept = Directory.systemTemp.listSync().whereType<File>().where((f) => f.path.contains('.corrupt-'));
+    final kept = _dir.listSync().whereType<File>().where((f) => f.path.contains('.corrupt-'));
     expect(kept, hasLength(1), reason: 'the unreadable bytes are kept for recovery');
     expect(await kept.single.readAsString(), '{ this is not json');
 

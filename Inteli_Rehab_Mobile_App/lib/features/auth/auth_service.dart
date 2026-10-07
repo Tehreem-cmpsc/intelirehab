@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/network/supabase_client.dart';
@@ -14,7 +15,16 @@ class AuthService {
     await supabase.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signOut() => supabase.auth.signOut();
+  /// The session is removed on the phone first; only then does Supabase tell the server. Offline,
+  /// that second step fails, but the patient is already signed out here, so the error is ignored
+  /// rather than surfacing as a crash.
+  Future<void> signOut() async {
+    try {
+      await supabase.auth.signOut();
+    } on AuthException catch (e) {
+      debugPrint('Signed out on this phone; the server was not told: ${e.message}');
+    }
+  }
 
   /// Emails a reset link. The link opens the Inteli Rehab web page where the
   /// new password is chosen (the portal handles that for any account).

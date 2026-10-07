@@ -128,6 +128,7 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
         connection: _connection,
         onGoToExercises: _goToExercises,
         refreshSignal: _refresh,
+        isVisible: _index == 0,
       ),
       PlanListScreen(
         patientId: widget.profile.id,

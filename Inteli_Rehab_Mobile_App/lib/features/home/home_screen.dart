@@ -7,6 +7,7 @@ import '../../core/widgets/radial_progress.dart';
 import '../../core/widgets/ui_kit.dart';
 import '../exercises/exercises_repository.dart';
 import '../exercises/session_journal.dart';
+import '../exercises/widgets/warning_banner.dart';
 import 'bluetooth_rationale.dart';
 import 'home_models.dart';
 import 'home_repository.dart';
@@ -27,12 +28,17 @@ class HomeScreen extends StatefulWidget {
   /// session finishes: the dashboard reloads quietly, keeping what's on screen.
   final Listenable? refreshSignal;
 
+  /// Whether Home is the selected tab. The tabs stay alive in an IndexedStack, so the live arm uses
+  /// this (and whether another screen is pushed on top) to stop rendering while it is hidden.
+  final bool isVisible;
+
   const HomeScreen({
     super.key,
     required this.profile,
     required this.connection,
     required this.onGoToExercises,
     this.refreshSignal,
+    this.isVisible = true,
   });
 
   @override
@@ -153,7 +159,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 28),
-                  child: _body(context, snap),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Reloads with the dashboard, so it disappears once a session has cleared the warning.
+                      WarningBanner(key: ValueKey(_loadedAt), patientId: widget.profile.id),
+                      _body(context, snap),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -190,11 +203,18 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
         _TodaysPlanCard(plan: data.plan, onGoToExercises: widget.onGoToExercises),
         const SizedBox(height: 14),
-        DigitalTwinCard(
-          lastSession: data.lastSession,
-          baseline: data.baseline,
-          sessionsThisWeek: data.sessionsThisWeek,
-          currentStreak: data.currentStreak,
+        AnimatedBuilder(
+          animation: widget.connection,
+          builder: (context, _) => DigitalTwinCard(
+            lastSession: data.lastSession,
+            baseline: data.baseline,
+            sessionsThisWeek: data.sessionsThisWeek,
+            currentStreak: data.currentStreak,
+            liveSamples: widget.connection.isConnected ? widget.connection.liveSamples : null,
+            side: widget.profile.armSide,
+            // Hidden behind another tab, or under a pushed screen such as an exercise session.
+            active: widget.isVisible && (ModalRoute.of(context)?.isCurrent ?? true),
+          ),
         ),
         const SizedBox(height: 14),
         AnimatedBuilder(

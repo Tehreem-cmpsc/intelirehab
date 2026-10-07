@@ -100,6 +100,26 @@ class SessionSimulator extends ChangeNotifier implements SessionController {
   bool get hasPendingCheck => false;
   FatigueLevel peakFatigue = FatigueLevel.normal;
 
+  // The stand-in runs a single set; the real sets logic lives in LiveSession.
+  @override
+  int get setsTarget => 1;
+  @override
+  int get repsPerSet => repsTarget;
+  @override
+  int get currentSet => 1;
+  @override
+  int get repsInCurrentSet => repsCompleted;
+  @override
+  bool get isResting => false;
+  @override
+  int get restSeconds => 0;
+  @override
+  void endRest() {}
+  @override
+  void reportPain() => pause();
+  @override
+  bool get fatigueFromSpeedOnly => false;
+
   final List<SessionAlert> alerts = [];
 
   @override

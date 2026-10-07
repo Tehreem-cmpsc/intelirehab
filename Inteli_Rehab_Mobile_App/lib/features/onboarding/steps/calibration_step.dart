@@ -20,8 +20,8 @@ enum _Phase { intro, sensors, neutral, movement, muscle, check, muscleRetry, don
 ///  1. Sensors   - the band re-zeroes its gyros ('g') while the arm hangs still.
 ///  2. Zero pose - the current pose becomes 0 degrees ('z'), held still for a
 ///                 few seconds; that reading is the baseline's starting point.
-///  3. Movement  - three slow bends; the typical furthest reach is the baseline.
-///  4. Muscle    - a 5 s maximum squeeze ('m') makes muscle activation read as
+///  3. Movement  - one slow bend; its furthest reach is the baseline.
+///  4. Muscle    - a 3 s maximum squeeze ('m') makes muscle activation read as
 ///                 %MVC, then a lighter test squeeze confirms it responds.
 ///
 /// The band measures the angle between upper arm and forearm, so this records
@@ -34,16 +34,20 @@ class CalibrationStep extends StatefulWidget {
   const CalibrationStep({super.key, required this.data, required this.onBackToWearable});
 
   /// Movements recorded for the baseline (also saved as sessions.reps).
-  static const reps = 3;
+  static const reps = 1; // kept short on purpose: one slow bend sets the starting range
+
+  /// The EMG (muscle squeeze) part of calibration. Switched off for now: calibration ends after the
+  /// bend. Set back to true to bring the squeeze and its check back; nothing else needs changing.
+  static const includeMuscleStep = false;
 
   @override
   State<CalibrationStep> createState() => _CalibrationStepState();
 }
 
 class _CalibrationStepState extends State<CalibrationStep> {
-  static const _sensorSeconds = 3; // firmware's gyro calibration blocks for ~1-2 s
-  static const _neutralSeconds = 5;
-  static const _mvcSeconds = 5; // firmware's MVC window is 5000 ms
+  static const _sensorSeconds = 2; // firmware's gyro calibration takes ~1.2 s (300 samples x 2 sensors)
+  static const _neutralSeconds = 3;
+  static const _mvcSeconds = 3; // firmware's MVC window is 3000 ms (ArmEMG_IMU.ino, command 'm')
   static const _checkSeconds = 6;
   static const _checkPassPct = 30.0; // %MVC the test squeeze must reach
   static const _checkHoldSamples = 5; // ...for this many samples in a row (~160 ms)
@@ -218,10 +222,10 @@ class _CalibrationStepState extends State<CalibrationStep> {
         }
       case _Phase.movement:
         if (_recorder.complete) {
-          unawaited(_toMuscle());
+          unawaited(_afterMovement());
         } else if (_elapsed >= _movementTimeout) {
           if (_recorder.repsDetected >= 1) {
-            unawaited(_toMuscle()); // a shorter capture is still a usable baseline
+            unawaited(_afterMovement()); // a shorter capture is still a usable baseline
           } else {
             _fail("We didn't detect any movement. Bend your elbow slowly as far as is comfortable, then try again.");
           }
@@ -258,6 +262,15 @@ class _CalibrationStepState extends State<CalibrationStep> {
     _goTo(_Phase.neutral);
   }
 
+  /// Movements are in: go on to the muscle squeeze, or finish here while the EMG step is switched off.
+  Future<void> _afterMovement() async {
+    if (CalibrationStep.includeMuscleStep) {
+      return _toMuscle();
+    }
+    _pending ??= _recorder.result();
+    _finish();
+  }
+
   /// Movements are in; measure the baseline, then start the muscle squeeze.
   Future<void> _toMuscle() async {
     _pending ??= _recorder.result();
@@ -287,7 +300,8 @@ class _CalibrationStepState extends State<CalibrationStep> {
     }
     data.update(() {
       data.baseline = baseline;
-      data.musclesCalibrated = true; // only reached once the test squeeze registered
+      // Only true once the test squeeze registered; with the EMG step off, nothing was calibrated.
+      data.musclesCalibrated = CalibrationStep.includeMuscleStep;
     });
     setState(() => _phase = _Phase.done);
   }
@@ -315,9 +329,8 @@ class _CalibrationStepState extends State<CalibrationStep> {
       data.update(() {}); // bandLinked changed
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e is ArmBandException
-            ? e.message
-            : "Couldn't reconnect to your band. Switch it on and keep it nearby.");
+        setState(() => _error =
+            e is ArmBandException ? e.message : "Couldn't reconnect to your band. Switch it on and keep it nearby.");
       }
     }
     if (mounted) setState(() => _relinking = false);
@@ -365,16 +378,20 @@ class _CalibrationStepState extends State<CalibrationStep> {
               ),
               const SizedBox(height: 16),
               const _PhaseRow(
-                  icon: Icons.chair_outlined, title: 'Sit upright', text: 'Feet flat, back supported, band on your arm.'),
+                  icon: Icons.chair_outlined,
+                  title: 'Sit upright',
+                  text: 'Feet flat, back supported, band on your arm.'),
               const _PhaseRow(
                   icon: Icons.pan_tool_outlined,
                   title: 'Keep still',
                   text: 'Arm hanging straight down and relaxed while the sensors calibrate.'),
-              _PhaseRow(icon: Icons.sync, title: 'Move $_reps times', text: _movement.instruction),
-              const _PhaseRow(
-                  icon: Icons.fitness_center,
-                  title: 'Squeeze your muscle',
-                  text: 'Tense your biceps as hard as you can for 5 seconds, then once more, more gently.'),
+              _PhaseRow(
+                  icon: Icons.sync, title: _reps == 1 ? 'Move once' : 'Move $_reps times', text: _movement.instruction),
+              if (CalibrationStep.includeMuscleStep)
+                const _PhaseRow(
+                    icon: Icons.fitness_center,
+                    title: 'Squeeze your muscle',
+                    text: 'Tense your biceps as hard as you can for 3 seconds, then once more, more gently.'),
             ],
           ),
         ),
@@ -419,7 +436,7 @@ class _CalibrationStepState extends State<CalibrationStep> {
 
   Widget _sensors(BuildContext context) {
     return _LiveCard(
-      label: 'STEP 1 OF 4',
+      label: 'STEP 1 OF ${CalibrationStep.includeMuscleStep ? 4 : 3}',
       title: 'Calibrating your sensors',
       text: 'Let your arm hang straight down, relaxed, and keep it completely still.',
       ring: _countdownRing(context, totalSeconds: _sensorSeconds, color: context.colors.accent),
@@ -428,7 +445,7 @@ class _CalibrationStepState extends State<CalibrationStep> {
 
   Widget _neutral(BuildContext context) {
     return _LiveCard(
-      label: 'STEP 2 OF 4',
+      label: 'STEP 2 OF ${CalibrationStep.includeMuscleStep ? 4 : 3}',
       title: 'Hold still',
       text: 'This is your zero position. Keep your arm relaxed by your side.',
       ring: _countdownRing(context, totalSeconds: _neutralSeconds, color: context.colors.accent),
@@ -450,8 +467,8 @@ class _CalibrationStepState extends State<CalibrationStep> {
     final done = _recorder.repsDetected;
     final rep = (done + 1).clamp(1, _reps);
     return _LiveCard(
-      label: 'STEP 3 OF 4',
-      title: 'Move slowly — $rep of $_reps',
+      label: 'STEP 3 OF ${CalibrationStep.includeMuscleStep ? 4 : 3}',
+      title: _reps == 1 ? 'Move slowly' : 'Move slowly — $rep of $_reps',
       text: m.instruction,
       ring: RadialProgress(
         value: (_liveAngle / 150).clamp(0.0, 1.0),
@@ -607,10 +624,11 @@ class _CalibrationStepState extends State<CalibrationStep> {
               ),
               const SizedBox(height: 14),
               const _CheckLine(ok: true, text: 'Band sensors calibrated'),
-              _CheckLine(
-                ok: data.musclesCalibrated,
-                text: data.musclesCalibrated ? 'Muscle sensor calibrated' : 'Muscle sensor not confirmed',
-              ),
+              if (CalibrationStep.includeMuscleStep)
+                _CheckLine(
+                  ok: data.musclesCalibrated,
+                  text: data.musclesCalibrated ? 'Muscle sensor calibrated' : 'Muscle sensor not confirmed',
+                ),
             ],
           ),
         ),

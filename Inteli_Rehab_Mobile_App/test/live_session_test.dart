@@ -11,6 +11,7 @@ import 'package:inteli_rehab_mobile_app/features/exercises/active_session_screen
 import 'package:inteli_rehab_mobile_app/features/home/wearable_connection_controller.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/exercises_models.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/live_session.dart';
+import 'package:inteli_rehab_mobile_app/features/exercises/processing/emg_processor.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/processing/fatigue_estimator.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/processing/rep_assessor.dart';
 import 'package:inteli_rehab_mobile_app/features/home/ble/arm_band_protocol.dart';
@@ -62,7 +63,89 @@ class _Rig {
 }
 
 void main() {
+  group('motion recording (physiotherapist replay)', () {
+    test('records the movement at ~15 Hz with a marker for every counted rep', () {
+      final r = _Rig();
+      r.rest();
+      for (var i = 0; i < 3; i++) {
+        r.rep(emg: 40);
+      }
+      final m = r.session.buildResult(_exercise).motion!;
+      expect(m.tMs.length, m.angle.length);
+      expect(m.emg.length, m.angle.length);
+      expect(m.sampleRateHz, closeTo(15.6, 0.1));
+      expect(m.angle.reduce(math.max), closeTo(90, 2), reason: 'the peaks are in the recording');
+      expect(m.events.where((e) => e['type'] == 'rep').length, 3);
+      for (var i = 1; i < m.tMs.length; i++) {
+        expect(m.tMs[i], greaterThanOrEqualTo(m.tMs[i - 1]), reason: 'time only moves forward');
+      }
+    });
+
+    test('marks amber/red moments, and survives the offline journal round trip', () {
+      final r = _Rig();
+      r.rest();
+      r.rep(peak: 35); // a "move further" prompt
+      final result = r.session.buildResult(_exercise);
+      final tiers = result.motion!.events.where((e) => e['type'] == 'tier').toList();
+      expect(tiers.first['tier'], 'needsCorrection');
+      expect(tiers.first['message'], contains('more of your range'));
+
+      final back = SessionResult.fromJson(result.toJson()).motion!;
+      expect(back.angle, result.motion!.angle);
+      expect(back.events.length, result.motion!.events.length);
+    });
+  });
+
   group('rep counting', () {
+    test('counts at the top of the hill, before the arm is back down', () {
+      final r = _Rig();
+      r.rest();
+      // Up to 90 degrees...
+      for (var a = 0.0; a <= 90; a += 3) {
+        r.feed(a);
+      }
+      expect(r.session.repsCompleted, 0, reason: 'still on the way up');
+      // ...and a little way back down: past the peak, counted already.
+      for (var a = 87.0; a >= 70; a -= 3) {
+        r.feed(a);
+      }
+      expect(r.session.repsCompleted, 1, reason: 'counted at the peak, not at rest');
+    });
+
+    test('back-to-back hills count without straightening fully in between', () {
+      final r = _Rig();
+      r.rest();
+      for (var a = 0.0; a < 40; a += 3) {
+        r.feed(a); // a smooth start, not a jump (a jump is fast enough to trip the red speed rule)
+      }
+      for (var hill = 0; hill < 3; hill++) {
+        for (var a = 40.0; a <= 90; a += 3) {
+          r.feed(a);
+        }
+        for (var a = 90.0; a >= 40; a -= 3) {
+          r.feed(a); // turns at 40 degrees, never back near rest (the 13.5 degree rest band)
+        }
+      }
+      expect(r.session.repsCompleted, 3);
+    });
+
+    test('wobble at the top of a hill does not count twice', () {
+      final r = _Rig();
+      r.rest();
+      for (var a = 0.0; a <= 90; a += 3) {
+        r.feed(a);
+      }
+      for (var i = 0; i < 20; i++) {
+        r.feed(i.isEven ? 90 : 85); // sensor noise of a few degrees while holding at the top
+      }
+      expect(r.session.repsCompleted, 0, reason: 'a 5 degree dip is not the top of a hill');
+      for (var a = 87.0; a >= 0; a -= 3) {
+        r.feed(a);
+      }
+      r.rest();
+      expect(r.session.repsCompleted, 1);
+    });
+
     test('counts clean reps, no alerts', () {
       final r = _Rig();
       r.rest();
@@ -237,9 +320,11 @@ void main() {
   });
 
   group('FatigueEstimator', () {
+    const learning = FatigueEstimator.warmupReps + FatigueEstimator.baselineReps;
+
     test('stays at zero while it learns the baseline', () {
       final f = FatigueEstimator();
-      for (var i = 0; i < FatigueEstimator.baselineReps; i++) {
+      for (var i = 0; i < learning; i++) {
         expect(f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100), 0);
       }
     });
@@ -254,7 +339,7 @@ void main() {
 
     test('rises when effort goes up and the movement slows', () {
       final f = FatigueEstimator();
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < learning; i++) {
         f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
       }
       for (var i = 0; i < 8; i++) {
@@ -263,20 +348,55 @@ void main() {
       expect(f.score, greaterThan(0.8));
     });
 
-    test('works from speed alone when EMG is uncalibrated', () {
+    test('works from speed alone when EMG is uncalibrated, but never reaches critical on its own', () {
       final f = FatigueEstimator();
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < learning; i++) {
         f.addRep(meanEmgPct: 0, peakSpeedDegPerSec: 100);
       }
-      for (var i = 0; i < 8; i++) {
-        f.addRep(meanEmgPct: 0, peakSpeedDegPerSec: 50);
+      expect(f.speedOnly, isTrue);
+      for (var i = 0; i < 20; i++) {
+        f.addRep(meanEmgPct: 0, peakSpeedDegPerSec: 30);
       }
-      expect(f.score, greaterThan(0.3));
+      expect(f.score, greaterThan(0.65), reason: 'a big slowdown shows as moderate fatigue');
+      expect(f.score, lessThanOrEqualTo(FatigueEstimator.speedOnlyCap));
+      expect(EmgProcessor.levelOf(f.score), isNot(FatigueLevel.critical));
+    });
+
+    test('with a calibrated muscle sensor it is not speed-only', () {
+      final f = FatigueEstimator();
+      for (var i = 0; i < learning; i++) {
+        f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
+      }
+      expect(f.speedOnly, isFalse);
+    });
+
+    test('the first rep is a warm-up and does not set the baseline', () {
+      final f = FatigueEstimator();
+      f.addRep(meanEmgPct: 5, peakSpeedDegPerSec: 20); // a hesitant first rep
+      for (var i = 0; i < FatigueEstimator.baselineReps; i++) {
+        f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
+      }
+      for (var i = 0; i < 6; i++) {
+        f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100); // steady as the real baseline: no fatigue
+      }
+      expect(f.score, 0);
+    });
+
+    test('one odd rep among the baseline reps does not skew it (median)', () {
+      final f = FatigueEstimator();
+      f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100); // warm-up
+      f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
+      f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 400); // a jerk
+      f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
+      for (var i = 0; i < 6; i++) {
+        f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
+      }
+      expect(f.score, 0, reason: 'the baseline speed is 100, not the 200 a mean would give');
     });
 
     test('easeBack lowers a high score so it does not instantly re-trigger', () {
       final f = FatigueEstimator();
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < learning; i++) {
         f.addRep(meanEmgPct: 30, peakSpeedDegPerSec: 100);
       }
       for (var i = 0; i < 10; i++) {

@@ -26,8 +26,10 @@ class SessionSummaryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final corrections = result.alerts.where((a) => a.tier == SafetyTier.needsCorrection).length;
-    final unsafe = result.alerts.where((a) => a.tier == SafetyTier.unsafe).length;
+    final formAlerts = result.alerts.where((a) => !a.pain);
+    final corrections = formAlerts.where((a) => a.tier == SafetyTier.needsCorrection).length;
+    final unsafe = formAlerts.where((a) => a.tier == SafetyTier.unsafe).length;
+    final painReports = result.alerts.where((a) => a.pain).length;
 
     return Scaffold(
       appBar: AppBar(automaticallyImplyLeading: false, title: const Text('Session Summary')),
@@ -63,7 +65,7 @@ class SessionSummaryScreen extends StatelessWidget {
               Expanded(
                 child: StatTile(
                   icon: Icons.repeat,
-                  value: '${result.repsCompleted}/${result.exercise.repsTarget}',
+                  value: '${result.repsCompleted}/${result.repsPlanned ?? result.exercise.repsTarget}',
                   label: 'Reps',
                 ),
               ),
@@ -81,7 +83,7 @@ class SessionSummaryScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (result.alerts.isEmpty)
+                if (formAlerts.isEmpty)
                   _AlertLine(
                       icon: Icons.check_circle_outline,
                       color: c.success,
@@ -102,9 +104,38 @@ class SessionSummaryScreen extends StatelessWidget {
                 ],
                 if (result.peakFatigue == FatigueLevel.critical)
                   _AlertLine(icon: Icons.self_improvement, color: c.accent, text: 'High fatigue — a break was offered'),
+                if (painReports > 0)
+                  _AlertLine(
+                    icon: Icons.healing_outlined,
+                    color: c.alert,
+                    text: 'You reported pain $painReports time${painReports == 1 ? '' : 's'}',
+                  ),
+                if (result.painLevel != null)
+                  _AlertLine(
+                    icon: Icons.sentiment_neutral_outlined,
+                    color: result.painLevel! >= 7 ? c.alert : c.muted,
+                    text: 'Pain rating: ${result.painLevel} out of 10',
+                  ),
+                if (result.endedReason != null)
+                  _AlertLine(
+                    icon: Icons.flag_outlined,
+                    color: c.muted,
+                    text: 'Stopped early: ${result.endedReason!.label.toLowerCase()}',
+                  ),
               ],
             ),
           ),
+          if (result.sets.length > 1) ...[
+            const SizedBox(height: 22),
+            const SectionLabel('Set by set'),
+            AppCard(
+              child: Column(
+                children: [
+                  for (final set in result.sets) _SetRow(set: set, repsPerSet: result.exercise.repsTarget),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
       bottomNavigationBar: BottomActionBar(
@@ -146,6 +177,35 @@ class _AlertLine extends StatelessWidget {
           Icon(icon, size: 18, color: color),
           const SizedBox(width: 10),
           Expanded(child: Text(text, style: TextStyle(fontSize: 13.5, color: context.colors.ink))),
+        ],
+      ),
+    );
+  }
+}
+
+class _SetRow extends StatelessWidget {
+  final SetResult set;
+  final int repsPerSet;
+  const _SetRow({required this.set, required this.repsPerSet});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final prompts = set.corrections + set.unsafe;
+    final detail = [
+      '${set.reps}/$repsPerSet reps',
+      '${set.romPercent}% ROM',
+      prompts == 0 ? 'no prompts' : '$prompts prompt${prompts == 1 ? '' : 's'}',
+      if (set.fatigue != FatigueLevel.normal) '${set.fatigue.name} fatigue',
+    ].join(' · ');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Set ${set.number}', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: c.ink)),
+          const SizedBox(height: 2),
+          Text(detail, style: TextStyle(fontSize: 13, color: c.muted)),
         ],
       ),
     );

@@ -52,7 +52,7 @@ class ArmBandSuperseded extends ArmBandException {
 }
 
 /// The real BLE central for the arm band — Communication Layer (SDD §3.1.2),
-/// matched against firmware/lib/BLEStreamer.cpp's GATT profile
+/// matched against firmware/lib/ArmEMG_IMU/BLEStreamer.cpp's GATT profile
 /// (ArmBandProtocol). One instance manages exactly one connection at a
 /// time, same as the single-band model the rest of the app already
 /// assumes (WearableConnectionController).

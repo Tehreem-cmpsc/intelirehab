@@ -18,6 +18,8 @@ void main() {
       expect(TwinAssetServer.assetKeyFor('/twin/twin.js'), 'assets/twin/twin.js');
       expect(TwinAssetServer.assetKeyFor('/models/Arm_L.gltf'), 'assets/models/Arm_L.gltf');
       expect(TwinAssetServer.assetKeyFor('/models/Arm_R.bin'), 'assets/models/Arm_R.bin');
+      expect(TwinAssetServer.assetKeyFor('/models/arm_skin_color.jpg'), 'assets/models/arm_skin_color.jpg');
+      expect(TwinAssetServer.assetKeyFor('/models/arm_skin_normal.png'), 'assets/models/arm_skin_normal.png');
     });
 
     test('a ../ path is normalised first, so it can only ever reach an allowed file', () {
@@ -72,6 +74,10 @@ void main() {
         final model = await get('/models/Arm_L.gltf');
         expect(model.$1, 200);
         expect(model.$2, 'model/gltf+json');
+
+        final skin = await get('/models/arm_skin_color.jpg');
+        expect(skin.$1, 200);
+        expect(skin.$2, 'image/jpeg');
 
         expect((await get('/models/arm_anatomy.glb')).$1, 404);
         expect((await get('/pubspec.yaml')).$1, 404);

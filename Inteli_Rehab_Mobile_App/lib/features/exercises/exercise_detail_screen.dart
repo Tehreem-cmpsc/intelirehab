@@ -7,7 +7,9 @@ import '../home/bluetooth_rationale.dart';
 import '../home/wearable_connection_controller.dart';
 import 'active_session_screen.dart';
 import 'exercises_models.dart';
+import 'exercises_repository.dart';
 import 'widgets/exercise_media.dart';
+import 'widgets/warning_banner.dart';
 
 /// STATE 2 — pre-start. [Start Exercise] is pinned in the thumb zone
 /// (Rule 21) and disabled with a reason beneath when the wearable isn't
@@ -51,6 +53,8 @@ class ExerciseDetailScreen extends StatelessWidget {
       );
       if (go != true || !context.mounted) return;
     }
+    final setup = await _loadSetup();
+    if (!context.mounted) return;
     await Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => ActiveSessionScreen(
         exercise: exercise,
@@ -58,8 +62,19 @@ class ExerciseDetailScreen extends StatelessWidget {
         connection: connection,
         onViewProgress: onViewProgress,
         armSide: armSide,
+        setup: setup,
       ),
     ));
+  }
+
+  /// The patient's own range and their physiotherapist's limits. Waits only briefly: offline or slow,
+  /// the session starts with the built-in defaults rather than holding the patient up.
+  Future<SessionSetup> _loadSetup() async {
+    try {
+      return await ExercisesRepository().loadSessionSetup(patientId).timeout(const Duration(seconds: 4));
+    } catch (_) {
+      return SessionSetup.defaults;
+    }
   }
 
   Future<void> _reconnect(BuildContext context) async {
@@ -79,6 +94,8 @@ class ExerciseDetailScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
         children: [
+          // A warning from the physiotherapist is the last thing to read before starting.
+          WarningBanner(patientId: patientId),
           Row(
             children: [
               const IconBadge(Icons.accessibility_new, size: 56),

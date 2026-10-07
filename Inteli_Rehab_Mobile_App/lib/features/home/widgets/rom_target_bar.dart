@@ -34,13 +34,16 @@ class RomTargetBar extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('$achieved%',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.ink, height: 1.1)),
-                  Text('ROM achieved', style: TextStyle(fontSize: 12, color: c.muted)),
-                ],
+              // Flexible: at 200% text the number + label column was 4px too wide for the row.
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$achieved%',
+                        style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: c.ink, height: 1.1)),
+                    Text('ROM achieved', style: TextStyle(fontSize: 12, color: c.muted)),
+                  ],
+                ),
               ),
               if (target != null) ...[
                 const SizedBox(width: 12),

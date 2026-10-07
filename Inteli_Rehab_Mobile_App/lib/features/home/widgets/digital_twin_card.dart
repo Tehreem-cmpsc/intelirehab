@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/ui_kit.dart';
+import '../../exercises/exercises_models.dart';
+import '../../twin/live_twin_view.dart';
+import '../ble/arm_band_protocol.dart';
 import '../home_models.dart';
 import 'arm_model_viewer.dart';
 
@@ -32,12 +35,25 @@ class DigitalTwinCard extends StatelessWidget {
   final int sessionsThisWeek;
   final int currentStreak;
 
+  /// The band's live readings. When given (band connected), the card shows the live 3D arm that follows
+  /// the elbow; when null, the static model the patient can rotate.
+  final Stream<ArmBandSample>? liveSamples;
+
+  /// 'left' or 'right', for the live arm model.
+  final String side;
+
+  /// False while Home is not on screen, so the live arm stops rendering (see LiveTwinView.active).
+  final bool active;
+
   const DigitalTwinCard({
     super.key,
     required this.lastSession,
     required this.baseline,
     required this.sessionsThisWeek,
     required this.currentStreak,
+    this.liveSamples,
+    this.side = 'left',
+    this.active = true,
   });
 
   @override
@@ -53,11 +69,29 @@ class DigitalTwinCard extends StatelessWidget {
             children: [
               Expanded(
                   child: Text('Your arm', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: c.ink))),
+              if (liveSamples != null) ...[
+                PillTag('Live', color: c.success),
+                const SizedBox(width: 6),
+              ],
               PillTag(sourceLabel, color: lastSession == null && baseline == null ? c.muted : c.primary),
             ],
           ),
           const SizedBox(height: 14),
-          const ArmModelViewer(),
+          if (liveSamples != null)
+            SizedBox(
+              height: 300,
+              child: Center(
+                child: LiveTwinView(
+                  samples: liveSamples,
+                  fallbackPercent: 0,
+                  tier: SafetyTier.normal,
+                  side: side,
+                  active: active,
+                ),
+              ),
+            )
+          else
+            const ArmModelViewer(),
           const SizedBox(height: 14),
           Column(
             children: [

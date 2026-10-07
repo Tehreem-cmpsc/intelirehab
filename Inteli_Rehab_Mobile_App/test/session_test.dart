@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:inteli_rehab_mobile_app/core/platform/device_services.dart';
 import 'package:inteli_rehab_mobile_app/core/theme/app_theme.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/active_session_screen.dart';
 import 'package:inteli_rehab_mobile_app/features/exercises/exercise_detail_screen.dart';
@@ -60,12 +61,16 @@ class _FakeRepo extends ExercisesRepository {
   }
 }
 
+// This file's own storage folder: test files run in parallel and must not share one journal.
+final _dir = Directory.systemTemp.createTempSync('session_test_');
+
 Future<void> _clearJournal() async {
-  final f = File('${Directory.systemTemp.path}/session_journal.json');
+  final f = File('${_dir.path}/session_journal.json');
   if (await f.exists()) await f.delete();
 }
 
 void main() {
+  setUpAll(() => DeviceServices.overrideFilesDir(_dir));
   group('SessionSimulator', () {
     testWidgets('peakActivation is captured at the same tick as peakAngle', (tester) async {
       final sim = SessionSimulator(repsTarget: 3, romTargetPercent: 80, seed: 2);

@@ -9,7 +9,10 @@ import '../exercises_models.dart';
 /// that's also the one state the Active Session screen auto-pauses on).
 class FatigueMeter extends StatelessWidget {
   final FatigueLevel level;
-  const FatigueMeter({super.key, required this.level});
+
+  /// The estimate rests on movement speed alone (no usable muscle signal), so say so.
+  final bool speedOnly;
+  const FatigueMeter({super.key, required this.level, this.speedOnly = false});
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +39,10 @@ class FatigueMeter extends StatelessWidget {
           ),
         const SizedBox(width: 8),
         Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color)),
+        if (speedOnly) ...[
+          const SizedBox(width: 6),
+          Text('(from speed only)', style: TextStyle(fontSize: 11, color: c.muted)),
+        ],
       ],
     );
   }

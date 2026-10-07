@@ -3,13 +3,13 @@ import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 /// The arm band's real GATT profile — must match
-/// firmware/lib/BLEStreamer.cpp exactly, on both sides, or the phone and
+/// firmware/lib/ArmEMG_IMU/BLEStreamer.cpp exactly, on both sides, or the phone and
 /// the band simply can't find each other. These are this project's own
 /// arbitrary 128-bit UUIDs (not a standard BLE profile).
 class ArmBandProtocol {
   ArmBandProtocol._();
 
-  /// firmware/lib/ArmEMG_IMU.ino's BLE_DEVICE_NAME — the advertised name
+  /// firmware/lib/ArmEMG_IMU/ArmEMG_IMU.ino's BLE_DEVICE_NAME — the advertised name
   /// scan results are filtered to, so an unrelated nearby BLE device never
   /// shows up as a "band".
   static const advertisedName = 'ArmEMG-IMU';
@@ -23,7 +23,7 @@ class ArmBandProtocol {
   static final cmdCharUuid = Guid('a1b2c3d0-0003-4000-8000-00805f9b34fb');
 }
 
-/// firmware/lib/ArmEMG_IMU.ino's handleCommand() — the only three bytes it
+/// firmware/lib/ArmEMG_IMU/ArmEMG_IMU.ino's handleCommand() — the only three bytes it
 /// recognises.
 enum ArmBandCommand {
   /// 'g' — recalibrate gyro bias. Hold the band still.
@@ -33,7 +33,7 @@ enum ArmBandCommand {
   /// extended, hanging relaxed.
   setZeroPose('z'),
 
-  /// 'm' — start a 5 s max-voluntary-contraction window on all 3 EMG
+  /// 'm' — start a 3 s max-voluntary-contraction window on all 3 EMG
   /// channels (contract as hard as possible), so activation afterwards is
   /// reported as %MVC.
   startMvcCalibration('m');

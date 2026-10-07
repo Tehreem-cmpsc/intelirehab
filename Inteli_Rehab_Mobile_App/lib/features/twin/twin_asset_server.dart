@@ -12,7 +12,7 @@ import 'package:flutter/services.dart';
 /// and iOS. The server maps two URL prefixes onto the bundle:
 ///
 ///   /twin/...   -> assets/twin/...      (the page, three_bundle.js, twin.js)
-///   /models/... -> assets/models/...    (only the four arm files below)
+///   /models/... -> assets/models/...    (only the arm files and their skin textures below)
 ///
 /// Loopback only and a fixed allow-list, so nothing else in the bundle is
 /// reachable and nothing leaves the device (Android's network security
@@ -22,7 +22,11 @@ class TwinAssetServer {
   static final TwinAssetServer instance = TwinAssetServer._();
 
   static const _twinFiles = {'index.html', 'three_bundle.js', 'twin.js'};
-  static const _modelFiles = {'Arm_L.gltf', 'Arm_L.bin', 'Arm_R.gltf', 'Arm_R.bin'};
+  static const _modelFiles = {
+    'Arm_L.gltf', 'Arm_L.bin', 'Arm_R.gltf', 'Arm_R.bin',
+    // The arm's skin (colour, surface detail, shading), referenced by both .gltf files.
+    'arm_skin_color.jpg', 'arm_skin_normal.png', 'arm_skin_orm.png',
+  };
 
   HttpServer? _server;
   Future<HttpServer>? _starting;
@@ -81,6 +85,8 @@ class TwinAssetServer {
     if (path.endsWith('.html')) return ContentType('text', 'html', charset: 'utf-8');
     if (path.endsWith('.js')) return ContentType('text', 'javascript', charset: 'utf-8');
     if (path.endsWith('.gltf')) return ContentType('model', 'gltf+json');
+    if (path.endsWith('.jpg')) return ContentType('image', 'jpeg');
+    if (path.endsWith('.png')) return ContentType('image', 'png');
     return ContentType.binary; // .bin
   }
 

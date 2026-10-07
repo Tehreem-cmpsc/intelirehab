@@ -12,7 +12,7 @@ import '../widgets/form_widgets.dart';
 
 enum _BleState { idle, scanning, found, connecting, connected, error }
 
-/// Real BLE pairing, against firmware/lib/BLEStreamer.cpp's GATT profile
+/// Real BLE pairing, against firmware/lib/ArmEMG_IMU/BLEStreamer.cpp's GATT profile
 /// (ArmBandProtocol) — own [ArmBandBleService] instance, since this runs
 /// before a patient is fully registered (WearableConnectionController,
 /// used everywhere after onboarding, doesn't exist yet at this point).

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/platform/device_services.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/ui_kit.dart';
 import '../home/ble/arm_band_protocol.dart';
@@ -15,6 +16,7 @@ import 'exercises_repository.dart';
 import 'session_journal.dart';
 import 'live_session.dart';
 import 'session_controller.dart';
+import 'session_cues.dart';
 import 'session_summary_screen.dart';
 import 'widgets/fatigue_meter.dart';
 import '../twin/live_twin_view.dart';
@@ -43,6 +45,12 @@ class ActiveSessionScreen extends StatefulWidget {
   /// Which arm model the live 3D twin shows ('left' or 'right').
   final String armSide;
 
+  /// The patient's own reference range and their physiotherapist's red limits (see [SessionSetup]).
+  final SessionSetup setup;
+
+  /// Spoken cues. Tests pass their own; the app makes one that talks through the phone.
+  final SessionCues? cues;
+
   /// Builds what drives the session. Defaults to [LiveSession] on the real
   /// band's sensor stream; tests and demos can pass a simulator.
   final SessionController Function(WearableConnectionController connection, AssignedExercise exercise)? sessionFactory;
@@ -54,6 +62,8 @@ class ActiveSessionScreen extends StatefulWidget {
     required this.connection,
     required this.onViewProgress,
     this.armSide = 'left',
+    this.setup = SessionSetup.defaults,
+    this.cues,
     this.sessionFactory,
   });
 
@@ -64,12 +74,17 @@ class ActiveSessionScreen extends StatefulWidget {
 class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsBindingObserver {
   late final SessionController _simulator = (widget.sessionFactory ?? _liveSession)(widget.connection, widget.exercise);
 
-  static SessionController _liveSession(WearableConnectionController connection, AssignedExercise exercise) =>
-      LiveSession(
+  SessionController _liveSession(WearableConnectionController connection, AssignedExercise exercise) => LiveSession(
         repsTarget: exercise.repsTarget,
+        sets: exercise.sets,
         romTargetPercent: exercise.romTarget,
         samples: connection.liveSamples,
+        armSide: widget.armSide,
+        fullRangeDegrees: widget.setup.fullRangeDegrees,
+        limits: widget.setup.limitsFor(widget.setup.fullRangeDegrees),
       );
+
+  late final SessionCues _cues = widget.cues ?? SessionCues();
 
   /// A live session can't start until the patient has set the band's zero
   /// pose - every angle is measured from it. Simulated sessions need no setup.
@@ -83,11 +98,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
   bool _inForeground = true;
   bool _endDialogOpen = false;
   int _lastReps = 0;
+  String? _lastMessage;
+  bool _wasResting = false;
 
   @override
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // The patient is moving their arm, not touching the phone: don't let the screen sleep mid-set.
+    unawaited(DeviceServices.keepScreenOn(true));
+    unawaited(_cues.load());
     WidgetsBinding.instance.addObserver(this);
     _simulator.addListener(_onTick);
     widget.connection.addListener(_onConnectionChanged);
@@ -96,6 +116,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
 
   @override
   void dispose() {
+    unawaited(DeviceServices.keepScreenOn(false));
+    _cues.silence();
+    if (widget.cues == null) _cues.dispose();
     SystemChrome.setPreferredOrientations(const []); // back to the app default
     WidgetsBinding.instance.removeObserver(this);
     _simulator.removeListener(_onTick);
@@ -145,6 +168,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
       widget.connection.isConnected &&
       !_simulator.awaitingUnsafeAck &&
       !_simulator.fatiguePauseOffered &&
+      !_simulator.isResting &&
       _simulator.repsCompleted < _simulator.repsTarget;
 
   /// Resumes after an automatic pause (app backgrounded, band dropped) as
@@ -195,7 +219,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
       _lastReps = _simulator.repsCompleted;
       HapticFeedback.mediumImpact();
       _journal();
+      if (_simulator.repsCompleted < _simulator.repsTarget) _cues.say('${_simulator.repsInCurrentSet}');
     }
+    _speakChanges();
     setState(() {});
 
     if (_simulator.fatiguePauseOffered && !_fatigueDialogShown) {
@@ -208,6 +234,62 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
         !_simulator.hasPendingCheck && // the last rep's verdict arrives a moment after it ends
         _simulator.repsCompleted >= _simulator.repsTarget) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+    }
+  }
+
+  /// Spoken cues for what just changed: a new prompt, or a rest starting. Only on change, so a prompt
+  /// that stays on screen is not read out again and again.
+  void _speakChanges() {
+    final message = _simulator.currentMessage;
+    if (message != _lastMessage) {
+      _lastMessage = message;
+      if (message != null) _cues.say(_simulator.currentTier == SafetyTier.unsafe ? 'Stop. $message' : message);
+    }
+    if (_simulator.isResting != _wasResting) {
+      _wasResting = _simulator.isResting;
+      if (_wasResting) _cues.say('Set ${_simulator.currentSet} done. Rest.');
+    }
+  }
+
+  /// The rest between sets is over (or skipped): carry on the way any other pause does, so a lost
+  /// band or a backgrounded app still holds the next set until it is safe to start.
+  void _endRest() {
+    if (!_simulator.isResting) return;
+    _simulator.endRest();
+    HapticFeedback.mediumImpact();
+    _cues.say('Set ${_simulator.currentSet}. Go.');
+    _pausedForDrop = true;
+    if (!_tryAutoResume('Set ${_simulator.currentSet} of ${_simulator.setsTarget}.') && mounted) setState(() {});
+  }
+
+  /// "This hurts": pauses at once, notes it with the session, and lets the patient choose.
+  Future<void> _onPain() async {
+    if (_finishing || !_ready) return;
+    _resumeOnForeground = false;
+    _pausedForDrop = false;
+    _simulator.reportPain();
+    _journal();
+    _endDialogOpen = true;
+    final action = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        icon: Icon(Icons.healing_outlined, color: context.colors.alert, size: 32),
+        title: const Text('Pain noted'),
+        content: const Text('Your physiotherapist will see this. Stop now, or carry on gently?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(context).pop('end'), child: const Text('End session')),
+          FilledButton(onPressed: () => Navigator.of(context).pop('go'), child: const Text('Carry on')),
+        ],
+      ),
+    );
+    _endDialogOpen = false;
+    if (!mounted) return;
+    if (action == 'end') {
+      _finish();
+    } else {
+      _pausedForDrop = true;
+      if (!_tryAutoResume('Session resumed.')) setState(() {});
     }
   }
 
@@ -271,7 +353,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
     _finishing = true;
     _simulator.pause();
     HapticFeedback.heavyImpact();
-    final result = _simulator.buildResult(widget.exercise);
+    var result = _simulator.buildResult(widget.exercise);
+    final early = result.repsCompleted < _simulator.repsTarget;
+    if (!early) _cues.say('Session complete.');
+    final ending = await showDialog<_Ending>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _HowItWentDialog(early: early),
+    );
+    result = result.withEnding(painLevel: ending?.pain, endedReason: early ? ending?.reason : null);
+    if (!mounted) return;
 
     var queued = false;
     var saveFailed = false;
@@ -342,7 +433,9 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
   Widget build(BuildContext context) {
     final c = context.colors;
     final connected = widget.connection.isConnected;
-    final reps = _simulator.repsCompleted.clamp(0, _simulator.repsTarget);
+    final reps = _simulator.repsInCurrentSet;
+    final repsInSet = _simulator.repsPerSet;
+    final multiSet = _simulator.setsTarget > 1;
 
     return PopScope(
       canPop: false,
@@ -353,6 +446,14 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
         appBar: AppBar(
           title: Text(widget.exercise.name),
           actions: [
+            AnimatedBuilder(
+              animation: _cues,
+              builder: (context, _) => IconButton(
+                tooltip: _cues.enabled ? 'Turn spoken cues off' : 'Turn spoken cues on',
+                icon: Icon(_cues.enabled ? Icons.volume_up_outlined : Icons.volume_off_outlined),
+                onPressed: () => _cues.setEnabled(!_cues.enabled),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.only(right: 12),
               child: Center(child: SessionStateChip(recording: _simulator.isRunning)),
@@ -374,6 +475,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
             ],
             if (!_ready)
               _GetReadyCard(connected: connected, onStart: _setZeroAndStart, onCalibrateMuscles: _calibrateMuscles),
+            if (_ready && _simulator.isResting) ...[
+              _RestCard(
+                key: ValueKey('rest-${_simulator.currentSet}'),
+                seconds: _simulator.restSeconds,
+                finishedSet: _simulator.currentSet,
+                totalSets: _simulator.setsTarget,
+                onDone: _endRest,
+              ),
+              const SizedBox(height: 16),
+            ],
             if (_ready) ...[
               // Largest, most prominent element (Rule 8); announced as it changes.
               Semantics(
@@ -389,9 +500,17 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
               AppCard(
                 child: Column(
                   children: [
+                    if (multiSet) ...[
+                      Text(
+                        'Set ${_simulator.currentSet} of ${_simulator.setsTarget}',
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: c.primary),
+                      ),
+                      const SizedBox(height: 6),
+                    ],
                     Semantics(
                       liveRegion: true,
-                      label: 'Rep $reps of ${_simulator.repsTarget}',
+                      label: '${multiSet ? 'Set ${_simulator.currentSet} of ${_simulator.setsTarget}, ' : ''}'
+                          'rep $reps of $repsInSet',
                       excludeSemantics: true,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -401,7 +520,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
                           Text('Rep ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.muted)),
                           Text('$reps',
                               style: TextStyle(fontSize: 44, fontWeight: FontWeight.w800, color: c.ink, height: 1)),
-                          Text(' of ${_simulator.repsTarget}',
+                          Text(' of $repsInSet',
                               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: c.muted)),
                         ],
                       ),
@@ -410,15 +529,15 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
                     ClipRRect(
                       borderRadius: BorderRadius.circular(6),
                       child: LinearProgressIndicator(
-                        value: _simulator.repsTarget == 0 ? 0 : reps / _simulator.repsTarget,
+                        value: repsInSet == 0 ? 0 : reps / repsInSet,
                         minHeight: 8,
                         backgroundColor: c.border,
                       ),
                     ),
                     const SizedBox(height: 18),
                     SizedBox(
-                      width: 180,
-                      height: 180,
+                      width: 280,
+                      height: 280,
                       child: LiveTwinView(
                         // The raw band stream drives the twin even before the session
                         // starts, so the arm mirrors the patient from the first moment.
@@ -438,7 +557,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
               const SizedBox(height: 14),
               Row(
                 children: [
-                  FatigueMeter(level: _simulator.fatigueLevel),
+                  FatigueMeter(level: _simulator.fatigueLevel, speedOnly: _simulator.fatigueFromSpeedOnly),
                   const Spacer(),
                   Text(_elapsedLabel(_simulator.elapsed), style: TextStyle(fontSize: 12, color: c.muted)),
                 ],
@@ -457,6 +576,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
                 connected &&
                 !_simulator.awaitingUnsafeAck &&
                 !_simulator.fatiguePauseOffered &&
+                !_simulator.isResting &&
                 _simulator.repsCompleted < _simulator.repsTarget)
               FilledButton.icon(
                 onPressed: () {
@@ -466,6 +586,12 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
                 },
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: const Text('Resume'),
+              ),
+            if (_ready && !_finishing)
+              OutlinedButton.icon(
+                onPressed: _onPain,
+                icon: const Icon(Icons.healing_outlined),
+                label: const Text('This hurts'),
               ),
             OutlinedButton.icon(
               onPressed: _finishing ? null : _confirmEndSession,
@@ -541,7 +667,7 @@ class _GetReadyCard extends StatefulWidget {
 
 class _GetReadyCardState extends State<_GetReadyCard> {
   bool _starting = false;
-  int _countdown = 0; // > 0 while the 5 s muscle calibration runs
+  int _countdown = 0; // > 0 while the 3 s muscle calibration runs
   Timer? _timer;
 
   @override
@@ -559,7 +685,7 @@ class _GetReadyCardState extends State<_GetReadyCard> {
   Future<void> _calibrate() async {
     await widget.onCalibrateMuscles();
     if (!mounted) return;
-    setState(() => _countdown = 5);
+    setState(() => _countdown = 3);
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) return t.cancel();
       setState(() => _countdown -= 1);
@@ -591,7 +717,7 @@ class _GetReadyCardState extends State<_GetReadyCard> {
           ),
           const SizedBox(height: 14),
           Text(
-            'Optional: muscle calibration. Squeeze your biceps as hard as you can for 5 seconds so the muscle bar is accurate.',
+            'Optional: muscle calibration. Squeeze your biceps as hard as you can for 3 seconds so the muscle bar is accurate.',
             style: TextStyle(fontSize: 12.5, color: c.muted, height: 1.4),
           ),
           const SizedBox(height: 8),
@@ -601,6 +727,159 @@ class _GetReadyCardState extends State<_GetReadyCard> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Between sets: a countdown and a way to skip it. It ends by itself (and only calls [onDone] once).
+class _RestCard extends StatefulWidget {
+  final int seconds;
+  final int finishedSet;
+  final int totalSets;
+  final VoidCallback onDone;
+  const _RestCard({
+    super.key,
+    required this.seconds,
+    required this.finishedSet,
+    required this.totalSets,
+    required this.onDone,
+  });
+
+  @override
+  State<_RestCard> createState() => _RestCardState();
+}
+
+class _RestCardState extends State<_RestCard> {
+  late int _left = widget.seconds;
+  Timer? _timer;
+  bool _done = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_left <= 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _finish());
+    } else {
+      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
+        if (!mounted) return t.cancel();
+        setState(() => _left -= 1);
+        if (_left <= 0) _finish();
+      });
+    }
+  }
+
+  void _finish() {
+    if (_done) return;
+    _done = true;
+    _timer?.cancel();
+    widget.onDone();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      liveRegion: true,
+      child: AppCard(
+        color: c.primaryTint,
+        child: Column(
+          children: [
+            Text('Set ${widget.finishedSet} of ${widget.totalSets} done',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: c.ink)),
+            const SizedBox(height: 6),
+            Text('Rest', style: TextStyle(fontSize: 14, color: c.muted)),
+            Text('$_left s', style: TextStyle(fontSize: 40, fontWeight: FontWeight.w800, color: c.ink, height: 1.1)),
+            const SizedBox(height: 10),
+            OutlinedButton(onPressed: _finish, child: const Text('Skip rest')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// What the end-of-session question returns.
+class _Ending {
+  final int? pain;
+  final EndedReason? reason;
+  const _Ending({this.pain, this.reason});
+}
+
+/// Asked once, before the session is saved: how much it hurt (0-10), and - if it stopped early - why.
+/// Both are optional; "Skip" saves the session without them.
+class _HowItWentDialog extends StatefulWidget {
+  final bool early;
+  const _HowItWentDialog({required this.early});
+
+  @override
+  State<_HowItWentDialog> createState() => _HowItWentDialogState();
+}
+
+class _HowItWentDialogState extends State<_HowItWentDialog> {
+  double _pain = 0;
+  bool _rated = false;
+  EndedReason? _reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return AlertDialog(
+      title: const Text('How did that feel?'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              _rated ? 'Pain: ${_pain.round()} out of 10' : 'Pain (0 = none, 10 = worst)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink),
+            ),
+            Slider(
+              value: _pain,
+              min: 0,
+              max: 10,
+              divisions: 10,
+              label: '${_pain.round()}',
+              semanticFormatterCallback: (v) => 'Pain ${v.round()} out of 10',
+              onChanged: (v) => setState(() {
+                _pain = v;
+                _rated = true;
+              }),
+            ),
+            if (widget.early) ...[
+              const SizedBox(height: 8),
+              Text('Why did you stop early?',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: c.ink)),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  for (final r in EndedReason.values)
+                    ChoiceChip(
+                      label: Text(r.label),
+                      selected: _reason == r,
+                      onSelected: (on) => setState(() => _reason = on ? r : null),
+                    ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(const _Ending()), child: const Text('Skip')),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_Ending(pain: _rated ? _pain.round() : null, reason: _reason)),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }

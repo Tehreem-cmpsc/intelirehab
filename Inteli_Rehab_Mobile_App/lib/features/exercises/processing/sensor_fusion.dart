@@ -4,7 +4,7 @@ import 'package:flutter/animation.dart';
 ///
 /// On real hardware this combines the wearable's two IMUs (upper arm +
 /// forearm, streamed over BLE by the Communication Layer) into a single
-/// joint angle, the same job firmware/lib/MadgwickAHRS.cpp does on-device
+/// joint angle, the same job firmware/lib/ArmEMG_IMU/MadgwickAHRS.cpp does on-device
 /// for orientation. There's no BLE plugin yet (see WearableConnectionController),
 /// so [angleAtPhase] stands in for that fusion step: it turns "how far
 /// through this rep" into the joint angle a real fusion pipeline would
