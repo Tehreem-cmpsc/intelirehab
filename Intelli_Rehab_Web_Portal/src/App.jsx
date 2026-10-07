@@ -99,6 +99,10 @@ function AppRoutes() {
   // yet), and keep re-fetching so patients who sign up in the mobile app
   // show up without a page refresh.
   const physioUserId = auth.user?.authRole === "physio" ? auth.user.id : null;
+  // The clinic's own at-risk thresholds. A ref, so a change takes effect on the next refresh without
+  // restarting the polling below.
+  const riskSettingsRef = useRef(null);
+  riskSettingsRef.current = auth.clinic?.risk_settings ?? null;
   useEffect(() => {
     if (!physioUserId) {
       setPatients([]);
@@ -111,7 +115,7 @@ function AppRoutes() {
       if (inFlight) return; // never stack requests on a slow connection
       inFlight = true;
       try {
-        const data = await PatientUseCases.getAllPatients();
+        const data = await PatientUseCases.getAllPatients(riskSettingsRef.current);
         if (!mounted) return;
         setPatients(data || []);
         setPatientsError(null);
@@ -132,9 +136,12 @@ function AppRoutes() {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
+    // A session or patient row changed: refresh now rather than at the next 60 s tick.
+    const unsubscribe = PatientUseCases.subscribe(load);
     return () => {
       mounted = false;
       clearInterval(interval);
+      unsubscribe();
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [physioUserId]);

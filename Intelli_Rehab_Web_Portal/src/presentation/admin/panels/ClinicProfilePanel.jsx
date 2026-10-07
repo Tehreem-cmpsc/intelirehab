@@ -2,9 +2,102 @@ import React, { useState, useEffect } from "react";
 import { Building2, MapPin, Phone, Mail, User, Loader2, Save, Check } from "lucide-react";
 import SectionHeading from "../components/SectionHeading";
 import useClinicProfile from "../../../domain/admin/useClinicProfile";
+import useRiskSettings from "../../../domain/admin/useRiskSettings";
+import { DEFAULT_RISK_SETTINGS, RISK_SETTING_FIELDS } from "../../../domain/physio/utils/riskAssessment";
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const phonePattern = /^\+?\d{10,15}$/;
+
+// The clinic's own rules for who counts as "at risk" (shown to every physiotherapist at the clinic).
+function RiskRulesForm({ clinic, onClinicUpdated }) {
+  const { settings, saving, save, validate } = useRiskSettings(clinic);
+  const [draft, setDraft] = useState(settings);
+  const [errors, setErrors] = useState({});
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const found = validate(draft);
+    setErrors(found);
+    if (Object.keys(found).length > 0) return;
+    setSaveError("");
+    try {
+      const updated = await save(draft);
+      onClinicUpdated?.(updated);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
+    } catch (err) {
+      setSaveError(err.message || "Unable to save the at-risk rules.");
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="cp-card rounded-2xl p-6 max-w-lg space-y-4 text-[var(--ink)] mt-6">
+      <div>
+        <div className="text-[15px] font-bold">At-risk rules</div>
+        <div className="text-[13px] text-[var(--muted)] mt-1">
+          A patient is listed as at risk when their sessions cross one of these. Physiotherapists see the change on
+          their next refresh.
+        </div>
+      </div>
+      {RISK_SETTING_FIELDS.map((f) => (
+        <div key={f.key}>
+          <label className="block text-[13px] font-semibold mb-1.5 text-[var(--ink)]">
+            {f.label} <span className="font-normal text-[var(--muted)]">(default {DEFAULT_RISK_SETTINGS[f.key]})</span>
+          </label>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={f.min}
+            max={f.max}
+            value={draft[f.key]}
+            onChange={(e) => {
+              setDraft({ ...draft, [f.key]: e.target.value });
+              if (errors[f.key]) setErrors({ ...errors, [f.key]: undefined });
+            }}
+            className="cp-input cp-focus w-full rounded-lg px-3 py-2.5 text-[14px]"
+            style={errors[f.key] ? { borderColor: "var(--alert)" } : undefined}
+          />
+          {errors[f.key] && <div className="text-[13px] text-[var(--alert)] mt-2">{errors[f.key]}</div>}
+        </div>
+      ))}
+      {saveError && <div className="text-[13px] text-[var(--alert)]">{saveError}</div>}
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          type="submit"
+          disabled={saving}
+          className="cp-btn-primary cp-focus rounded-lg px-5 py-2.5 text-[13.5px] flex items-center gap-1.5 cursor-pointer"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={15} className="animate-spin" /> Saving…
+            </>
+          ) : (
+            <>
+              <Save size={14} /> Save rules
+            </>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setDraft({ ...DEFAULT_RISK_SETTINGS });
+            setErrors({});
+          }}
+          className="cp-focus rounded-lg px-3 py-2.5 text-[13px] text-[var(--muted)] cursor-pointer"
+        >
+          Reset to defaults
+        </button>
+        {saved && (
+          <span className="text-[var(--success)] text-[13px] font-semibold flex items-center gap-1 cp-fade-in">
+            <Check size={14} /> Saved
+          </span>
+        )}
+      </div>
+    </form>
+  );
+}
 
 export default function ClinicProfilePanel({ clinic, onClinicUpdated, user, onSaveName }) {
   const { profile, saving, save } = useClinicProfile(clinic);
@@ -138,6 +231,7 @@ export default function ClinicProfilePanel({ clinic, onClinicUpdated, user, onSa
           )}
         </div>
       </form>
+      <RiskRulesForm clinic={clinic} onClinicUpdated={onClinicUpdated} />
     </div>
   );
 }

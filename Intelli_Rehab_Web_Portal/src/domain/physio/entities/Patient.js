@@ -9,6 +9,8 @@ export class Patient {
     streak,
     status,
     riskReasons,
+    riskSeverity,
+    warningSentAt,
     wearable,
     approved,
     warning,
@@ -22,6 +24,7 @@ export class Patient {
     noRecentSessions,
     wearableLive,
     wearableLastSeen,
+    safetyLimits,
   }) {
     this.id = id;
     this.name = name;
@@ -32,6 +35,8 @@ export class Patient {
     this.streak = streak;
     this.status = status; // 'active', 'recovered', 'at-risk'
     this.riskReasons = riskReasons || []; // why the portal flagged them (see riskAssessment.js)
+    this.riskSeverity = riskSeverity || 0; // 0-3, the worst reason's severity (see riskAssessment.js)
+    this.warningSentAt = warningSentAt ? new Date(warningSentAt) : null; // when the current warning was sent
     this.wearable = wearable;
     this.approved = approved;
     this.warning = warning;
@@ -48,6 +53,8 @@ export class Patient {
     this.noRecentSessions = Boolean(noRecentSessions);
     // `wearable` means "a band has been paired"; these say whether it is
     // connected right now (WearablePresenceUseCases), merged in by App.
+    // Red "stop" limits this patient's physiotherapist set; null values mean the app's built-in default.
+    this.safetyLimits = safetyLimits || { maxAngleDeg: null, maxSpeedDegPerSec: null };
     this.wearableLive = Boolean(wearableLive);
     this.wearableLastSeen = wearableLastSeen || null;
   }

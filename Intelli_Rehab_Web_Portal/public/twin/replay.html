@@ -1,0 +1,23 @@
+<!doctype html>
+<!--
+  The portal's 3D replay of a patient's session: the same scene the mobile app shows live
+  (twin.js + Three.js + the arm models in /models/), loaded in an iframe on the patient page and
+  driven by the portal through window.twin (setElbow / setEmg / setTier).
+
+  The files here are copies of Inteli_Rehab_Mobile_App/assets/twin/ and assets/models/. If the app's
+  scene or models change, copy them again so the replay matches what the patient saw.
+
+  No inline script: the portal's Content-Security-Policy only allows its own script files.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Session replay</title>
+  <link rel="stylesheet" href="replay.css">
+</head>
+<body>
+  <script src="three_bundle.js"></script>
+  <script src="twin.js"></script>
+</body>
+</html>

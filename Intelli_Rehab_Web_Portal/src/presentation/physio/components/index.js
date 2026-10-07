@@ -5,6 +5,9 @@ import RomBar from "./RomBar";
 import Logo from "./Logo";
 import LogoFull from "./LogoFull";
 import PatientDetails from "./PatientDetails";
+import SafetyLimitsCard from "./SafetyLimitsCard";
+import SessionSets, { SessionFeeling } from "./SessionSets";
+import WarnedPatients, { SeenBadge } from "./WarnedPatients";
 import { chosenPhysioLabel } from "../../../domain/physio/utils/patientLabels";
 import { THEME } from "../../../infrastructure/physio/constants";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
@@ -17,6 +20,11 @@ export {
   Logo,
   LogoFull,
   PatientDetails,
+  SafetyLimitsCard,
+  SessionSets,
+  SessionFeeling,
+  WarnedPatients,
+  SeenBadge,
   chosenPhysioLabel,
   THEME,
   VisualizationService,

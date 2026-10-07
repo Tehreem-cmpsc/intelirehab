@@ -1,11 +1,29 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "oxc"],
-  "env": { "browser": true, "es2022": true, "node": true },
-  "globals": { "Deno": "readonly" },
+  "plugins": [
+    "react",
+    "oxc"
+  ],
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true
+  },
+  "globals": {
+    "Deno": "readonly"
+  },
   "rules": {
     "react/rules-of-hooks": "error",
     "no-undef": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
+    "react/only-export-components": [
+      "warn",
+      {
+        "allowConstantExport": true
+      }
+    ]
+  },
+  "ignorePatterns": [
+    "public/twin/**",
+    "dist/**"
+  ]
 }

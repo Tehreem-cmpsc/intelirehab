@@ -6,12 +6,15 @@
 export function formatSessionForUi(row) {
   const performedAt = new Date(row.performed_at);
   return {
+    id: row.id, // for loading this session's movement replay
     date: performedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
     rom: row.rom ?? 0,
     quality: row.quality ?? 0,
     fatigue: row.fatigue ?? 0,
     reps: row.reps ?? 0,
     exercise: row.exercises?.name ?? "—",
+    painLevel: row.pain_level ?? null, // the patient's own 0-10 rating, when they gave one
+    endedReason: row.ended_reason ?? null, // why a session stopped early: pain, tired, band_problem, other
     performedAt,
   };
 }

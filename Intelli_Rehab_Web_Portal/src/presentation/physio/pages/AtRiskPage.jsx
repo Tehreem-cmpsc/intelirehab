@@ -9,13 +9,21 @@ import {
   Tooltip,
 } from "recharts";
 import { THEME } from "../../../infrastructure/physio/constants";
-import { SectionHead, Card } from "../components";
+import { SectionHead, Card, WarnedPatients, SeenBadge } from "../components";
 import useToast from "../../useToast";
 import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
+
+// One tap to fill the warning box. The physio can still edit the text before sending.
+const WARNING_TEMPLATES = [
+  "Please reduce the intensity and move more slowly.",
+  "Please rest today and stop if you feel pain.",
+  "Please keep your movements within a comfortable range.",
+  "Please contact me before your next session.",
+];
 
 // Each at-risk card fetches its own patient's EMG independently — there's
 // no bulk "EMG for every at-risk patient" query, and most clinics won't
@@ -75,14 +83,46 @@ function EmgIndicators({ patientId }) {
 
 function AtRiskPage({ patients, setPatients }) {
   const [warnInputs, setWarnInputs] = useState({});
-  const atRisk = patients.filter((p) => p.status === "at-risk");
+  // Worst first: unsafe movement and high pain before a falling ROM or a quiet patient, then lowest ROM.
+  const atRisk = patients
+    .filter((p) => p.status === "at-risk")
+    .sort((a, b) => b.riskSeverity - a.riskSeverity || a.rom - b.rom);
+  // Warned and no longer on the list: waiting for their next session.
+  const warned = patients.filter((p) => p.approved && p.warning && p.status !== "at-risk");
+  // Whether each warned patient has tapped "Got it" in their app. Reloaded when the set of open warnings changes.
+  const [receipts, setReceipts] = useState(() => new Map());
+  const openWarningsKey = patients
+    .filter((p) => p.warning)
+    .map((p) => `${p.id}:${p.warning}`)
+    .join("|");
+  useEffect(() => {
+    let cancelled = false;
+    PatientUseCases.getOpenWarningReceipts()
+      .then((map) => {
+        if (!cancelled) setReceipts(map);
+      })
+      .catch(() => {
+        if (!cancelled) setReceipts(new Map());
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openWarningsKey]);
   const isMobile = useIsMobile();
   const { toastNode, showToast } = useToast();
 
 
   const saveWarning = async (id, message) => {
     await PatientUseCases.setWarning(id, message);
-    setPatients((prev) => prev.map((x) => (x.id === id ? x.with({ warning: message }) : x)));
+    // Sending a warning takes the patient off this list (they come back only if sessions done after it
+    // show a new problem); the portal's next refresh works the same out from patients.risk_reviewed_at.
+    setPatients((prev) =>
+      prev.map((x) =>
+        x.id !== id
+          ? x
+          : x.with(message ? { warning: message, status: x.status === "at-risk" ? "active" : x.status, riskReasons: [] } : { warning: message })
+      )
+    );
   };
 
   const sendWarning = async (id) => {
@@ -92,7 +132,7 @@ function AtRiskPage({ patients, setPatients }) {
     try {
       await saveWarning(id, msg);
       setWarnInputs((prev) => ({ ...prev, [id]: "" }));
-      showToast(`Warning sent to ${p.name}`);
+      showToast(`Warning sent to ${p.name}. They're off the At Risk list; the warning is on their patient page.`);
     } catch (err) {
       showToast(err.message || "Couldn't send the warning. Try again.", { error: true });
     }
@@ -238,6 +278,8 @@ function AtRiskPage({ patients, setPatients }) {
                   >
                     <span style={{ fontSize: 13, color: THEME.amberDim, fontWeight: 600 }}>
                       Active warning: {p.warning}
+                      <span style={{ fontWeight: 400 }}> (clears after the patient's next session)</span>{" "}
+                      <SeenBadge readAt={receipts.get(p.id)} />
                     </span>
                     <button
                       onClick={() => clearWarning(p.id)}
@@ -256,6 +298,26 @@ function AtRiskPage({ patients, setPatients }) {
                 )}
 
                 {/* Warning input */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                  {WARNING_TEMPLATES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setWarnInputs((prev) => ({ ...prev, [p.id]: t }))}
+                      style={{
+                        fontSize: 12,
+                        padding: "5px 10px",
+                        borderRadius: 999,
+                        border: `1px solid ${THEME.slate200}`,
+                        background: THEME.slate50,
+                        color: THEME.slate600,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
                   <input
                     placeholder="Send a warning to patient (e.g. 'Please reduce intensity…')"
@@ -299,6 +361,8 @@ function AtRiskPage({ patients, setPatients }) {
           ))}
         </div>
       )}
+
+      <WarnedPatients patients={warned} receipts={receipts} onClear={clearWarning} isMobile={isMobile} />
     </div>
   );
 }

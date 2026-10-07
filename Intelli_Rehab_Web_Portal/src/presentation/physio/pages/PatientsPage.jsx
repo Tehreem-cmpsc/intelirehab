@@ -9,11 +9,13 @@ import {
   Area,
 } from "recharts";
 import { THEME } from "../../../infrastructure/physio/constants";
-import { Card, SectionHead, RomBar, Badge, PatientDetails } from "../components";
+import { Card, SectionHead, RomBar, Badge, PatientDetails, SafetyLimitsCard, SessionSets, SessionFeeling, SeenBadge } from "../components";
 import WearableStatus from "../components/WearableStatus";
+import SessionReplay from "../components/SessionReplay";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import ExercisePlanUseCases from "../../../domain/physio/usecases/ExercisePlanUseCases";
+import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
 import useIsMobile from "../../useIsMobile";
@@ -318,6 +320,9 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
 
 function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) {
   const [showAssign, setShowAssign] = useState(false);
+  const [replaySession, setReplaySession] = useState(null); // a session row being replayed
+  const [openSetsId, setOpenSetsId] = useState(null); // the session whose set-by-set rows are showing
+  const [warningHistory, setWarningHistory] = useState([]);
   const { toastNode, showToast } = useToast();
   const [loadError, setLoadError] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -395,6 +400,31 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
   }, [selectedId, reloadKey]);
 
 
+  // Past warnings and what ended them. Reloaded when the current warning changes (sent, cleared by the
+  // physio, or erased by the patient's next session) so the history keeps up. It is only a record:
+  // if it can't load, the page simply shows none.
+  const currentWarning = selected?.warning ?? null;
+  useEffect(() => {
+    setOpenSetsId(null);
+  }, [selectedId]);
+  useEffect(() => {
+    if (!selectedId) {
+      setWarningHistory([]);
+      return;
+    }
+    let cancelled = false;
+    PatientUseCases.getWarningHistory(selectedId)
+      .then((history) => {
+        if (!cancelled) setWarningHistory(history);
+      })
+      .catch(() => {
+        if (!cancelled) setWarningHistory([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedId, currentWarning, reloadKey]);
+
   const handleAssign = async ({ planName, exercises }) => {
     setAssignSaving(true);
     setAssignError(null);
@@ -425,6 +455,9 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
   return (
     <div style={{ padding: pagePadding(isMobile), position: "relative" }}>
       {toastNode}
+      {replaySession && selected && (
+        <SessionReplay session={replaySession} patientName={selected.name} onClose={() => setReplaySession(null)} />
+      )}
       <ErrorNotice message={loadError} onRetry={() => setReloadKey((k) => k + 1)} />
       {showAssign && selected && (
         <AssignExerciseModal
@@ -659,6 +692,29 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
                   <span style={{ fontSize: 13, color: THEME.amberDim, fontWeight: 600 }}>
                     {selected.warning}
                   </span>
+                  <SeenBadge readAt={warningHistory.find((w) => !w.clearedAt)?.readAt} />
+                </div>
+              )}
+              {warningHistory.some((w) => w.clearedAt) && (
+                <div style={{ marginTop: 12, display: "grid", gap: 4 }}>
+                  {warningHistory
+                    .filter((w) => w.clearedAt)
+                    .slice(0, 3)
+                    .map((w) => (
+                      <div key={w.id} style={{ fontSize: 12, color: THEME.slate500, lineHeight: 1.45 }}>
+                        <span style={{ fontWeight: 600 }}>
+                          Warning of {w.sentAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                        {`: "${w.message}" - `}
+                        {w.clearedBy === "session" && w.clearedSession
+                          ? `ended by their session on ${w.clearedSession.performedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })}${w.clearedSession.exercise ? ` (${w.clearedSession.exercise})` : ""}`
+                          : w.clearedBy === "physio"
+                            ? "cleared by you"
+                            : w.clearedBy === "replaced"
+                              ? "replaced by a newer warning"
+                              : "ended"}
+                      </div>
+                    ))}
                 </div>
               )}
             </Card>
@@ -669,6 +725,8 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
               </div>
               <PatientDetails patient={selected} currentPhysioId={currentPhysioId} />
             </Card>
+
+            <SafetyLimitsCard key={selected.id} patient={selected} showToast={showToast} isMobile={isMobile} />
 
             {/* ROM + EMG charts */}
             <div
@@ -941,11 +999,59 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
                         style={{
                           fontSize: 12,
                           color: THEME.slate500,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 8,
                           ...(isMobile && { gridColumn: "1 / -1" }),
                         }}
                       >
-                        {s.exercise} × {s.reps}
+                        <span>
+                          {s.exercise} × {s.reps}
+                        </span>
+                        {s.id && (
+                          <button
+                            onClick={() => setReplaySession(s)}
+                            title="Replay this session's movement"
+                            style={{
+                              border: `1px solid ${THEME.slate200}`,
+                              background: THEME.tealLight,
+                              color: THEME.tealDim,
+                              borderRadius: 8,
+                              padding: "4px 10px",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                              flexShrink: 0,
+                            }}
+                          >
+                            Replay
+                          </button>
+                        )}
                       </div>
+                      {s.id && (
+                        <div style={{ gridColumn: "1 / -1", display: "grid", gap: 8 }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                            <SessionFeeling session={s} />
+                            <button
+                              onClick={() => setOpenSetsId((id) => (id === s.id ? null : s.id))}
+                              aria-expanded={openSetsId === s.id}
+                              style={{
+                                border: "none",
+                                background: "none",
+                                color: THEME.tealDim,
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                                padding: 0,
+                              }}
+                            >
+                              {openSetsId === s.id ? "Hide sets" : "Show sets"}
+                            </button>
+                          </div>
+                          {openSetsId === s.id && <SessionSets sessionId={s.id} />}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </>
