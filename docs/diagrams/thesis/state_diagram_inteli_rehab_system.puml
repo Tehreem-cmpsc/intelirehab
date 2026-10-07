@@ -1,0 +1,73 @@
+@startuml state_diagram_inteli_rehab_system
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam linetype polyline
+skinparam dpi 200
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowFontSize 11
+skinparam ArrowThickness 1.2
+skinparam nodesep 60
+skinparam ranksep 50
+skinparam roundCorner 18
+skinparam state {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+  ArrowColor Black
+  StartColor Black
+  EndColor Black
+}
+hide empty description
+
+state "Booting" as Booting
+state "Sensors Initialising" as Init
+state "BLE Advertising" as Adv
+state "Phone Connected" as Idle
+state "App Command Mode" as AppCmd
+state "Serial Command Mode" as SerialCmd
+state "Command Selected" as Selected
+state "Calibrating Pose" as Pose
+state "Measuring MVC" as Mvc
+state "Streaming Live Data" as Streaming
+state "Saving Session" as Saving
+state "Showing Summary" as Summary
+state "Syncing Supabase" as Syncing
+state "Error" as Error
+
+[*] --> Booting : powerOn()
+Booting --> Init : bootComplete()
+Init --> Adv : sensorsReady()
+Adv --> Idle : phoneConnected()
+
+Idle --> AppCmd : appCommand()
+Idle --> SerialCmd : serialCommand()
+Idle --> Streaming : sessionStarted()
+
+AppCmd --> Selected : commandSelected()
+SerialCmd --> Selected : commandSelected()
+
+Selected --> Pose : poseCalibrationStarted()
+Selected --> Mvc : mvcStarted()
+
+Pose --> Streaming : calibrationCompleted()
+Mvc --> Streaming : mvcCompleted()
+
+Streaming --> Saving : sessionEnded()
+Saving --> Summary : sessionSaved()
+Summary --> Syncing : summaryShown()
+Syncing --> Idle : supabaseSynced()
+
+Init --> Error : sensorFault()
+Adv --> Error : bluetoothFault()
+Pose --> Error : sensorFault()
+Mvc --> Error : sensorFault()
+Streaming --> Error : bandDisconnected()
+Saving --> Error : saveFailed()
+Syncing --> Error : connectionLost()
+
+Error --> Init : retry()
+Error --> Adv : reconnect()
+Error --> Idle : recovered()
+@enduml

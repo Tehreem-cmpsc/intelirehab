@@ -1,0 +1,133 @@
+@startuml package_diagram_inteli_rehab
+skinparam monochrome true
+skinparam shadowing false
+skinparam backgroundColor white
+skinparam linetype ortho
+skinparam dpi 200
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam ArrowFontSize 11
+skinparam nodesep 100
+skinparam ranksep 80
+skinparam defaultTextAlignment center
+skinparam folder {
+  BackgroundColor White
+  BorderColor Black
+  FontColor Black
+}
+skinparam ArrowColor Black
+
+folder Mobile [
+**Mobile Application Package**
+
+Login / Sign-up Interface
+Onboarding & Calibration Interface
+Home Dashboard Interface
+Exercise Session Interface
+Progress / Profile Interface
+]
+
+folder Supabase [
+**Supabase Service Package**
+
+Authentication Service
+Postgres Database
+Row Level Security Policies
+RPC Functions
+Edge Functions
+Realtime Presence
+]
+
+folder DataModel [
+**Data Model Package**
+
+Patient
+ExercisePlan
+Session
+MovementAnalysis
+Alert
+WearableDevice
+BaselineReading
+]
+
+folder Portal [
+**Web Portal Package**
+
+Clinic Admin Interface
+Physiotherapist Interface
+Approvals / At Risk Pages
+Exercise Plan Assignment
+Patient Monitoring
+]
+
+folder Processing [
+**Processing & AI Package**
+
+Rep Counter (LiveSession)
+Elbow Autoencoder
+Safety Monitor
+Fatigue Estimator
+]
+
+folder Twin [
+**Digital Twin Package**
+
+LiveTwinView
+TwinBridge
+Twin Asset Server
+Three.js Arm Scene
+]
+
+folder Storage [
+**Local Storage Package**
+
+Session Journal
+In-Progress Session
+Pending Upload Queue
+Failed Sessions
+]
+
+folder Firmware [
+**ESP32 Firmware Package**
+
+MPU6500 Driver
+Madgwick Sensor Fusion
+EMG Processor
+BLE Streamer
+Command Handler
+]
+
+folder Hardware [
+**Sensor Hardware**
+
+2 x MPU6500 IMU
+EMG Electrodes
+Status LED
+]
+
+
+folder Pipeline [
+**AI Training Pipeline Package**
+
+Training Notebook
+Export to App
+Golden Test Vectors
+Armband Recording Tools
+]
+
+' top row (left to right)
+Mobile .right.> Supabase : uses
+Supabase .right.> DataModel : stores / retrieves
+Portal .left.> DataModel : uses models
+Portal .up.> Supabase : uses
+
+' the band
+Mobile <.down.> Firmware : BLE data / commands
+Firmware .down.> Hardware : reads
+
+' inside the phone
+Mobile .down.> Storage : saves offline
+Mobile .down.> Processing : uses
+Mobile .down.> Twin : uses
+Pipeline .left.> Processing : exports model
+@enduml
