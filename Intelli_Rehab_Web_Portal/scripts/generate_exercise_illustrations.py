@@ -6,7 +6,7 @@ data/exercises.csv, plus the SQL that attaches them to the exercises table.
 Writes:
   public/exercises/<slug>.webp                      (served by the web portal)
   ../Inteli_Rehab_Mobile_App/assets/exercises/...   (bundled in the app, offline)
-  supabase_exercise_media.sql                       (adds + fills exercises.media_url)
+  scripts/supabase_exercise_media.sql               (adds + fills exercises.media_url)
 
 These are simple, schematic figures - NOT clinical demonstrations. They show
 the direction and region of each movement, with the target muscle in amber.
@@ -29,7 +29,7 @@ ROOT = os.path.dirname(HERE)  # Intelli_Rehab_Web_Portal
 CSV_PATH = os.path.join(ROOT, "data", "exercises.csv")
 OUT_WEB = os.path.join(ROOT, "public", "exercises")
 OUT_APP = os.path.join(os.path.dirname(ROOT), "Inteli_Rehab_Mobile_App", "assets", "exercises")
-SQL_PATH = os.path.join(ROOT, "supabase_exercise_media.sql")
+SQL_PATH = os.path.join(HERE, "supabase_exercise_media.sql")
 
 W = 256          # logical canvas
 S = 3            # supersampling

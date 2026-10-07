@@ -35,7 +35,7 @@ patient resumes where they left off next time.
 ### Database migrations this needs
 
 Run in the Supabase SQL editor, in this order (all idempotent), from
-`Intelli_Rehab_Web_Portal/`:
+`Intelli_Rehab_Web_Portal/scripts/`:
 
 1. `supabase_patient_onboarding.sql`
 2. `supabase_patient_onboarding_v2.sql`
