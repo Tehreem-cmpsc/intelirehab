@@ -12,6 +12,7 @@ import 'change_password_screen.dart';
 import 'edit_personal_info_screen.dart';
 import 'profile_models.dart';
 import 'profile_repository.dart';
+import 'reminder_card.dart';
 
 /// Profile / Settings — not specified in the SRS (gap #4), so this is
 /// built strictly from existing PATIENT / WEARABLE_DEVICE fields rather
@@ -175,6 +176,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 22),
                 const SectionLabel('Appearance'),
                 const _AppearanceCard(),
+                const SizedBox(height: 22),
+                const SectionLabel('Reminders'),
+                const ReminderCard(),
                 const SizedBox(height: 22),
                 SectionLabel(
                   'Personal info',

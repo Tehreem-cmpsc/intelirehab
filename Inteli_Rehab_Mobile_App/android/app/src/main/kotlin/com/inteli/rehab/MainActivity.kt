@@ -17,6 +17,8 @@ import java.util.Locale
 ///                   survive process death (cache dirs can be cleared)
 ///   keepScreenOn -> stops the screen dimming/locking mid-set, when the
 ///                   patient is moving their arm, not touching the phone
+///   getReminder / setReminder / cancelReminder / setReminderInterval / markSessionDone
+///                -> the daily exercise reminder (see Reminders.kt)
 ///   speak / stopSpeaking -> spoken cues during a session (rep count, "slow
 ///                   down", "stop"), through the phone's own text-to-speech
 class MainActivity : FlutterActivity() {
@@ -64,6 +66,29 @@ class MainActivity : FlutterActivity() {
                     }
                     "stopSpeaking" -> {
                         tts?.stop()
+                        result.success(null)
+                    }
+                    "getReminder" -> result.success(Reminders.read(applicationContext))
+                    "setReminder" -> {
+                        val args = call.arguments as? Map<*, *>
+                        Reminders.set(
+                            applicationContext,
+                            (args?.get("hour") as? Int) ?: 18,
+                            (args?.get("minute") as? Int) ?: 0,
+                            (args?.get("intervalDays") as? Int) ?: 1,
+                        )
+                        result.success(null)
+                    }
+                    "cancelReminder" -> {
+                        Reminders.cancel(applicationContext)
+                        result.success(null)
+                    }
+                    "setReminderInterval" -> {
+                        Reminders.setIntervalDays(applicationContext, (call.arguments as? Int) ?: 1)
+                        result.success(null)
+                    }
+                    "markSessionDone" -> {
+                        Reminders.markSessionDone(applicationContext)
                         result.success(null)
                     }
                     else -> result.notImplemented()

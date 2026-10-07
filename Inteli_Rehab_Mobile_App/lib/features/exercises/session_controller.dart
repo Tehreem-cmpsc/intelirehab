@@ -25,6 +25,9 @@ abstract interface class SessionController implements Listenable {
   int get restSeconds;
   void endRest();
 
+  /// How many times the arm has reached the target angle (once per rep). The screen cues each increase.
+  int get targetReaches;
+
   /// The patient pressed "This hurts": the session pauses and the moment is saved with it.
   void reportPain();
 

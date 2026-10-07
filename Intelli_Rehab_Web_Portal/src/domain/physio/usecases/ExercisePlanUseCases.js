@@ -1,5 +1,11 @@
 import { supabase } from "../../../infrastructure/supabase/supabaseClient";
 import { localDateString } from "../utils/sessionAnalytics";
+import { cleanRestSeconds } from "../utils/restSeconds";
+
+// rest_seconds arrives with supabase_session_module_v2.sql; until it has been run the plan must still load.
+const PLAN_COLUMNS = "id, exercise_id, sets, reps, rom_target, frequency, exercises(name, target, difficulty)";
+const PLAN_COLUMNS_V2 = PLAN_COLUMNS.replace("frequency,", "frequency, rest_seconds,");
+const isMissingColumn = (error) => error?.code === "42703" || error?.code === "PGRST204";
 
 const ExercisePlanUseCases = {
   // The patient's current active plan, grouped the way the mobile app's
@@ -7,7 +13,9 @@ const ExercisePlanUseCases = {
   // plus every active exercise on it — so the physio sees exactly what
   // the patient sees.
   async getActivePlan(patientId) {
-    const [{ data: planRow, error: planError }, { data: exerciseRows, error: exError }] = await Promise.all([
+    const exerciseQuery = (columns) =>
+      supabase.from("patient_exercise_plans").select(columns).eq("patient_id", patientId).eq("active", true);
+    const [{ data: planRow, error: planError }, withRest] = await Promise.all([
       supabase
         .from("rehabilitation_plans")
         .select("id, plan_name, start_date")
@@ -16,12 +24,11 @@ const ExercisePlanUseCases = {
         .order("start_date", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      supabase
-        .from("patient_exercise_plans")
-        .select("id, exercise_id, sets, reps, rom_target, frequency, exercises(name, target, difficulty)")
-        .eq("patient_id", patientId)
-        .eq("active", true),
+      exerciseQuery(PLAN_COLUMNS_V2),
     ]);
+    const { data: exerciseRows, error: exError } = isMissingColumn(withRest.error)
+      ? await exerciseQuery(PLAN_COLUMNS)
+      : withRest;
     if (planError) throw planError;
     if (exError) throw exError;
 
@@ -38,6 +45,7 @@ const ExercisePlanUseCases = {
         reps: r.reps,
         romTarget: r.rom_target,
         frequency: r.frequency,
+        restSeconds: r.rest_seconds ?? null, // null: the app's default
       })),
     };
   },
@@ -61,6 +69,7 @@ const ExercisePlanUseCases = {
         reps: ex.reps,
         romTarget: ex.romTarget,
         frequency: ex.frequency,
+        restSeconds: cleanRestSeconds(ex.restSeconds),
       })),
     });
     if (error) throw new Error(error.message || "Couldn't assign this session.");

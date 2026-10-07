@@ -8,8 +8,84 @@
 --  * patients.safety_max_angle_deg, patients.safety_max_speed_deg_s
 --                      the red "stop" limits for this patient. NULL = the app's built-in default.
 --
--- Run after supabase_core_tables.sql and supabase_session_motion.sql. Safe to run any time - idempotent.
+--  * patient_exercise_plans.rest_seconds, sessions.rest_seconds
+--                      how long the patient rests between sets (set per exercise by the physio, default 30
+--                      s in the app) and how long they actually rested in a session. assign_exercise_session
+--                      is replaced here so it saves the rest length; run this script AFTER
+--                      supabase_assign_session_rpc.sql, or re-run it, so the newer version stays in place.
+--
+-- Run after supabase_core_tables.sql, supabase_assign_session_rpc.sql and supabase_session_motion.sql.
+-- Safe to run any time - idempotent.
 -- The app keeps working before this is run: sessions still save, just without these extras.
+
+-- ---- rest between sets ---------------------------------------------------------------------------
+
+alter table public.patient_exercise_plans
+  add column if not exists rest_seconds smallint;
+
+alter table public.patient_exercise_plans drop constraint if exists patient_exercise_plans_rest_check;
+alter table public.patient_exercise_plans add constraint patient_exercise_plans_rest_check
+  check (rest_seconds is null or rest_seconds between 10 and 300);
+
+alter table public.sessions
+  add column if not exists rest_seconds integer;
+
+alter table public.sessions drop constraint if exists sessions_rest_seconds_check;
+alter table public.sessions add constraint sessions_rest_seconds_check
+  check (rest_seconds is null or rest_seconds >= 0);
+
+-- The same function as supabase_assign_session_rpc.sql, plus the rest length per exercise.
+create or replace function public.assign_exercise_session(
+  p_patient_id uuid,
+  p_physio_id  uuid,
+  p_plan_name  text,
+  p_start_date date,
+  p_exercises  jsonb  -- [{exerciseId, sets, reps, romTarget, frequency, restSeconds}, ...]
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  new_plan_id uuid;
+begin
+  if p_exercises is null or jsonb_array_length(p_exercises) = 0 then
+    raise exception 'Select at least one exercise.';
+  end if;
+
+  update public.patient_exercise_plans
+     set active = false
+   where patient_id = p_patient_id and active;
+
+  update public.rehabilitation_plans
+     set status = 'completed', end_date = p_start_date
+   where patient_id = p_patient_id and status = 'active';
+
+  insert into public.rehabilitation_plans (patient_id, physio_id, plan_name, start_date, status)
+  values (p_patient_id, p_physio_id,
+          coalesce(nullif(trim(p_plan_name), ''), 'Exercise session'),
+          p_start_date, 'active')
+  returning id into new_plan_id;
+
+  insert into public.patient_exercise_plans
+    (patient_id, exercise_id, assigned_by, plan_id, sets, reps, rom_target, frequency, rest_seconds, active)
+  select p_patient_id,
+         (e->>'exerciseId')::uuid,
+         p_physio_id,
+         new_plan_id,
+         (e->>'sets')::int,
+         (e->>'reps')::int,
+         nullif(e->>'romTarget', '')::int,
+         e->>'frequency',
+         nullif(e->>'restSeconds', '')::int,
+         true
+  from jsonb_array_elements(p_exercises) as e;
+
+  return new_plan_id;
+end;
+$$;
+
+revoke all on function public.assign_exercise_session(uuid, uuid, text, date, jsonb) from public, anon;
+grant execute on function public.assign_exercise_session(uuid, uuid, text, date, jsonb) to authenticated;
 
 -- ---- sessions: pain + why it ended ---------------------------------------------------------------
 

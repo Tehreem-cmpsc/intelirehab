@@ -16,20 +16,45 @@ class ExercisesRepository {
 
   ExercisesRepository({OnboardingRepository? onboarding}) : _onboarding = onboarding ?? OnboardingRepository();
 
-  static const _planColumns = 'id, exercise_id, sets, reps, rom_target, exercises(name, target, difficulty, description';
+  /// The select for the plan rows, with or without the columns that arrive with a database migration:
+  /// `rest_seconds` (supabase_session_module_v2.sql) and the exercise illustration columns
+  /// (`media_url` / `media_type`).
+  static String planSelect({required bool rest, required bool media}) =>
+      'id, exercise_id, sets, reps, rom_target${rest ? ', rest_seconds' : ''}, '
+      'exercises(name, target, difficulty, description${media ? ', media_url, media_type' : ''})';
 
-  /// The active plan rows. The illustration columns (exercises.media_url / media_type) arrive with
-  /// a database migration; until it has been run the plan must still load, just without pictures.
+  /// The active plan rows. Until a migration has been run its column does not exist: the plan must still
+  /// load, just without that extra (pictures, or a rest length). Each retry drops the optional column(s)
+  /// the error names, or both kinds if it names none.
   Future<List<dynamic>> _planRows(String patientId) async {
-    Future<List<dynamic>> query(String columns) =>
-        _db.from('patient_exercise_plans').select(columns).eq('patient_id', patientId).eq('active', true);
-    try {
-      return await query('$_planColumns, media_url, media_type)');
-    } on PostgrestException catch (e) {
-      final missingColumn = e.code == '42703' || e.message.contains('media_url') || e.message.contains('media_type');
-      if (!missingColumn) rethrow;
-      return query('$_planColumns)');
+    var rest = true;
+    var media = true;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await _db
+            .from('patient_exercise_plans')
+            .select(planSelect(rest: rest, media: media))
+            .eq('patient_id', patientId)
+            .eq('active', true);
+      } on PostgrestException catch (e) {
+        final missingColumn = e.code == '42703' || e.code == 'PGRST204' || e.code == 'PGRST200';
+        final namesRest = e.message.contains('rest_seconds');
+        final namesMedia = e.message.contains('media_url') || e.message.contains('media_type');
+        if (!missingColumn && !namesRest && !namesMedia) rethrow;
+        if (!namesRest && !namesMedia) {
+          rest = false;
+          media = false;
+        } else {
+          if (namesRest) rest = false;
+          if (namesMedia) media = false;
+        }
+      }
     }
+    return _db
+        .from('patient_exercise_plans')
+        .select(planSelect(rest: false, media: false))
+        .eq('patient_id', patientId)
+        .eq('active', true);
   }
 
   Future<PlanSummary> loadPlan(String patientId) async {
@@ -64,6 +89,7 @@ class ExercisesRepository {
           sets: (r['sets'] as num?)?.toInt() ?? 3,
           repsTarget: (r['reps'] as num?)?.toInt() ?? 10,
           romTarget: (r['rom_target'] as num?)?.toInt(),
+          restSeconds: (r['rest_seconds'] as num?)?.toInt(),
         ),
     ];
 
@@ -89,6 +115,8 @@ class ExercisesRepository {
     double? maxAngle;
     double? maxSpeed;
     double? reference;
+    var safetyKnown = false;
+    var referenceKnown = false;
     try {
       final row = await _db
           .from('patients')
@@ -97,6 +125,10 @@ class ExercisesRepository {
           .maybeSingle();
       maxAngle = (row?['safety_max_angle_deg'] as num?)?.toDouble();
       maxSpeed = (row?['safety_max_speed_deg_s'] as num?)?.toDouble();
+      safetyKnown = true;
+    } on PostgrestException catch (e) {
+      // 42703 / PGRST204: the limits columns do not exist yet (migration not run), so nothing is set.
+      if (e.code == '42703' || e.code == 'PGRST204') safetyKnown = true;
     } catch (_) {}
     try {
       final row = await _db
@@ -109,8 +141,15 @@ class ExercisesRepository {
           .maybeSingle();
       final analysis = (row?['movement_analysis'] as List?)?.firstOrNull as Map?;
       reference = (analysis?['joint_angle'] as num?)?.toDouble();
+      referenceKnown = true;
     } catch (_) {}
-    return SessionSetup(referenceRangeDeg: reference, maxAngleDeg: maxAngle, maxSpeedDegPerSec: maxSpeed);
+    return SessionSetup(
+      referenceRangeDeg: reference,
+      maxAngleDeg: maxAngle,
+      maxSpeedDegPerSec: maxSpeed,
+      referenceKnown: referenceKnown,
+      safetyKnown: safetyKnown,
+    );
   }
 
   /// The physiotherapist's current warning for this patient, and whether they have tapped "Got it" on it.
@@ -282,8 +321,9 @@ class ExercisesRepository {
       'duration_seconds': result.duration.inSeconds,
       'pain_level': result.painLevel,
       'ended_reason': result.endedReason?.db,
+      'rest_seconds': result.rest.inSeconds,
     };
-    const optional = ['duration_seconds', 'pain_level', 'ended_reason'];
+    const optional = ['duration_seconds', 'pain_level', 'ended_reason', 'rest_seconds'];
     // Each retry drops the optional column(s) the error names (all of them if it names none), so a
     // missing pain column never costs the duration, and vice versa.
     for (var attempt = 0; attempt <= optional.length; attempt++) {

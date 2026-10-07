@@ -193,6 +193,9 @@ class LiveSession extends ChangeNotifier implements SessionController {
   int _setAlertStart = 0;
   bool _isResting = false;
 
+  /// Time spent resting between sets (the finished rests plus the one in progress). Not part of [elapsed].
+  final Stopwatch _restWatch = Stopwatch();
+
   @override
   bool get isResting => _isResting;
   @override
@@ -226,6 +229,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
     _isResting = true;
     _running = false;
     _stopwatch.stop();
+    _restWatch.start();
     notifyListeners();
     return true;
   }
@@ -234,6 +238,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
   void endRest() {
     if (!_isResting) return;
     _isResting = false;
+    _restWatch.stop();
     _resetRep();
     notifyListeners();
   }
@@ -293,6 +298,12 @@ class LiveSession extends ChangeNotifier implements SessionController {
   /// The rep in progress has already been counted at its peak.
   bool _repCounted = false;
 
+  /// The arm has reached the target angle at some point in the rep in progress.
+  bool _repHitTarget = false;
+
+  @override
+  int targetReaches = 0;
+
   /// Lowest point since the peak, and when: where the next hill would start from.
   double _valleyDeg = double.infinity;
   DateTime _valleyAt = DateTime.fromMillisecondsSinceEpoch(0);
@@ -351,6 +362,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
     _safety.reset();
     _atRest = true;
     _repFlagged = false;
+    _repHitTarget = false;
     _lastAt = null;
     _smoothedVelocity = 0;
   }
@@ -404,6 +416,11 @@ class LiveSession extends ChangeNotifier implements SessionController {
       _repMaxSpeed = math.max(_repMaxSpeed, speed);
       _repEmgSum += emg;
       _repEmgCount++;
+      // The moment the arm reaches the target angle, once per rep: the screen answers with a cue.
+      if (!_repHitTarget && _repPeak >= _targetDegrees) {
+        _repHitTarget = true;
+        targetReaches++;
+      }
 
       final violation = _safety.update(angle: angle, speed: speed, now: now);
       if (violation != null && !_repFlagged) {
@@ -447,6 +464,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
     _repEmgCount = 1;
     _repFlagged = false;
     _repCounted = false;
+    _repHitTarget = _repPeak >= _targetDegrees; // a rep that starts above the target has not "reached" it
     _valleyDeg = double.infinity;
   }
 
@@ -644,6 +662,7 @@ class LiveSession extends ChangeNotifier implements SessionController {
       alerts: List.unmodifiable(alerts),
       sets: List.unmodifiable([..._closedSets, if (inProgressSet) _setSoFar()]),
       repsPlanned: repsTarget,
+      rest: _restWatch.elapsed,
       motion: _motionT.isEmpty
           ? null
           : MotionRecording(

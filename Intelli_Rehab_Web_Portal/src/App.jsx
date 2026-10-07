@@ -281,6 +281,8 @@ function AppRoutes() {
             selectedId={selectedPatientId}
             setSelectedId={setSelectedPatientId}
             currentPhysioId={auth.user.physio_id}
+            clinicId={auth.clinic?.id}
+            onPatientChanged={() => reloadPatients.current()}
           />
         )}
         {physioPage === "approvals" && (

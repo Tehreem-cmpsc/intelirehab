@@ -116,6 +116,8 @@ class SessionSimulator extends ChangeNotifier implements SessionController {
   @override
   void endRest() {}
   @override
+  int get targetReaches => 0;
+  @override
   void reportPain() => pause();
   @override
   bool get fatigueFromSpeedOnly => false;

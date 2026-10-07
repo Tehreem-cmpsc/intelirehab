@@ -15,6 +15,7 @@ import 'exercises_models.dart';
 import 'exercises_repository.dart';
 import 'session_journal.dart';
 import 'live_session.dart';
+import '../reminders/reminder_service.dart';
 import 'session_controller.dart';
 import 'session_cues.dart';
 import 'session_summary_screen.dart';
@@ -36,6 +37,9 @@ import 'widgets/session_state_chip.dart';
 ///  * Rule 26 — saving is offline-first: no connection just queues it.
 ///  * Rule 29 — a haptic pulse per rep and on completion (eyes are on the
 ///    arm, not the screen). Rule 30 — portrait-locked while live.
+/// Stores a finished session: on the server if it can be reached, otherwise on the phone to upload later.
+typedef SessionSaver = Future<({bool queued, bool failed})> Function(SessionResult result);
+
 class ActiveSessionScreen extends StatefulWidget {
   final AssignedExercise exercise;
   final String patientId;
@@ -51,6 +55,14 @@ class ActiveSessionScreen extends StatefulWidget {
   /// Spoken cues. Tests pass their own; the app makes one that talks through the phone.
   final SessionCues? cues;
 
+  /// Inside a guided workout: when the exercise ends, go back to the workout with its outcome instead of
+  /// showing this exercise's own summary (the workout shows one for everything).
+  final bool returnOutcome;
+
+  /// Where a finished session is stored. The default talks to Supabase and the phone's journal; tests
+  /// pass their own.
+  final SessionSaver? saveResult;
+
   /// Builds what drives the session. Defaults to [LiveSession] on the real
   /// band's sensor stream; tests and demos can pass a simulator.
   final SessionController Function(WearableConnectionController connection, AssignedExercise exercise)? sessionFactory;
@@ -64,6 +76,8 @@ class ActiveSessionScreen extends StatefulWidget {
     this.armSide = 'left',
     this.setup = SessionSetup.defaults,
     this.cues,
+    this.returnOutcome = false,
+    this.saveResult,
     this.sessionFactory,
   });
 
@@ -77,6 +91,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
   SessionController _liveSession(WearableConnectionController connection, AssignedExercise exercise) => LiveSession(
         repsTarget: exercise.repsTarget,
         sets: exercise.sets,
+        restSeconds: exercise.restBetweenSets,
         romTargetPercent: exercise.romTarget,
         samples: connection.liveSamples,
         armSide: widget.armSide,
@@ -98,6 +113,7 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
   bool _inForeground = true;
   bool _endDialogOpen = false;
   int _lastReps = 0;
+  int _lastTargetReaches = 0;
   String? _lastMessage;
   bool _wasResting = false;
 
@@ -220,6 +236,11 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
       HapticFeedback.mediumImpact();
       _journal();
       if (_simulator.repsCompleted < _simulator.repsTarget) _cues.say('${_simulator.repsInCurrentSet}');
+    }
+    if (_simulator.targetReaches > _lastTargetReaches) {
+      _lastTargetReaches = _simulator.targetReaches;
+      // A light click the moment the arm gets to the target, before the heavier one that counts the rep.
+      HapticFeedback.selectionClick();
     }
     _speakChanges();
     setState(() {});
@@ -364,25 +385,16 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
     result = result.withEnding(painLevel: ending?.pain, endedReason: early ? ending?.reason : null);
     if (!mounted) return;
 
-    var queued = false;
-    var saveFailed = false;
-    String? deviceId;
-    try {
-      deviceId = await _repo.pairedDeviceId(widget.patientId).timeout(const Duration(seconds: 8));
-      await _repo
-          .saveSession(patientId: widget.patientId, deviceId: deviceId, result: result)
-          .timeout(const Duration(seconds: 15));
-      await SessionJournal.clearInProgress();
-    } catch (_) {
-      // Offline or slow — keep it on the phone and sync later (Rule 26).
-      try {
-        await SessionJournal.enqueue(widget.patientId, deviceId, result);
-        queued = true;
-      } catch (_) {
-        saveFailed = true; // disk full / storage error: still leave the screen
-      }
-    }
+    final saved = await (widget.saveResult ?? _saveToServerOrPhone)(result);
+    final queued = saved.queued;
+    final saveFailed = saved.failed;
+    // A session was done today (saved, or kept on the phone): no reminder needed for it.
+    if (!saveFailed && result.repsCompleted > 0) ReminderService.sessionDone();
     if (!mounted) return;
+    if (widget.returnOutcome) {
+      Navigator.of(context).pop(SessionOutcome(result, queued: queued, saveFailed: saveFailed));
+      return;
+    }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => SessionSummaryScreen(
@@ -393,6 +405,27 @@ class _ActiveSessionScreenState extends State<ActiveSessionScreen> with WidgetsB
         ),
       ),
     );
+  }
+
+  /// The normal way to store a session: straight to Supabase, or - offline or slow - to the phone's journal
+  /// to upload later (Rule 26). Never throws: the worst case is "could not be stored at all".
+  Future<({bool queued, bool failed})> _saveToServerOrPhone(SessionResult result) async {
+    String? deviceId;
+    try {
+      deviceId = await _repo.pairedDeviceId(widget.patientId).timeout(const Duration(seconds: 8));
+      await _repo
+          .saveSession(patientId: widget.patientId, deviceId: deviceId, result: result)
+          .timeout(const Duration(seconds: 15));
+      await SessionJournal.clearInProgress();
+      return (queued: false, failed: false);
+    } catch (_) {
+      try {
+        await SessionJournal.enqueue(widget.patientId, deviceId, result);
+        return (queued: true, failed: false);
+      } catch (_) {
+        return (queued: false, failed: true); // disk full / storage error: still leave the screen
+      }
+    }
   }
 
   Future<void> _setZeroAndStart() async {

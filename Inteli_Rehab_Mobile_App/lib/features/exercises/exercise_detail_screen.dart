@@ -7,7 +7,7 @@ import '../home/bluetooth_rationale.dart';
 import '../home/wearable_connection_controller.dart';
 import 'active_session_screen.dart';
 import 'exercises_models.dart';
-import 'exercises_repository.dart';
+import 'session_setup_loader.dart';
 import 'widgets/exercise_media.dart';
 import 'widgets/warning_banner.dart';
 
@@ -22,6 +22,9 @@ class ExerciseDetailScreen extends StatelessWidget {
   final VoidCallback onViewProgress;
   final String armSide;
 
+  /// Where the patient's setup comes from; tests pass their own.
+  final Future<SessionSetup> Function()? loadSetup;
+
   const ExerciseDetailScreen({
     super.key,
     required this.exercise,
@@ -29,6 +32,7 @@ class ExerciseDetailScreen extends StatelessWidget {
     required this.connection,
     required this.onViewProgress,
     this.armSide = 'left',
+    this.loadSetup,
   });
 
   /// Phone battery at or below this is "critically low" for Rule 31. The
@@ -67,15 +71,7 @@ class ExerciseDetailScreen extends StatelessWidget {
     ));
   }
 
-  /// The patient's own range and their physiotherapist's limits. Waits only briefly: offline or slow,
-  /// the session starts with the built-in defaults rather than holding the patient up.
-  Future<SessionSetup> _loadSetup() async {
-    try {
-      return await ExercisesRepository().loadSessionSetup(patientId).timeout(const Duration(seconds: 4));
-    } catch (_) {
-      return SessionSetup.defaults;
-    }
-  }
+  Future<SessionSetup> _loadSetup() => loadSessionSetup(patientId, load: loadSetup);
 
   Future<void> _reconnect(BuildContext context) async {
     if (!await BluetoothRationale.ensure(context)) return;

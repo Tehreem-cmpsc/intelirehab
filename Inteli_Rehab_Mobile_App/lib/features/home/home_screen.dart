@@ -8,6 +8,7 @@ import '../../core/widgets/ui_kit.dart';
 import '../exercises/exercises_repository.dart';
 import '../exercises/session_journal.dart';
 import '../exercises/widgets/warning_banner.dart';
+import '../reminders/reminder_service.dart';
 import 'bluetooth_rationale.dart';
 import 'home_models.dart';
 import 'home_repository.dart';
@@ -96,7 +97,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     final pending = await SessionJournal.pendingCount(widget.profile.id);
     if (mounted) setState(() => _pendingUploads = pending);
-    return _repo.load(widget.profile.id).guarded();
+    final snapshot = await _repo.load(widget.profile.id).guarded();
+    _syncReminder(snapshot);
+    return snapshot;
+  }
+
+  /// Keeps the daily reminder in step with what the plan asks for, and skips today's if a session was
+  /// already done (including one that finished offline and has only now uploaded).
+  void _syncReminder(HomeSnapshot snapshot) {
+    final plan = snapshot.plan;
+    if (plan != null) ReminderService.syncPlanFrequencies(plan.exercises.map((e) => e.frequency));
+    final last = snapshot.lastSession?.performedAt;
+    final now = DateTime.now();
+    if (last != null && last.year == now.year && last.month == now.month && last.day == now.day) {
+      ReminderService.sessionDone();
+    }
   }
 
   void _reload() => setState(() => _snapshot = _track(_load()));

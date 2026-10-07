@@ -182,6 +182,15 @@ const PatientUseCases = {
     if (!data?.length) throw new Error("This patient is no longer in your clinic.");
   },
 
+  // 'recovered' takes a patient off the active and at-risk lists; 'active' reopens them. Only these two are
+  // set by hand - 'at-risk' is worked out from their sessions (see riskAssessment.js).
+  async setStatus(id, status) {
+    if (status !== "recovered" && status !== "active") throw new Error("Unknown patient status.");
+    const { data, error } = await supabase.from("patients").update({ status }).eq("id", id).select("id");
+    if (error) throw new Error(error.message || "Unable to change the patient's status.");
+    if (!data?.length) throw new Error("This patient is no longer in your clinic.");
+  },
+
   // Saved on patients.warning, which the mobile app reads — so the patient
   // actually receives it, and it survives a refresh. Pass null to clear.
   async setWarning(id, message) {

@@ -15,6 +15,9 @@ import SessionReplay from "../components/SessionReplay";
 import SessionUseCases from "../../../domain/physio/usecases/SessionUseCases";
 import ExerciseUseCases from "../../../domain/physio/usecases/ExerciseUseCases";
 import ExercisePlanUseCases from "../../../domain/physio/usecases/ExercisePlanUseCases";
+import PlanTemplateUseCases from "../../../domain/physio/usecases/PlanTemplateUseCases";
+import { FREQUENCIES, cleanTemplateName, exercisesFromRows, rowsFromTemplate } from "../../../domain/physio/utils/planTemplates";
+import { DEFAULT_REST_SECONDS, MAX_REST_SECONDS, MIN_REST_SECONDS } from "../../../domain/physio/utils/restSeconds";
 import PatientUseCases from "../../../domain/physio/usecases/PatientUseCases";
 import VisualizationService from "../../../infrastructure/physio/services/VisualizationService";
 import { tooltipProps, axisTick, pagePadding } from "../components/chartTheme";
@@ -22,15 +25,30 @@ import useIsMobile from "../../useIsMobile";
 import useToast from "../../useToast";
 import ErrorNotice from "../../ErrorNotice";
 
-const FREQUENCIES = ["Daily", "Every other day", "3× per week", "Weekly"];
-const emptyRow = () => ({ key: Math.random().toString(36).slice(2), exerciseId: "", sets: 3, reps: 10, romTarget: 70, frequency: "Daily" });
+const emptyRow = () => ({ key: Math.random().toString(36).slice(2), exerciseId: "", sets: 3, reps: 10, romTarget: 70, frequency: "Daily", restSeconds: DEFAULT_REST_SECONDS });
 
 // A session is one or more exercises assigned together (rehabilitation_plans
 // + one patient_exercise_plans row per exercise, all sharing that plan_id).
 // Pre-filled from the patient's current active assignment so re-opening this
 // reads as "edit what they have," not a blank form every time.
-function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssign, saving, error }) {
+function AssignExerciseModal({
+  patient,
+  catalogue,
+  currentPlan,
+  templates,
+  onSaveTemplate,
+  onDeleteTemplate,
+  onClose,
+  onAssign,
+  saving,
+  error,
+}) {
   const [planName, setPlanName] = useState(currentPlan?.planName || "");
+  // Templates: the one in use, a note about what happened when it was applied, and saving the current rows.
+  const [appliedId, setAppliedId] = useState("");
+  const [templateNotice, setTemplateNotice] = useState(null);
+  const [templateName, setTemplateName] = useState("");
+  const [templateBusy, setTemplateBusy] = useState(false);
   const [rows, setRows] = useState(() => {
     if (currentPlan?.exercises?.length) {
       return currentPlan.exercises.map((ex) => ({
@@ -40,6 +58,7 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
         reps: ex.reps,
         romTarget: ex.romTarget ?? 70,
         frequency: ex.frequency || "Daily",
+        restSeconds: ex.restSeconds ?? DEFAULT_REST_SECONDS,
       }));
     }
     return [emptyRow()];
@@ -68,6 +87,60 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
   const usedIds = new Set(rows.map((r) => r.exerciseId).filter(Boolean));
   const incomplete = rows.some((r) => !r.exerciseId);
 
+  const applyTemplate = (id) => {
+    const template = templates.find((t) => t.id === id);
+    if (!template) return;
+    const { rows: next, dropped } = rowsFromTemplate(template, catalogue);
+    if (next.length === 0) {
+      setTemplateNotice({ error: true, text: "None of this template's exercises are in the exercise list any more." });
+      return;
+    }
+    setRows(next);
+    setAppliedId(id);
+    if (!planName.trim()) setPlanName(template.name);
+    setTemplateNotice(
+      dropped > 0
+        ? {
+            error: false,
+            text: `${dropped} exercise${dropped === 1 ? "" : "s"} in this template ${dropped === 1 ? "is" : "are"} no longer in the exercise list and ${dropped === 1 ? "was" : "were"} left out.`,
+          }
+        : null
+    );
+  };
+
+  const saveAsTemplate = async () => {
+    const name = cleanTemplateName(templateName);
+    const exercises = exercisesFromRows(rows);
+    if (!name) return setTemplateNotice({ error: true, text: "Give the template a name first." });
+    if (exercises.length === 0) return setTemplateNotice({ error: true, text: "Choose at least one exercise to save." });
+    setTemplateBusy(true);
+    try {
+      const saved = await onSaveTemplate(name, exercises);
+      setTemplateName("");
+      setAppliedId(saved?.id ?? "");
+      setTemplateNotice({ error: false, text: `Saved as “${name}”. Anyone at your clinic can use it.` });
+    } catch (err) {
+      setTemplateNotice({ error: true, text: err.message || "Couldn't save the template." });
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
+  const deleteTemplate = async () => {
+    const template = templates.find((t) => t.id === appliedId);
+    if (!template || !window.confirm(`Delete the template “${template.name}” for everyone at your clinic?`)) return;
+    setTemplateBusy(true);
+    try {
+      await onDeleteTemplate(template.id);
+      setAppliedId("");
+      setTemplateNotice({ error: false, text: "Template deleted." });
+    } catch (err) {
+      setTemplateNotice({ error: true, text: err.message || "Couldn't delete the template." });
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
+
   const handleSubmit = () => {
     if (incomplete || saving) return;
     onAssign({
@@ -78,6 +151,7 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
         reps: r.reps,
         romTarget: r.romTarget,
         frequency: r.frequency,
+        restSeconds: r.restSeconds,
       })),
     });
   };
@@ -139,6 +213,60 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
             ×
           </button>
         </div>
+
+        {templates.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 6 }}>
+              START FROM A TEMPLATE
+            </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <select
+                value={appliedId}
+                onChange={(e) => applyTemplate(e.target.value)}
+                disabled={templateBusy}
+                style={inp}
+                aria-label="Start from a template"
+              >
+                <option value="" disabled>
+                  Choose a template…
+                </option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {appliedId && (
+                <button
+                  type="button"
+                  onClick={deleteTemplate}
+                  disabled={templateBusy}
+                  style={{
+                    border: `1px solid ${THEME.slate200}`,
+                    background: surface,
+                    color: THEME.red,
+                    borderRadius: 9,
+                    padding: "0 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Delete template
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {templateNotice && (
+          <div
+            role={templateNotice.error ? "alert" : "status"}
+            style={{ fontSize: 12.5, marginBottom: 14, color: templateNotice.error ? THEME.red : THEME.slate600 }}
+          >
+            {templateNotice.text}
+          </div>
+        )}
 
         <div style={{ marginBottom: 20 }}>
           <label style={{ fontSize: 12, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 6 }}>
@@ -216,11 +344,12 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
                   </div>
                 )}
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, marginBottom: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10, marginBottom: 10 }}>
                   {[
                     ["SETS", row.sets, "sets", 1, 6],
                     ["REPS", row.reps, "reps", 3, 20],
                     ["ROM TARGET (%)", row.romTarget, "romTarget", 20, 100],
+                    ["REST BETWEEN SETS (S)", row.restSeconds, "restSeconds", MIN_REST_SECONDS, MAX_REST_SECONDS],
                   ].map(([l, v, field, min, max]) => (
                     <div key={l}>
                       <label style={{ fontSize: 11, fontWeight: 600, color: THEME.slate600, display: "block", marginBottom: 4 }}>
@@ -274,6 +403,36 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
           + Add another exercise
         </button>
 
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          <input
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            placeholder="Save these exercises as a template…"
+            aria-label="Template name"
+            maxLength={60}
+            style={inp}
+          />
+          <button
+            type="button"
+            onClick={saveAsTemplate}
+            disabled={templateBusy || !templateName.trim()}
+            style={{
+              border: `1px solid ${THEME.slate200}`,
+              background: surface,
+              color: THEME.tealDim,
+              borderRadius: 9,
+              padding: "0 14px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: templateBusy || !templateName.trim() ? "default" : "pointer",
+              opacity: templateBusy || !templateName.trim() ? 0.5 : 1,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Save template
+          </button>
+        </div>
+
         {error && (
           <div style={{ fontSize: 13, color: THEME.red, marginBottom: 16 }}>{error}</div>
         )}
@@ -318,10 +477,12 @@ function AssignExerciseModal({ patient, catalogue, currentPlan, onClose, onAssig
   );
 }
 
-function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) {
+function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId, clinicId, onPatientChanged }) {
   const [showAssign, setShowAssign] = useState(false);
   const [replaySession, setReplaySession] = useState(null); // a session row being replayed
   const [openSetsId, setOpenSetsId] = useState(null); // the session whose set-by-set rows are showing
+  const [templates, setTemplates] = useState([]);
+  const [statusBusy, setStatusBusy] = useState(false);
   const [warningHistory, setWarningHistory] = useState([]);
   const { toastNode, showToast } = useToast();
   const [loadError, setLoadError] = useState(null);
@@ -425,6 +586,47 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
     };
   }, [selectedId, currentWarning, reloadKey]);
 
+  // The clinic's saved plans. Only a convenience: if they cannot be loaded the form just has no template list.
+  useEffect(() => {
+    let cancelled = false;
+    PlanTemplateUseCases.list()
+      .then((list) => {
+        if (!cancelled) setTemplates(list);
+      })
+      .catch(() => {
+        if (!cancelled) setTemplates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadKey]);
+
+  const handleSaveTemplate = async (name, exercises) => {
+    const saved = await PlanTemplateUseCases.save({ clinicId, physioId: currentPhysioId, name, exercises });
+    setTemplates((prev) => [...prev, saved].sort((a, b) => a.name.localeCompare(b.name)));
+    return saved;
+  };
+
+  const handleDeleteTemplate = async (id) => {
+    await PlanTemplateUseCases.remove(id);
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  // A patient who has finished their rehabilitation leaves the active and at-risk lists; reopening puts them
+  // back. The status shows on this page after the portal's next refresh.
+  const handleStatus = async (status) => {
+    setStatusBusy(true);
+    try {
+      await PatientUseCases.setStatus(selected.id, status);
+      onPatientChanged?.(); // reload now, rather than at the next refresh
+      showToast(status === "recovered" ? `${selected.name} marked as recovered` : `${selected.name} reopened`);
+    } catch (err) {
+      showToast(err.message || "Couldn't change the status. Try again.", { error: true });
+    } finally {
+      setStatusBusy(false);
+    }
+  };
+
   const handleAssign = async ({ planName, exercises }) => {
     setAssignSaving(true);
     setAssignError(null);
@@ -464,6 +666,9 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
           patient={selected}
           catalogue={catalogue}
           currentPlan={activePlan}
+          templates={templates}
+          onSaveTemplate={handleSaveTemplate}
+          onDeleteTemplate={handleDeleteTemplate}
           onClose={() => {
             setShowAssign(false);
             setAssignError(null);
@@ -674,6 +879,23 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
                 >
                   Assign exercise
                 </button>
+                <button
+                  onClick={() => handleStatus(selected.status === "recovered" ? "active" : "recovered")}
+                  disabled={statusBusy}
+                  style={{
+                    padding: "10px 16px",
+                    background: "none",
+                    border: `1px solid ${THEME.slate200}`,
+                    borderRadius: 10,
+                    color: THEME.slate600,
+                    flex: isMobile ? "1 1 100%" : "0 0 auto",
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: statusBusy ? "default" : "pointer",
+                  }}
+                >
+                  {selected.status === "recovered" ? "Reopen patient" : "Mark recovered"}
+                </button>
               </div>
               {selected.warning && (
                 <div
@@ -860,7 +1082,7 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
                       <div
                         style={{
                           display: "grid",
-                          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, auto)",
+                          gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(5, auto)",
                           gap: isMobile ? 10 : 16,
                           width: isMobile ? "100%" : "auto",
                         }}
@@ -870,6 +1092,7 @@ function PatientsPage({ patients, selectedId, setSelectedId, currentPhysioId }) 
                           ["Reps", ex.reps],
                           ["ROM target", ex.romTarget != null ? `${ex.romTarget}%` : "—"],
                           ["Frequency", ex.frequency || "—"],
+                          ["Rest", ex.restSeconds != null ? `${ex.restSeconds}s` : "30s"],
                         ].map(([l, v]) => (
                           <div
                             key={l}

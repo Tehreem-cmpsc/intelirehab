@@ -2,6 +2,10 @@
     <!-- Talking to Supabase. (Flutter only adds this to debug/profile builds
          by itself - without it a release build has no network at all.) -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Daily exercise reminder: showing notifications (Android 13+ asks the patient), and setting the
+         alarm again after the phone restarts. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- Arm band BLE connection (Communication Layer, SDD §3.1.2). -->
     <!-- Android 12+ (API 31+): usesPermissionFlags="neverForLocation" tells the
          OS/Play Store we scan by service UUID, not to derive location, so we
@@ -30,6 +34,12 @@
              must not end up in cloud/device backups. Cleartext HTTP is allowed
              to localhost only (see res/xml/network_security_config.xml), which
              is what model_viewer_plus' local asset server needs. -->
+        <receiver android:name=".ReminderReceiver" android:exported="false" />
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
         <activity
             android:name=".MainActivity"
             android:exported="true"

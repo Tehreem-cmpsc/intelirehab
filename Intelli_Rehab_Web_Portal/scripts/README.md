@@ -31,11 +31,12 @@ This is for a **brand-new project**. The live database already has everything up
 | 19 | `supabase_movement_analysis_activation.sql` | `movement_analysis.muscle_activation`. |
 | 20 | `supabase_session_duration.sql` | `sessions.duration_seconds`. |
 | 21 | `supabase_session_motion.sql` | Per-session movement recording for the replay. Run after 1. |
-| 22 | `supabase_session_module_v2.sql` | Per-set results, pain and early-end reason, per-patient safety limits, the clinic's at-risk rules. Run after 1 and 21. |
+| 22 | `supabase_session_module_v2.sql` | Per-set results, pain and early-end reason, per-patient safety limits, the clinic's at-risk rules, rest between sets (replaces the assign RPC from 8). Run after 1, 8 and 21. |
 | 23 | `supabase_warning_autoclear.sql` | Warnings erase themselves after the patient's next session, with a log, a "seen" receipt, and warned patients leaving the At Risk list. Run after 1. |
-| 24 | `supabase_security_hardening.sql` | Security hardening before deployment. The script itself says: run once, **after every other script**, so it stays last. |
+| 24 | `supabase_plan_templates.sql` | Reusable exercise plans, shared by a clinic's physiotherapists. Run after 1. |
+| 25 | `supabase_security_hardening.sql` | Security hardening before deployment. The script itself says: run once, **after every other script**, so it stays last. |
 
-Both apps keep working if the newest scripts (20 to 23) have not been run yet: the columns and tables they add are
+Both apps keep working if the newest scripts (20 to 24) have not been run yet: the columns and tables they add are
 read defensively, and the features simply do nothing until the script is run.
 
 `src/scripts.readme.test.js` fails if a `supabase_*.sql` file is added here without being listed in this table, so the

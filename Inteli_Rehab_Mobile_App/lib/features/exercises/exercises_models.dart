@@ -19,6 +19,12 @@ class AssignedExercise {
   final int repsTarget;
   final int? romTarget;
 
+  /// Rest between sets, as the physiotherapist set it for this exercise; null means [defaultRestSeconds].
+  final int? restSeconds;
+
+  static const defaultRestSeconds = 30;
+  int get restBetweenSets => restSeconds ?? defaultRestSeconds;
+
   const AssignedExercise({
     required this.assignmentId,
     required this.exerciseId,
@@ -31,6 +37,7 @@ class AssignedExercise {
     required this.sets,
     required this.repsTarget,
     required this.romTarget,
+    this.restSeconds,
   });
 
   Map<String, dynamic> toJson() => {
@@ -45,6 +52,7 @@ class AssignedExercise {
         'sets': sets,
         'repsTarget': repsTarget,
         'romTarget': romTarget,
+        if (restSeconds != null) 'restSeconds': restSeconds,
       };
 
   factory AssignedExercise.fromJson(Map<String, dynamic> j) => AssignedExercise(
@@ -59,7 +67,17 @@ class AssignedExercise {
         sets: (j['sets'] as num).toInt(),
         repsTarget: (j['repsTarget'] as num).toInt(),
         romTarget: (j['romTarget'] as num?)?.toInt(),
+        restSeconds: (j['restSeconds'] as num?)?.toInt(),
       );
+}
+
+/// How one exercise ended, handed back to a guided workout: what happened, and whether it reached the
+/// server, was kept on the phone to upload later, or could not be stored at all.
+class SessionOutcome {
+  final SessionResult result;
+  final bool queued;
+  final bool saveFailed;
+  const SessionOutcome(this.result, {this.queued = false, this.saveFailed = false});
 }
 
 /// What a session needs to know about this patient before it starts: their own reference range and
@@ -73,7 +91,37 @@ class SessionSetup {
   final double? maxAngleDeg;
   final double? maxSpeedDegPerSec;
 
-  const SessionSetup({this.referenceRangeDeg, this.maxAngleDeg, this.maxSpeedDegPerSec});
+  /// Whether each part was really read from the server (as opposed to "couldn't reach it"). A part that
+  /// was not read is filled in from what the phone last saw, see SessionSetupCache.
+  final bool referenceKnown;
+  final bool safetyKnown;
+
+  const SessionSetup({
+    this.referenceRangeDeg,
+    this.maxAngleDeg,
+    this.maxSpeedDegPerSec,
+    this.referenceKnown = true,
+    this.safetyKnown = true,
+  });
+
+  /// Nothing could be read: every part is unknown, not "not set".
+  static const unreadable = SessionSetup(referenceKnown: false, safetyKnown: false);
+
+  Map<String, dynamic> toJson() => {
+        if (referenceKnown) 'referenceRangeDeg': referenceRangeDeg,
+        if (safetyKnown) 'maxAngleDeg': maxAngleDeg,
+        if (safetyKnown) 'maxSpeedDegPerSec': maxSpeedDegPerSec,
+        'referenceKnown': referenceKnown,
+        'safetyKnown': safetyKnown,
+      };
+
+  factory SessionSetup.fromJson(Map<String, dynamic> j) => SessionSetup(
+        referenceRangeDeg: (j['referenceRangeDeg'] as num?)?.toDouble(),
+        maxAngleDeg: (j['maxAngleDeg'] as num?)?.toDouble(),
+        maxSpeedDegPerSec: (j['maxSpeedDegPerSec'] as num?)?.toDouble(),
+        referenceKnown: j['referenceKnown'] != false,
+        safetyKnown: j['safetyKnown'] != false,
+      );
 
   static const defaults = SessionSetup();
 
@@ -281,6 +329,9 @@ class SessionResult {
   /// exercise's own reps-per-set is all there is.
   final int? repsPlanned;
 
+  /// How long the patient actually rested between sets. [duration] does not include it.
+  final Duration rest;
+
   /// The patient's own 0-10 rating at the end; null if they skipped it.
   final int? painLevel;
 
@@ -304,6 +355,7 @@ class SessionResult {
     this.motion,
     this.sets = const [],
     this.repsPlanned,
+    this.rest = Duration.zero,
     this.painLevel,
     this.endedReason,
   });
@@ -325,6 +377,7 @@ class SessionResult {
         motion: motion,
         sets: sets,
         repsPlanned: repsPlanned,
+        rest: rest,
         painLevel: painLevel ?? this.painLevel,
         endedReason: endedReason ?? this.endedReason,
       );
@@ -348,6 +401,7 @@ class SessionResult {
         if (motion != null) 'motion': motion!.toJson(),
         if (sets.isNotEmpty) 'sets': [for (final s in sets) s.toJson()],
         if (repsPlanned != null) 'repsPlanned': repsPlanned,
+        if (rest > Duration.zero) 'restMs': rest.inMilliseconds,
         if (painLevel != null) 'painLevel': painLevel,
         if (endedReason != null) 'endedReason': endedReason!.db,
       };
@@ -372,6 +426,7 @@ class SessionResult {
             SetResult.fromJson(Map<String, dynamic>.from(s as Map)),
         ],
         repsPlanned: (j['repsPlanned'] as num?)?.toInt(),
+        rest: Duration(milliseconds: (j['restMs'] as num?)?.toInt() ?? 0),
         painLevel: (j['painLevel'] as num?)?.toInt(),
         endedReason: EndedReason.fromDb(j['endedReason']),
       );

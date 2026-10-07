@@ -6,11 +6,15 @@ class ExerciseAssignment {
   final int? romTarget;
   final bool doneToday;
 
+  /// How often the physiotherapist wants it done ("Daily", "Weekly" ...); free text, may be absent.
+  final String? frequency;
+
   const ExerciseAssignment({
     required this.exerciseId,
     required this.exerciseName,
     required this.romTarget,
     required this.doneToday,
+    this.frequency,
   });
 }
 

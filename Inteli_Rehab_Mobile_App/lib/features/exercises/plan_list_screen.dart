@@ -8,6 +8,7 @@ import 'exercise_detail_screen.dart';
 import 'exercises_models.dart';
 import 'widgets/exercise_media.dart';
 import 'exercises_repository.dart';
+import 'workout_flow_screen.dart';
 
 /// STATE 1 — the always-visible active plan (covers UC-6). No day-of-week
 /// gating: the schema has no field for it (gap #3), so the whole active
@@ -72,6 +73,25 @@ class _PlanListScreenState extends State<PlanListScreen> {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
               children: [
                 _PlanHeader(plan: plan),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: () async {
+                    await Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => WorkoutFlowScreen(
+                        exercises: plan.exercises,
+                        patientId: widget.patientId,
+                        connection: widget.connection,
+                        onViewProgress: widget.onViewProgress,
+                        armSide: widget.armSide,
+                      ),
+                    ));
+                    _reload();
+                  },
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: Text(plan.exercises.length == 1
+                      ? "Start today's exercise"
+                      : "Start today's workout (${plan.exercises.length} exercises)"),
+                ),
                 const SizedBox(height: 22),
                 SectionLabel('Your exercises', trailing: PillTag('${plan.exercises.length}')),
                 for (final ex in plan.exercises) ...[

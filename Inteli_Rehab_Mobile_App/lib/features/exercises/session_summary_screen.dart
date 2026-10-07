@@ -71,7 +71,11 @@ class SessionSummaryScreen extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: StatTile(icon: Icons.timer_outlined, value: _duration(result.duration), label: 'Duration'),
+                child: StatTile(
+                  icon: Icons.timer_outlined,
+                  value: _duration(result.duration),
+                  label: result.rest.inSeconds >= 5 ? 'Exercise · ${_duration(result.rest)} rest' : 'Duration',
+                ),
               ),
             ],
           ),

@@ -22,7 +22,7 @@ class HomeRepository {
     final results = await Future.wait<dynamic>([
       _db
           .from('patient_exercise_plans')
-          .select('exercise_id, rom_target, exercises(name)')
+          .select('exercise_id, rom_target, frequency, exercises(name)')
           .eq('patient_id', patientId)
           .eq('active', true),
       _db
@@ -90,6 +90,7 @@ class HomeRepository {
             exerciseName: (r['exercises'] as Map?)?['name'] as String? ?? 'Exercise',
             romTarget: (r['rom_target'] as num?)?.toInt(),
             doneToday: doneExerciseIdsToday.contains(r['exercise_id'] as String),
+            frequency: r['frequency'] as String?,
           ),
       ];
       plan = TodaysPlan(planName: planRow?['plan_name'] as String? ?? 'Your exercise plan', exercises: exercises);
