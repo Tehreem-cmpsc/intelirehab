@@ -28,7 +28,7 @@ public:
 
     // Starts an MVC calibration window: contract the muscle as hard as
     // possible for `durationMs`; the peak envelope seen becomes the 100% reference.
-    void startMVCCalibration(uint32_t durationMs = 5000);
+    void startMVCCalibration(uint32_t durationMs = 3000);
     bool isCalibratingMVC() const { return _mvcCalActive; }
 
 private:

@@ -1,34 +1,3 @@
-/*
-  ArmEMG_IMU.ino
-
-  ESP32-S3 firmware for a 2-IMU + 1-channel EMG arm-motion / muscle
-  activation logger.
-
-  Hardware:
-    - 2x MPU6500 on one shared I2C bus, addresses 0x68 (AD0->GND, upper arm)
-      and 0x69 (AD0->3V3, forearm)
-    - 1x analog EMG channel on an ADC1 pin (see PIN_EMG1 below)
-    - On-board status LED, lit only while a phone is connected over BLE
-
-  Calibration commands, sent as a single byte - over USB Serial Monitor
-  (115200 baud) OR by writing to the BLE command characteristic:
-    g  - recalibrate gyro bias (hold both sensors perfectly still)
-    z  - set the CURRENT arm pose as the zero-angle reference
-         (do this with the arm fully extended, hanging relaxed)
-    m  - start a 5 s max-voluntary-contraction (MVC) window on the EMG
-         channel; contract the target muscle as hard as you can during
-         this window so activation can be reported as %MVC afterwards
-
-  Outputs (same values, two transports):
-    - Serial CSV, ~50 Hz (for debugging over USB):
-        time_ms,elbow_deg,emg1_raw,emg1_pct,imu_upper_ok,imu_forearm_ok
-    - BLE notify, ~31 Hz: 8-byte packed payload of 2 little-endian floats
-        (elbow_deg, emg1_pct). See BLEStreamer.cpp for the
-        service/characteristic UUIDs the phone app needs to match.
-
-  See the accompanying guide for wiring, calibration procedure, the math
-  behind the joint-angle calculation, and the BLE GATT profile.
-*/
 
 #include <Wire.h>
 #include <math.h>
@@ -56,6 +25,7 @@ static void calibrateGyros();
 static void setZeroPose();
 static void handleCommand(char c);
 static void pollCommandSources();
+static void retryMissingImus();
 
 // ---------- Pin & bus configuration ----------
 static const int PIN_I2C_SDA = 8;
@@ -202,8 +172,8 @@ static void handleCommand(char c) {
     case 'z': setZeroPose(); break;
     case 'i': scanI2cBus(); printStatusLine(); break; // diagnostics on demand
     case 'm':
-      Serial.println(F("MVC calibration: contract muscle hard for 5s..."));
-      emg1.startMVCCalibration(5000);
+      Serial.println(F("MVC calibration: contract muscle hard for 3s..."));
+      emg1.startMVCCalibration(3000); // keep in step with the app (calibration_step.dart _mvcSeconds)
       break;
     default: break; // ignore newlines / unrecognised characters
   }
@@ -329,6 +299,33 @@ static void reportImuReadFailures() {
   }
 }
 
+/*What: Tries again, once a second, to start any IMU that did not answer at boot.
+Why: begin() used to run only in setup(). A sensor that was not answering at that moment (a loose wire,
+ or its AD0 wire moved while the band was on) was then never used, so its orientation never changed and
+ the elbow angle sat at 0 until a full restart.
+How: When a retry succeeds, that sensor's gyro bias is measured again (hold still for ~0.6 s) and its
+ fusion filter restarts from rest. Send 'z' afterwards to set the zero pose with both sensors working.*/
+static void retryMissingImus() {
+  static uint32_t lastTry = 0;
+  if (imuUpperOk && imuForearmOk) return;
+  uint32_t nowMs = millis();
+  if ((nowMs - lastTry) < 1000) return;
+  lastTry = nowMs;
+  if (!imuUpperOk && imuUpper.begin(Wire)) {
+    imuUpperOk = true;
+    imuUpper.calibrateGyroBias(300);
+    fusionUpper.reset();
+    Serial.println(F("Upper arm IMU (0x68) found after boot - now in use. Send 'z' to set the zero pose."));
+  }
+  if (!imuForearmOk && imuForearm.begin(Wire)) {
+    imuForearmOk = true;
+    imuForearm.calibrateGyroBias(300);
+    fusionForearm.reset();
+    Serial.println(F("Forearm IMU (0x69) found after boot - now in use. Send 'z' to set the zero pose."));
+  }
+  lastLoopMicros = micros(); // the calibration paused the loop; don't feed fusion one huge time step
+}
+
 void setup() {
   pinMode(PIN_STATUS_LED, OUTPUT);
   statusLedSet(false);    // off until a phone connects over BLE (see updateStatusLed)
@@ -389,6 +386,7 @@ void loop() {
     forearmReadFails++;
   }
   reportImuReadFailures();
+  retryMissingImus();
   {
     static uint32_t lastStatus = 0;
     if ((millis() - lastStatus) >= 5000) {
@@ -411,6 +409,10 @@ void loop() {
     float ow, ox, oy, oz;
     quatMultiply(zw, zx, zy, zz, relW, relX, relY, relZ, ow, ox, oy, oz);
     float elbowDeg = quatAngleDeg(ow, ox, oy, oz);
+    // The angle only means something when BOTH sensors are being read. With one missing, the number
+    // would follow the other sensor alone (and drift), which looks like real movement but is not.
+    // Send NaN instead: the app ignores it and tells the patient it cannot see the arm move.
+    if (!(upperLastReadOk && forearmLastReadOk)) elbowDeg = NAN;
 
     float emg1Pct = emg1.getPercentMVC();
 

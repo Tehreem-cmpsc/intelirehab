@@ -37,13 +37,18 @@ void MadgwickAHRS::updateIMU(float gx, float gy, float gz, float ax, float ay, f
         s2 = 4.0f * q0q0 * q2 + _2q0 * ax + _4q2 * q3q3 - _2q3 * ay - _4q2 + _8q2 * q1q1 + _8q2 * q2q2 + _4q2 * az;
         s3 = 4.0f * q1q1 * q3 - _2q1 * ax + 4.0f * q2q2 * q3 - _2q2 * ay;
 
-        recipNorm = 1.0f / sqrtf(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3);
-        s0 *= recipNorm; s1 *= recipNorm; s2 *= recipNorm; s3 *= recipNorm;
+        // A zero-length correction (the estimate already matches gravity exactly) would divide by
+        // zero and turn the orientation into NaN for good. Nothing to correct, so skip it.
+        float sNorm = sqrtf(s0 * s0 + s1 * s1 + s2 * s2 + s3 * s3);
+        if (sNorm > 1e-9f) {
+            recipNorm = 1.0f / sNorm;
+            s0 *= recipNorm; s1 *= recipNorm; s2 *= recipNorm; s3 *= recipNorm;
 
-        qDot1 -= beta * s0;
-        qDot2 -= beta * s1;
-        qDot3 -= beta * s2;
-        qDot4 -= beta * s3;
+            qDot1 -= beta * s0;
+            qDot2 -= beta * s1;
+            qDot3 -= beta * s2;
+            qDot4 -= beta * s3;
+        }
     }
 
     // Integrate to yield the new quaternion
@@ -52,7 +57,12 @@ void MadgwickAHRS::updateIMU(float gx, float gy, float gz, float ax, float ay, f
     q2 += qDot3 * dt;
     q3 += qDot4 * dt;
 
-    recipNorm = 1.0f / sqrtf(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+    float qNorm = sqrtf(q0 * q0 + q1 * q1 + q2 * q2 + q3 * q3);
+    if (!(qNorm > 1e-9f) || isnan(qNorm) || isinf(qNorm)) {
+        reset(); // a bad sample (NaN/inf from the sensor) must not freeze the estimate forever
+        return;
+    }
+    recipNorm = 1.0f / qNorm;
     q0 *= recipNorm; q1 *= recipNorm; q2 *= recipNorm; q3 *= recipNorm;
 }
 
